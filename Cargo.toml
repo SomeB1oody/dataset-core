@@ -2,6 +2,19 @@
 name = "rustyml-dataset"
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85.0"
+authors = ["SomeB1oody <stanyin64@gmail.com>"]
+description = "A collection of classic machine learning datasets with ndarray integration and memoization support"
+license = "MIT"
+readme = "README.md"
+keywords = ["machine_learning", "ML", "neural_network", "AI", "dataset"]
+categories = ["science::machine_learning"]
 
 [dependencies]
 ndarray = "0.17.2"
+
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3

@@ -14,12 +14,9 @@ static BOSTON_HOUSING_DATA: OnceLock<(Array1<&'static str>, Array2<f64>, Array1<
 ///
 /// # Returns
 ///
-/// * A tuple containing:
-///     - `Array1<&'static str>`: Array of column headers from the dataset
-///     - `Array2<f64>`: Feature matrix with shape (2, 13) where each row represents
-///     a housing sample and each column represents a feature
-///     - `Array1<f64>`: Target values array with shape (2,) containing median home
-///     values in $1000s (MEDV)
+/// - `Array1<&'static str>`: Array of column headers from the dataset
+/// - `Array2<f64>`: Feature matrix with shape (2, 13) where each row represents a housing sample and each column represents a feature
+/// - `Array1<f64>`: Target values array with shape (2,) containing median home values in $1000s (MEDV)
 ///
 /// # Panics
 ///
@@ -85,6 +82,7 @@ fn load_boston_housing_internal() -> (Array1<&'static str>, Array2<f64>, Array1<
 /// - LSTAT: % lower status of the population
 ///
 /// # Returns
+///
 /// - `&'static Array1<&'static str>` - Static reference to the headers of the dataset (13 features + MEDV)
 /// - `&'static Array2<f64>` - Static reference to the feature matrix where each row is a sample and each column is a feature
 /// - `&'static Array1<f64>` - Static reference to median home values (MEDV) in $1000s
