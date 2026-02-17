@@ -12,6 +12,8 @@ categories = ["science::machine_learning"]
 
 [dependencies]
 ndarray = "0.17.2"
+downloader = "0.2.8"
+zip = "8.1.0"
 
 [profile.dev]
 opt-level = 0

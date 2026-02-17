@@ -36,9 +36,7 @@ fn load_diabetes_internal() -> (Array1<&'static str>, Array2<f64>, Array1<f64>) 
 
     // Process remaining lines as data
     for line in lines {
-        if line.trim().is_empty() {
-            continue;
-        }
+        if line.is_empty() { continue; }
 
         let cols: Vec<&str> = line.split(',').collect();
 

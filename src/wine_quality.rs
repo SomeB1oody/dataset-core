@@ -38,9 +38,7 @@ fn parse_wine_data(
     let mut features_array = Vec::with_capacity(n_samples * 12);
 
     for line in &lines[1..] {
-        if line.trim().is_empty() {
-            continue;
-        }
+        if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(';').collect();
 
         for i in 0..12 {

@@ -2,8 +2,9 @@
 
 A collection of classic machine learning datasets with ndarray integration and memoization support for Rust.
 
-[![Crates.io](https://img.shields.io/crates/v/rustyml-dataset.svg)](https://crates.io/crates/rustyml-dataset)
+[![Rust Version](https://img.shields.io/badge/Rust-v.1.85-brown)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![crates.io](https://img.shields.io/crates/v/rustyml-dataset.svg)](https://crates.io/crates/rustyml-dataset)
 
 ## Overview
 
@@ -113,7 +114,7 @@ Each dataset module provides two functions:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](https://github.com/SomeB1oody/RustyML-dataset/blob/master/README.md) file for details.
 
 ## Contributing
 

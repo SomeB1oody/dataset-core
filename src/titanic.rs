@@ -44,9 +44,6 @@ fn load_titanic_internal() -> (
 
     // Split into lines and extract headers from first line
     let lines: Vec<&str> = raw_data.trim().lines().collect();
-    if lines.is_empty() {
-        panic!("No data found");
-    }
 
     // Parse headers from first line
     let all_headers: Vec<&str> = lines[0].trim().split(',').collect();
@@ -56,9 +53,7 @@ fn load_titanic_internal() -> (
 
     // Skip the header line, process data lines
     for line in lines.iter().skip(1) {
-        if line.trim().is_empty() {
-            continue;
-        }
+        if line.is_empty() { continue; }
 
         // Parse CSV with quoted strings
         let mut cols = Vec::new();

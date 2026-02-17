@@ -35,6 +35,7 @@ fn load_iris_internal() -> (Array1<&'static str>, Array2<f64>, Array1<&'static s
     let mut labels = Vec::with_capacity(150);
 
     for line in &lines[1..] {
+        if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(',').collect();
 
         for i in 0..4 {

@@ -38,6 +38,7 @@ fn load_boston_housing_internal() -> (Array1<&'static str>, Array2<f64>, Array1<
     let num_samples = lines.len();
 
     for line in lines {
+        if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(',').collect();
 
         // Features are columns 0-12 (13 features)

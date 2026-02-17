@@ -57,3 +57,47 @@ pub mod titanic;
 /// based on physicochemical properties like acidity, sugar content, and
 /// alcohol percentage.
 pub mod wine_quality;
+
+pub fn download_to(url: &str, local_path: &str) -> Result<(), downloader::Error> {
+    use downloader::downloader::Builder;
+    use downloader::Download;
+    use std::path::Path;
+
+    let data = Download::new(url);
+
+    let mut dl = Builder::default()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .download_folder(Path::new(local_path))
+        .build()?;
+
+    let response = dl.download(&[data])?;
+
+    for r in response { r?; };
+
+    Ok(())
+}
+
+pub fn unzip(file_path: std::fs::File, extract_path: &str) -> Result<(), zip::result::ZipError> {
+    use zip::ZipArchive;
+    
+    ZipArchive::new(file_path)?.extract(extract_path)?;
+    
+    Ok(())
+}
+
+#[derive(Debug)]
+pub enum DatasetError {
+    DownloadError(downloader::Error),
+    UnzipError(zip::result::ZipError),
+}
+
+impl std::fmt::Display for DatasetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
+            DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for DatasetError {}
