@@ -17,9 +17,136 @@
 //! ```rust
 //! use rustyml_dataset::iris::load_iris;
 //!
-//! let (features, labels) = load_iris();
-//! println!("Loaded {} samples", features.len());
+//! let download_dir = "./downloads"; // you need to create this directory manually beforehand
+//!
+//! let (features, labels) = load_iris(download_dir).unwrap();
+//! assert_eq!(features.shape(), &[150, 4]);
+//! assert_eq!(labels.len(), 150);
+//!
+//! // clean up: remove the downloaded files after using
+//! for entry in std::fs::read_dir(download_dir).unwrap() {
+//!     std::fs::remove_file(entry.unwrap().path()).unwrap();
+//! }
 //! ```
+
+use zip::result::ZipError;
+use downloader::downloader::Builder;
+use downloader::Download;
+use std::path::Path;
+use zip::ZipArchive;
+use std::fs::File;
+
+/// Download a remote file into the given directory.
+///
+/// This is a small wrapper around the `downloader` crate used by dataset loaders.
+/// It downloads the content at `url` into `storage_path` using the downloader's
+/// default file naming behavior.
+///
+/// # Parameters
+///
+/// - `url` - The URL to download.
+/// - `storage_path` - The directory to store the downloaded file in.
+///
+/// # Errors
+///
+/// - `DatasetError` - Returned when the downloader cannot be built or when the download fails.
+pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
+    let data = Download::new(url);
+
+    let mut dl = Builder::default()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .download_folder(storage_path)
+        .build()
+        .map_err(|e| DatasetError::DownloadError(e))?;
+
+    let response = dl
+        .download(&[data])
+        .map_err(|e| DatasetError::DownloadError(e))?;
+
+    for r in response {
+        if let Err(e) = r {
+            return Err(DatasetError::DownloadError(e));
+        }
+    }
+
+    Ok(())
+}
+
+/// Extract a zip archive into a target directory.
+///
+/// # Parameters
+///
+/// - `file_path` - Path to the `.zip` file to extract.
+/// - `extract_dir` - Directory to extract the archive contents into.
+///
+/// # Errors
+///
+/// - `DatasetError` - Returned when opening the zip file fails or when extraction fails.
+pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
+    let file = File::open(file_path).map_err(|e| DatasetError::UnzipError(ZipError::Io(e)))?;
+
+    ZipArchive::new(file)
+        .map_err(|e| DatasetError::UnzipError(e))?
+        .extract(extract_dir)
+        .map_err(|e| DatasetError::UnzipError(e))?;
+
+    Ok(())
+}
+
+/// Remove all files in a directory except a single file.
+///
+/// This is primarily used by dataset loaders after extraction to keep only the
+/// expected data file and delete auxiliary files.
+///
+/// # Parameters
+///
+/// - `directory` - Directory whose files will be scanned and potentially removed.
+/// - `file_kept` - File name (not a full path) to keep in `directory`.
+///
+/// # Errors
+///
+/// - `DatasetError` - Returned when reading the directory or removing files fails.
+pub fn clear_everything_except(directory: &Path, file_kept: &str) -> Result<(), DatasetError> {
+    let directory = std::fs::read_dir(directory).map_err(|e| DatasetError::StdIoError(e))?;
+
+    for entry in directory {
+        let entry = entry.map_err(|e| DatasetError::StdIoError(e))?;
+        let path = entry.path();
+        if path.is_file() && path.file_name() != Some(std::ffi::OsStr::new(file_kept)) {
+            std::fs::remove_file(&path).map_err(|e| DatasetError::StdIoError(e))?;
+        }
+    }
+    Ok(())
+}
+
+/// Error type used by dataset loading utilities.
+///
+/// # Variants
+///
+/// - `DownloadError` - The download step failed (network, invalid URL, or downloader configuration).
+/// - `UnzipError` - Extracting a zip archive failed.
+/// - `StdIoError` - A standard I/O operation failed (reading directories, opening/removing files, etc.).
+/// - `DataFormatError` - The dataset content was not in the expected format.
+#[derive(Debug)]
+pub enum DatasetError {
+    DownloadError(downloader::Error),
+    UnzipError(ZipError),
+    StdIoError(std::io::Error),
+    DataFormatError(String),
+}
+
+impl std::fmt::Display for DatasetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
+            DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
+            DatasetError::StdIoError(e) => write!(f, "Std IO error: {}", e),
+            DatasetError::DataFormatError(e) => write!(f, "Data format error: {}", e),
+        }
+    }
+}
+
+impl std::error::Error for DatasetError {}
 
 /// Boston Housing dataset module.
 ///
@@ -57,47 +184,3 @@ pub mod titanic;
 /// based on physicochemical properties like acidity, sugar content, and
 /// alcohol percentage.
 pub mod wine_quality;
-
-pub fn download_to(url: &str, local_path: &str) -> Result<(), downloader::Error> {
-    use downloader::downloader::Builder;
-    use downloader::Download;
-    use std::path::Path;
-
-    let data = Download::new(url);
-
-    let mut dl = Builder::default()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .download_folder(Path::new(local_path))
-        .build()?;
-
-    let response = dl.download(&[data])?;
-
-    for r in response { r?; };
-
-    Ok(())
-}
-
-pub fn unzip(file_path: std::fs::File, extract_path: &str) -> Result<(), zip::result::ZipError> {
-    use zip::ZipArchive;
-    
-    ZipArchive::new(file_path)?.extract(extract_path)?;
-    
-    Ok(())
-}
-
-#[derive(Debug)]
-pub enum DatasetError {
-    DownloadError(downloader::Error),
-    UnzipError(zip::result::ZipError),
-}
-
-impl std::fmt::Display for DatasetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
-            DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
-        }
-    }
-}
-
-impl std::error::Error for DatasetError {}
