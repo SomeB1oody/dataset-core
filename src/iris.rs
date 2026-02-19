@@ -1,9 +1,10 @@
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{clear_everything_except, download_to, unzip, DatasetError};
+use crate::{download_to, unzip, DatasetError};
 use std::path::Path;
-use std::fs::File;
+use std::fs::{remove_file, rename, File};
 use std::io::Read;
+use tempfile::Builder;
 
 /// A static variable to store the Iris dataset.
 ///
@@ -19,9 +20,13 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 
 /// A static string slice containing the URL for the Iris dataset.
 ///
-/// # Reference
-/// For more information about the Iris dataset, refer to:
-/// https://archive.ics.uci.edu/ml/datasets/iris
+/// # Citation
+///
+/// M. Kahn. "Diabetes," UCI Machine Learning Repository,  \[Online\]. Available: https://doi.org/10.24432/C5T59G.
+///
+/// # About Dataset
+///
+/// See more information at https://archive.ics.uci.edu/dataset/53/iris
 static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
 
 /// Internal function to download and process the Iris dataset.
@@ -47,12 +52,28 @@ static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.
 /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
 /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
 fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    // the path the user wants dataset to be stored in
     let path = Path::new(path);
-    download_to(IRIS_DATA_URL, path)?;
-    unzip(&Path::new(path).join("iris.zip"), path)?;
-    clear_everything_except(path, "iris.data")?;
+    // temporary directory to store the downloaded zip file
+    let temp_dir = Builder::new()
+        .prefix(".tmp-iris-")
+        .tempdir_in(path)
+        .map_err(|e| DatasetError::TempFileError(e))?;
+    let path_temp = temp_dir.path();
+    // download and extract iris dataset
+    download_to(IRIS_DATA_URL, path_temp)?;
+    unzip(&Path::new(path_temp).join("iris.zip"), path_temp)?;
 
-    let mut file = File::open(Path::new(path).join("iris.data")).map_err(|e| DatasetError::StdIoError(e))?;
+    // move iris.data out of the temporary directory
+    let src = path_temp.join("iris.data");
+    let dst = path.join("iris.data");
+    // cover the existing file (if any) with the new one
+    if dst.exists() {
+        remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+
+    let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
     let mut data = String::new();
     file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
     let lines: Vec<&str> = data.trim().lines().collect();
@@ -73,8 +94,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 
         for i in 0..4 {
             features.push(cols[i].parse::<f64>().map_err(
-                |e|
-                    DatasetError::DataFormatError(
+                |e| DatasetError::DataFormatError(
                         format!("Failed to parse feature {} at line {}: {}", i, line, e)
                     ))?
             );
@@ -91,7 +111,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
     }
     if features.len() != 150 * 4 {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 600 elements in features, got {} ", features.len())
+            format!("Expected 150 * 4 elements in features, got {} ", features.len())
         ));
     }
     if labels.len() != 150 {
@@ -108,10 +128,23 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 
 /// Loads the Iris dataset with automatic caching
 ///
-/// The Iris dataset contains measurements of 150 iris flowers from three different species:
-/// - Iris-setosa
-/// - Iris-versicolor
-/// - Iris-virginica
+/// # About Dataset
+///
+/// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
+///
+/// Features:
+/// - sepal length in cm
+/// - sepal width in cm
+/// - petal length in cm
+/// - petal width in cm
+///
+/// labels:
+/// - name of the species (in `&str`):
+///     - "Iris-setosa"
+///     - "Iris-versicolor"
+///     - "Iris-virginica"
+///
+/// See more information at https://archive.ics.uci.edu/dataset/53/iris
 ///
 /// # Arguments
 ///
@@ -170,10 +203,23 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// Use this function when you need owned data that can be modified.
 /// For read-only access, prefer `load_iris()` which returns references.
 ///
-/// The Iris dataset contains measurements of 150 iris flowers from three different species:
-/// - Iris-setosa
-/// - Iris-versicolor
-/// - Iris-virginica
+/// # About Dataset
+///
+/// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
+///
+/// Features:
+/// - sepal length in cm
+/// - sepal width in cm
+/// - petal length in cm
+/// - petal width in cm
+///
+/// labels:
+/// - name of the species (in `&str`):
+///     - "Iris-setosa"
+///     - "Iris-versicolor"
+///     - "Iris-virginica"
+///
+/// See more information at https://archive.ics.uci.edu/dataset/53/iris
 ///
 /// # Arguments
 ///

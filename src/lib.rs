@@ -93,32 +93,6 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     Ok(())
 }
 
-/// Remove all files in a directory except a single file.
-///
-/// This is primarily used by dataset loaders after extraction to keep only the
-/// expected data file and delete auxiliary files.
-///
-/// # Parameters
-///
-/// - `directory` - Directory whose files will be scanned and potentially removed.
-/// - `file_kept` - File name (not a full path) to keep in `directory`.
-///
-/// # Errors
-///
-/// - `DatasetError` - Returned when reading the directory or removing files fails.
-pub fn clear_everything_except(directory: &Path, file_kept: &str) -> Result<(), DatasetError> {
-    let directory = std::fs::read_dir(directory).map_err(|e| DatasetError::StdIoError(e))?;
-
-    for entry in directory {
-        let entry = entry.map_err(|e| DatasetError::StdIoError(e))?;
-        let path = entry.path();
-        if path.is_file() && path.file_name() != Some(std::ffi::OsStr::new(file_kept)) {
-            std::fs::remove_file(&path).map_err(|e| DatasetError::StdIoError(e))?;
-        }
-    }
-    Ok(())
-}
-
 /// Error type used by dataset loading utilities.
 ///
 /// # Variants
@@ -133,6 +107,7 @@ pub enum DatasetError {
     UnzipError(ZipError),
     StdIoError(std::io::Error),
     DataFormatError(String),
+    TempFileError(std::io::Error),
 }
 
 impl std::fmt::Display for DatasetError {
@@ -142,6 +117,7 @@ impl std::fmt::Display for DatasetError {
             DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
             DatasetError::StdIoError(e) => write!(f, "Std IO error: {}", e),
             DatasetError::DataFormatError(e) => write!(f, "Data format error: {}", e),
+            DatasetError::TempFileError(e) => write!(f, "Temp file error: {}", e),
         }
     }
 }
