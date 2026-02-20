@@ -23,9 +23,11 @@
 //! assert_eq!(features.shape(), &[150, 4]);
 //! assert_eq!(labels.len(), 150);
 //!
-//! // clean up: remove the downloaded files after using
-//! for entry in std::fs::read_dir(download_dir).unwrap() {
-//!     std::fs::remove_file(entry.unwrap().path()).unwrap();
+//! // clean up: remove the downloaded files if they exist
+//! if let Ok(entries) = std::fs::read_dir(download_dir) {
+//!     for entry in entries.flatten() {
+//!         let _ = std::fs::remove_file(entry.path());
+//!     }
 //! }
 //! ```
 
@@ -91,6 +93,15 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
         .map_err(|e| DatasetError::UnzipError(e))?;
 
     Ok(())
+}
+
+pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfile::TempDir, DatasetError> {
+    let temp_dir = tempfile::Builder::new()
+        .prefix(temp_dir_name)
+        .tempdir_in(tempdir_in)
+        .map_err(|e| DatasetError::TempFileError(e))?;
+
+    Ok(temp_dir)
 }
 
 /// Error type used by dataset loading utilities.

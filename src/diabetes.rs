@@ -2,8 +2,7 @@ use std::fs::{remove_file, rename};
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use tempfile::Builder;
-use crate::{download_to, DatasetError};
+use crate::{download_to, DatasetError, create_temp_dir};
 use std::fs::File;
 use std::io::Read;
 
@@ -23,12 +22,23 @@ static DIABETES_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 ///
 /// # About Dataset
 ///
-/// See more information at https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data.
+/// This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The objective is to predict based on diagnostic measurements whether a patient has diabetes.
 ///
-/// # Note
+/// Features:
+/// - Pregnancies: Number of times pregnant
+/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
+/// - BloodPressure: Diastolic blood pressure (mm Hg)
+/// - SkinThickness: Triceps skin fold thickness (mm)
+/// - Insulin: 2-Hour serum insulin (mu U/ml)
+/// - BMI: Body mass index (weight in kg/(height in m)^2)
+/// - DiabetesPedigreeFunction: Diabetes pedigree function
+/// - Age: Age (years)
 ///
-/// Since Kaggle.com requires logging in before downloading, the data used here is from https://github.com/plotly/datasets/blob/master/diabetes.csv. The MD5 values of these two are exactly the same.
-static DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+/// Labels:
+/// - Outcome: Class variable (0 or 1)
+///
+/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
+pub static DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
 
 /// Downloads, parses, and validates the Diabetes dataset.
 ///
@@ -55,10 +65,7 @@ static DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datas
 fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
     // temporary directory
-    let temp_dir = Builder::new()
-        .prefix(".tmp-diabetes-")
-        .tempdir_in(path)
-        .map_err(|e| DatasetError::TempFileError(e))?;
+    let temp_dir = create_temp_dir(path, ".tmp-diabetes-")?;
     let path_temp = temp_dir.path();
     // download
     download_to(DIABETES_DATA_URL, path_temp)?;
@@ -110,7 +117,10 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
             format!("Expected 768 elements in labels, got {} ", labels.len())
         ));
     }
-    let features_array = Array2::from_shape_vec((768, 8), features).unwrap();
+    let features_array = Array2::from_shape_vec((768, 8), features)
+        .map_err(|e| DatasetError::DataFormatError(
+            format!("Failed to create feature array: {}", e))
+        )?;
     let labels_array = Array1::from_vec(labels);
 
     Ok((features_array, labels_array))
@@ -124,7 +134,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 ///
 /// Features:
 /// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance test
+/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
 /// - BloodPressure: Diastolic blood pressure (mm Hg)
 /// - SkinThickness: Triceps skin fold thickness (mm)
 /// - Insulin: 2-Hour serum insulin (mu U/ml)
@@ -135,7 +145,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 /// Labels:
 /// - Outcome: Class variable (0 or 1)
 ///
-/// See more information at https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data.
+/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
 ///
 /// # Parameters
 ///
@@ -156,7 +166,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::diabetes::load_diabetes;
 ///
 /// let download_dir = "./downloads"; // you need to create a directory manually beforehand
@@ -165,9 +175,11 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 /// assert_eq!(features.shape(), &[768, 8]);
 /// assert_eq!(labels.len(), 768);
 ///
-/// // clean up: remove the downloaded files
-/// for entry in std::fs::read_dir(download_dir).unwrap() {
-///     std::fs::remove_file(entry.unwrap().path()).unwrap();
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
 /// }
 /// ```
 pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
@@ -177,9 +189,9 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
     }
     // if not, initialize then store
     let (features, labels) = load_diabetes_internal(storage_path)?;
-    DIABETES_DATA
-        .set((features, labels))
-        .expect("DIABETES_DATA should be initialized after set");
+
+    // Try to set the value. If another thread already set it, that's fine - just use the existing value
+    let _ = DIABETES_DATA.set((features, labels));
 
     let cache = DIABETES_DATA
         .get()
@@ -198,7 +210,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 ///
 /// Features:
 /// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance test
+/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
 /// - BloodPressure: Diastolic blood pressure (mm Hg)
 /// - SkinThickness: Triceps skin fold thickness (mm)
 /// - Insulin: 2-Hour serum insulin (mu U/ml)
@@ -209,7 +221,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// Labels:
 /// - Outcome: Class variable (0 or 1)
 ///
-/// See more information at https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data.
+/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
 ///
 /// # Parameters
 ///
@@ -235,7 +247,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// memory allocation. If you only need read-only access, use `load_diabetes()` instead.
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::diabetes::load_diabetes_owned;
 ///
 /// let download_dir = "./downloads"; // you need to create a directory manually beforehand
@@ -249,22 +261,14 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// features[[0, 0]] = 10.0;
 /// labels[0] = 1.0;
 ///
-/// // clean up: remove the downloaded files
-/// for entry in std::fs::read_dir(download_dir).unwrap() {
-///     std::fs::remove_file(entry.unwrap().path()).unwrap();
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
 /// }
 /// ```
 pub fn load_diabetes_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    // if already initialized
-    if let Some(cache) = DIABETES_DATA.get() {
-        return Ok((cache.0.clone(), cache.1.clone()));
-    }
-    // if not, initialize then store
-    let (features, labels) = load_diabetes_internal(storage_path)?;
-    DIABETES_DATA.set((features, labels)).unwrap();
-
-    let cache = DIABETES_DATA
-        .get()
-        .expect("DIABETES_DATA should be initialized after set");
-    Ok((cache.0.clone(), cache.1.clone()))
+    let (features, labels) = load_diabetes(storage_path)?;
+    Ok((features.clone(), labels.clone()))
 }

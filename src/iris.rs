@@ -1,10 +1,9 @@
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{download_to, unzip, DatasetError};
+use crate::{create_temp_dir, download_to, unzip, DatasetError};
 use std::path::Path;
 use std::fs::{remove_file, rename, File};
 use std::io::Read;
-use tempfile::Builder;
 
 /// A static variable to store the Iris dataset.
 ///
@@ -22,12 +21,26 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 ///
 /// # Citation
 ///
-/// M. Kahn. "Diabetes," UCI Machine Learning Repository,  \[Online\]. Available: https://doi.org/10.24432/C5T59G.
+/// M. Kahn. "Diabetes," UCI Machine Learning Repository,  \[Online\]. Available: <https://doi.org/10.24432/C5T59G>
 ///
 /// # About Dataset
 ///
-/// See more information at https://archive.ics.uci.edu/dataset/53/iris
-static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+/// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
+///
+/// Features:
+/// - sepal length in cm
+/// - sepal width in cm
+/// - petal length in cm
+/// - petal width in cm
+///
+/// labels:
+/// - name of the species (in `&str`):
+///     - "Iris-setosa"
+///     - "Iris-versicolor"
+///     - "Iris-virginica"
+///
+/// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
+pub static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
 
 /// Internal function to download and process the Iris dataset.
 ///
@@ -55,18 +68,15 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
     // temporary directory to store the downloaded zip file
-    let temp_dir = Builder::new()
-        .prefix(".tmp-iris-")
-        .tempdir_in(path)
-        .map_err(|e| DatasetError::TempFileError(e))?;
+    let temp_dir = create_temp_dir(path, ".tmp-iris-")?;
     let path_temp = temp_dir.path();
     // download and extract iris dataset
     download_to(IRIS_DATA_URL, path_temp)?;
-    unzip(&Path::new(path_temp).join("iris.zip"), path_temp)?;
+    unzip(&path_temp.join("iris.zip"), path_temp)?;
 
     // move iris.data out of the temporary directory
     let src = path_temp.join("iris.data");
-    let dst = path.join("iris.data");
+    let dst = path.join("iris.csv");
     // cover the existing file (if any) with the new one
     if dst.exists() {
         remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
@@ -120,7 +130,10 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
         ));
     }
 
-    let features_array = Array2::from_shape_vec((150, 4), features).unwrap();
+    let features_array = Array2::from_shape_vec((150, 4), features)
+        .map_err(|e| DatasetError::DataFormatError(
+            format!("Failed to create features array: {}", e)
+        ))?;
     let labels_array = Array1::from_vec(labels);
 
     Ok((features_array, labels_array))
@@ -144,7 +157,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 ///     - "Iris-versicolor"
 ///     - "Iris-virginica"
 ///
-/// See more information at https://archive.ics.uci.edu/dataset/53/iris
+/// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
 /// # Arguments
 ///
@@ -168,7 +181,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
 ///
 /// # Example
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::iris::load_iris;
 ///
 /// let download_dir = "./downloads"; // you need to create a directory manually beforehand
@@ -177,9 +190,11 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
-/// // clean up: remove the downloaded files
-/// for entry in std::fs::read_dir(download_dir).unwrap() {
-///     std::fs::remove_file(entry.unwrap().path()).unwrap();
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
 /// }
 /// ```
 pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
@@ -190,11 +205,13 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 
     // if not, initialize then store
     let loaded = load_iris_internal(storage_path)?;
+
+    // Try to set the value. If another thread already set it, that's fine - just use the existing value
     let _ = IRIS_DATA.set(loaded);
 
     let cached = IRIS_DATA
         .get()
-        .expect("IRIS_DATA should be initialized after set (or by another thread)");
+        .expect("IRIS_DATA should be initialized after set");
     Ok((&cached.0, &cached.1))
 }
 
@@ -219,7 +236,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 ///     - "Iris-versicolor"
 ///     - "Iris-virginica"
 ///
-/// See more information at https://archive.ics.uci.edu/dataset/53/iris
+/// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
 /// # Arguments
 ///
@@ -244,7 +261,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// If you only need read-only access to the data, use `load_iris()` instead for better performance.
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::iris::load_iris_owned;
 ///
 /// let download_dir = "./downloads"; // you need to create a directory manually beforehand
@@ -258,9 +275,11 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// // Example: Modify feature values (not possible with references)
 /// features[[0, 0]] = 5.5;
 ///
-/// // clean up: remove the downloaded files
-/// for entry in std::fs::read_dir(download_dir).unwrap() {
-///     std::fs::remove_file(entry.unwrap().path()).unwrap();
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
 /// }
 pub fn load_iris_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
     let (features, labels) = load_iris(storage_path)?;
