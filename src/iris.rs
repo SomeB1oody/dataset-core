@@ -141,6 +141,9 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 
 /// Loads the Iris dataset with automatic caching
 ///
+/// This function returns references to the cached data, which incurs no additional memory allocation.
+/// If you need owned data, prefer [`load_iris_owned()`] which returns owned copies.
+///
 /// # About Dataset
 ///
 /// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
@@ -218,7 +221,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// Loads the Iris dataset and returns owned copies
 ///
 /// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer `load_iris()` which returns references.
+/// For read-only access, prefer [`load_iris()`] which returns references.
 ///
 /// # About Dataset
 ///
@@ -258,7 +261,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// # Performance
 ///
 /// This function creates owned copies by cloning the cached data, which incurs additional memory allocation.
-/// If you only need read-only access to the data, use `load_iris()` instead for better performance.
+/// If you only need read-only access to the data, use [`load_iris()`] instead for better performance.
 ///
 /// # Examples
 /// ```rust, no_run

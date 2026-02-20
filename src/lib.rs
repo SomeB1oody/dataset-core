@@ -40,7 +40,7 @@ use std::fs::File;
 
 /// Download a remote file into the given directory.
 ///
-/// This is a small wrapper around the `downloader` crate used by dataset loaders.
+/// This is a small wrapper around the [`downloader`] crate used by dataset loaders.
 /// It downloads the content at `url` into `storage_path` using the downloader's
 /// default file naming behavior.
 ///
@@ -74,7 +74,7 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
     Ok(())
 }
 
-/// Extract a zip archive into a target directory.
+/// Extract a zip archive into a target directory using [`ZipArchive`] in [`zip`] crate.
 ///
 /// # Parameters
 ///
@@ -95,6 +95,20 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     Ok(())
 }
 
+/// Create a temporary directory under the given parent directory.
+///
+/// This is a small wrapper around [`tempfile::Builder`] used by dataset loaders to
+/// keep intermediate download/extraction artifacts isolated. The created directory
+/// is removed automatically when the returned [`tempfile::TempDir`] is dropped.
+///
+/// # Parameters
+///
+/// - `tempdir_in` - The parent directory in which the temporary directory will be created.
+/// - `temp_dir_name` - Prefix used for the temporary directory name.
+///
+/// # Errors
+///
+/// - `DatasetError` - Returned if the temporary directory cannot be created.
 pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new()
         .prefix(temp_dir_name)

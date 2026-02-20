@@ -127,6 +127,9 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 }
 
 /// Loads the Diabetes dataset with automatic caching.
+/// 
+/// This function returns references to the cached data.
+/// If you need owned data, prefer [`load_diabetes_owned()`] which returns owned copies.
 ///
 /// # About Dataset
 ///
@@ -202,7 +205,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// Loads the Diabetes dataset and returns owned copies.
 ///
 /// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer `load_diabetes()` which returns references.
+/// For read-only access, prefer [`load_diabetes()`] which returns references.
 ///
 /// # About Dataset
 ///
@@ -244,7 +247,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// # Performance
 ///
 /// This function creates owned copies by cloning the cached data, which incurs additional
-/// memory allocation. If you only need read-only access, use `load_diabetes()` instead.
+/// memory allocation. If you only need read-only access, use [`load_diabetes()`] instead.
 ///
 /// # Examples
 /// ```rust, no_run

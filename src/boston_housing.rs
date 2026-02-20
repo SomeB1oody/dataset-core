@@ -7,7 +7,7 @@ use std::path::Path;
 
 /// A static variable to store the Boston Housing dataset.
 ///
-/// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
+/// This variable is of type [`OnceLock`], which ensures thread-safe, one-time initialization
 /// of its contents. It contains a tuple of:
 ///
 /// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset.
@@ -122,8 +122,8 @@ fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>)
 
 /// Load the Boston Housing dataset with automatic caching.
 ///
-/// This function caches the parsed dataset in a process-wide `OnceLock` and returns
-/// references to the cached arrays on subsequent calls.
+/// This function returns references to the cached dataset.
+/// If you need owned data, prefer [`load_boston_housing_owned`] which returns owned copies.
 ///
 /// # About Dataset
 ///
