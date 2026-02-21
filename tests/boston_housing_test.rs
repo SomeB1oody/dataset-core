@@ -2,13 +2,13 @@ use rustyml_dataset::boston_housing::*;
 
 #[test]
 fn test_load_boston_housing() {
-    let download_dir = "./downloads"; // you need to create a directory manually beforehand
+    let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 
     let (features, targets) = load_boston_housing(download_dir).unwrap();
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    // clean up: remove the downloaded files if they exist
+    // clean up: remove the downloaded files
     if let Ok(entries) = std::fs::read_dir(download_dir) {
         for entry in entries.flatten() {
             let _ = std::fs::remove_file(entry.path());
@@ -18,7 +18,7 @@ fn test_load_boston_housing() {
 
 #[test]
 fn test_load_boston_housing_owned() {
-    let download_dir = "./downloads"; // you need to create a directory manually beforehand
+    let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 
     let (mut features, mut targets) = load_boston_housing_owned(download_dir).unwrap();
 
@@ -30,7 +30,7 @@ fn test_load_boston_housing_owned() {
     features[[0, 0]] = 0.1;
     targets[0] = 25.5;
 
-    // clean up: remove the downloaded files if they exist
+    // clean up: remove the downloaded files
     if let Ok(entries) = std::fs::read_dir(download_dir) {
         for entry in entries.flatten() {
             let _ = std::fs::remove_file(entry.path());

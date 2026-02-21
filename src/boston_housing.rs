@@ -62,6 +62,9 @@ pub static BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/de
 ///   content is not in the expected format/dimensions.
 fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
     // temporary directory to store the downloaded zip file
     let temp_dir = create_temp_dir(path, ".tmp-boston-housing-")?;
     let path_temp = temp_dir.path();
@@ -165,11 +168,18 @@ fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>)
 /// ```rust, no_run
 /// use rustyml_dataset::boston_housing::load_boston_housing;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 /// let (features, targets) = load_boston_housing(download_dir).unwrap();
 ///
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
+///
+/// // clean up: remove the downloaded files
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
 pub fn load_boston_housing(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
     // if already initialized
@@ -238,7 +248,7 @@ pub fn load_boston_housing(storage_path: &str) -> Result<(&Array2<f64>, &Array1<
 /// ```rust, no_run
 /// use rustyml_dataset::boston_housing::load_boston_housing_owned;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 /// let (mut features, mut targets) = load_boston_housing_owned(download_dir).unwrap();
 ///
 /// assert_eq!(features.shape(), &[506, 13]);
@@ -247,6 +257,13 @@ pub fn load_boston_housing(storage_path: &str) -> Result<(&Array2<f64>, &Array1<
 /// // Owned arrays can be modified.
 /// features[[0, 0]] = 0.1;
 /// targets[0] = 25.5;
+///
+/// // clean up: remove the downloaded files
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
 pub fn load_boston_housing_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let (features, targets) = load_boston_housing_internal(storage_path)?;

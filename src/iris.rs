@@ -67,6 +67,10 @@ pub static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/i
 fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
+    // create the directory if it doesn't exist
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
     // temporary directory to store the downloaded zip file
     let temp_dir = create_temp_dir(path, ".tmp-iris-")?;
     let path_temp = temp_dir.path();
@@ -187,7 +191,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 /// ```rust, no_run
 /// use rustyml_dataset::iris::load_iris;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
 /// let (features, labels) = load_iris(download_dir).unwrap();
 /// assert_eq!(features.shape(), &[150, 4]);
@@ -267,7 +271,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// ```rust, no_run
 /// use rustyml_dataset::iris::load_iris_owned;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
 /// let (mut features, labels) = load_iris_owned(download_dir).unwrap();
 ///
@@ -278,7 +282,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// // Example: Modify feature values (not possible with references)
 /// features[[0, 0]] = 5.5;
 ///
-/// // clean up: remove the downloaded files if they exist
+/// // clean up: remove the downloaded files
 /// if let Ok(entries) = std::fs::read_dir(download_dir) {
 ///     for entry in entries.flatten() {
 ///         let _ = std::fs::remove_file(entry.path());

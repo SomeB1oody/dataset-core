@@ -64,6 +64,9 @@ pub static DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/d
 /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
 fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
     // temporary directory
     let temp_dir = create_temp_dir(path, ".tmp-diabetes-")?;
     let path_temp = temp_dir.path();
@@ -172,7 +175,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 /// ```rust, no_run
 /// use rustyml_dataset::diabetes::load_diabetes;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
 /// let (features, labels) = load_diabetes(download_dir).unwrap();
 /// assert_eq!(features.shape(), &[768, 8]);
@@ -253,7 +256,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// ```rust, no_run
 /// use rustyml_dataset::diabetes::load_diabetes_owned;
 ///
-/// let download_dir = "./downloads"; // you need to create a directory manually beforehand
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
 /// let (mut features, mut labels) = load_diabetes_owned(download_dir).unwrap();
 ///
@@ -264,7 +267,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 /// features[[0, 0]] = 10.0;
 /// labels[0] = 1.0;
 ///
-/// // clean up: remove the downloaded files if they exist
+/// // clean up: remove the downloaded files
 /// if let Ok(entries) = std::fs::read_dir(download_dir) {
 ///     for entry in entries.flatten() {
 ///         let _ = std::fs::remove_file(entry.path());

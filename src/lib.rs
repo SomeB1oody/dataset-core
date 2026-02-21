@@ -17,13 +17,13 @@
 //! ```rust
 //! use rustyml_dataset::iris::load_iris;
 //!
-//! let download_dir = "./downloads"; // you need to create this directory manually beforehand
+//! let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 //!
 //! let (features, labels) = load_iris(download_dir).unwrap();
 //! assert_eq!(features.shape(), &[150, 4]);
 //! assert_eq!(labels.len(), 150);
 //!
-//! // clean up: remove the downloaded files if they exist
+//! // clean up: remove the downloaded files
 //! if let Ok(entries) = std::fs::read_dir(download_dir) {
 //!     for entry in entries.flatten() {
 //!         let _ = std::fs::remove_file(entry.path());
