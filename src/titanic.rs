@@ -1,307 +1,467 @@
-use super::raw_data::titanic_raw::load_titanic_raw_data;
+use std::fs::{remove_file, rename, File};
+use std::io::Read;
+use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
+use crate::{DatasetError, download_to};
 
-// Use `OnceLock` for thread-safe delayed initialization
+/// A static variable to store the Titanic dataset.
+///
+/// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
+/// of its contents. It contains a tuple of:
+///
+/// - `Array2<String>` - String features matrix with shape (891, 5), columns are: Name, Sex, Ticket, Cabin, Embarked (may be `NaN` if missing in the source)
+/// - `Array2<f64>` - Numeric features matrix with shape (891, 6), columns are: PassengerId, Pclass, Age, SibSp, Parch, Fare (may be `NaN` if missing in the source)
+/// - `Array1<f64>` - Label vector with shape (891,), values are: Survived (0.0 or 1.0)
+///
+/// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
+/// for the lifetime of the program.
 static TITANIC_DATA: OnceLock<(
-    Array1<&'static str>,
-    Array1<&'static str>,
     Array2<String>,
     Array2<f64>,
+    Array1<f64>,
 )> = OnceLock::new();
 
-/// Internal function to load and process the raw Titanic dataset.
+/// A static string slice containing the URL of the Titanic dataset
 ///
-/// This function loads the raw Titanic dataset, parses the CSV format,
-/// and converts it into structured ndarray arrays. It separates string features
-/// from numeric features and converts gender to binary encoding (female=0, male=1).
+/// # About Dataset
+///
+/// On April 15, 1912, during her maiden voyage, the widely considered “unsinkable” RMS Titanic sank after colliding with an iceberg.
+/// Unfortunately, there weren’t enough lifeboats for everyone on board, resulting in the death of 1502 out of 2224 passengers and crew.
+/// While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
+///
+/// Features (may be `NaN` if missing in the source):
+/// - PassengerId - Passenger ID
+/// - Pclass - Ticket class: 1 = 1st, 2 = 2nd, 3 = 3rd
+/// - Name - Name of the Passenger
+/// - Sex - Gender of the Passenger: male or female
+/// - Age - Age in Years
+/// - SibSp - No. of siblings / spouses aboard the Titanic
+/// - Parch - No. of parents / children aboard the Titanic
+/// - Ticket - Ticket number
+/// - Fare - Passenger fare
+/// - Cabin - Cabin number
+/// - Embarked - Port of Embarkation: C = Cherbourg, Q = Queenstown, S = Southampton
+///
+/// Lables:
+/// - Survived - Weather Survived or not: 0 = No, 1 = Yes
+///
+/// See more information at <https://www.kaggle.com/c/titanic/data>.
+pub static TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+
+/// Parses a CSV line, correctly handling quoted fields that may contain commas.
+///
+/// This function splits a CSV line by commas, but treats commas inside double quotes
+/// as part of the field content rather than field separators.
+///
+/// # Parameters
+///
+/// - `line` - A line from a CSV file
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>`: Array of string feature headers
-/// - `Array1<&'static str>`: Array of numeric feature headers
-/// - `Array2<String>`: String features matrix (Name, Ticket, Cabin, Embarked)
-/// - `Array2<f64>`: Numeric features matrix (PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare)
-///
-/// # Notes
-///
-/// - Sex is converted to numeric: female=0.0, male=1.0
-/// - Missing values in numeric columns are handled as 0.0
-/// - Missing string values are handled as empty strings
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-fn load_titanic_internal() -> (
-    Array1<&'static str>,
-    Array1<&'static str>,
-    Array2<String>,
-    Array2<f64>,
-) {
-    let raw_data = load_titanic_raw_data();
+/// A vector of strings, one for each field. Quoted fields have their quotes removed.
+fn parse_csv_line(line: &str) -> Vec<String> {
+    let mut fields = Vec::new();
+    let mut current_field = String::new();
+    let mut inside_quotes = false;
+    let mut chars = line.chars().peekable();
 
-    // Split into lines and extract headers from first line
-    let lines: Vec<&str> = raw_data.trim().lines().collect();
-
-    // Parse headers from first line
-    let all_headers: Vec<&str> = lines[0].trim().split(',').collect();
-
-    // First pass: collect all data rows and determine column types
-    let mut all_rows = Vec::new();
-
-    // Skip the header line, process data lines
-    for line in lines.iter().skip(1) {
-        if line.is_empty() { continue; }
-
-        // Parse CSV with quoted strings
-        let mut cols = Vec::new();
-        let mut in_quotes = false;
-        let mut current_col = String::new();
-        let mut chars = line.chars().peekable();
-
-        while let Some(ch) = chars.next() {
-            match ch {
-                '"' => {
-                    in_quotes = !in_quotes;
-                }
-                ',' if !in_quotes => {
-                    cols.push(current_col.trim().to_string());
-                    current_col.clear();
-                }
-                _ => {
-                    current_col.push(ch);
-                }
+    while let Some(ch) = chars.next() {
+        match ch {
+            '"' => {
+                inside_quotes = !inside_quotes;
             }
-        }
-        cols.push(current_col.trim().to_string());
-        all_rows.push(cols);
-    }
-
-    if all_rows.is_empty() {
-        panic!("No data rows found");
-    }
-
-    let num_cols = all_headers.len();
-    let mut is_numeric = vec![true; num_cols];
-
-    // Determine column types by examining data
-    for row in &all_rows {
-        for (col_idx, value) in row.iter().enumerate() {
-            if col_idx >= num_cols {
-                continue;
+            ',' if !inside_quotes => {
+                fields.push(current_field.clone());
+                current_field.clear();
             }
-
-            // Skip empty values for type detection
-            if value.is_empty() {
-                continue;
-            }
-
-            // Special handling for Sex column - treat as numeric since we'll convert it
-            if all_headers[col_idx].trim() == "Sex" && (value == "male" || value == "female") {
-                continue; // Keep as numeric
-            }
-
-            // Try to parse as number
-            if value.parse::<f64>().is_err() {
-                is_numeric[col_idx] = false;
+            _ => {
+                current_field.push(ch);
             }
         }
     }
+    // Push the last field
+    fields.push(current_field);
 
-    // Separate headers and indices
-    let mut string_headers = Vec::new();
-    let mut numeric_headers = Vec::new();
-    let mut string_indices = Vec::new();
-    let mut numeric_indices = Vec::new();
-
-    for (i, &header) in all_headers.iter().enumerate() {
-        if is_numeric[i] {
-            numeric_headers.push(header.trim());
-            numeric_indices.push(i);
-        } else {
-            string_headers.push(header.trim());
-            string_indices.push(i);
-        }
-    }
-
-    // Second pass: extract features based on determined types
-    let mut string_features = Vec::new();
-    let mut numeric_features = Vec::new();
-    let row_count = all_rows.len();
-
-    for row in &all_rows {
-        // Extract string features
-        for &idx in &string_indices {
-            if idx < row.len() {
-                string_features.push(row[idx].clone());
-            } else {
-                string_features.push(String::new());
-            }
-        }
-
-        // Extract numeric features
-        for &idx in &numeric_indices {
-            if idx < row.len() {
-                let value = if all_headers[idx].trim() == "Sex" {
-                    // Convert sex to numeric: female=0, male=1
-                    match row[idx].as_str() {
-                        "female" => 0.0,
-                        "male" => 1.0,
-                        _ => 0.0, // Default to female
-                    }
-                } else {
-                    // Parse other numeric values
-                    row[idx].parse::<f64>().unwrap_or(0.0)
-                };
-                numeric_features.push(value);
-            } else {
-                numeric_features.push(0.0);
-            }
-        }
-    }
-
-    let string_headers_array = Array1::from_vec(string_headers);
-    let numeric_headers_array = Array1::from_vec(numeric_headers);
-    let string_features_array =
-        Array2::from_shape_vec((row_count, string_indices.len()), string_features).unwrap();
-    let numeric_features_array =
-        Array2::from_shape_vec((row_count, numeric_indices.len()), numeric_features).unwrap();
-
-    (
-        string_headers_array,
-        numeric_headers_array,
-        string_features_array,
-        numeric_features_array,
-    )
+    fields
 }
 
-/// Loads the Titanic dataset with separate string and numeric features
+/// Downloads, parses, and validates the Titanic dataset.
 ///
-/// This function provides access to the famous Titanic dataset with passengers' information
-/// and survival outcomes. The dataset is automatically split into string and numeric features
-/// based on data type detection. Sex is converted to binary encoding: female=0, male=1.
+/// This internal function downloads the dataset CSV into a temporary directory under `path`,
+/// moves it to `path/titanic.csv`, then parses the file into ndarray arrays.
 ///
-/// # Notes
+/// # Parameters
 ///
-/// - Sex is converted to numeric: female=0.0, male=1.0
-/// - Missing values in numeric columns are handled as 0.0
-/// - Missing string values are handled as empty strings
-///
-/// # Feature Order
-///
-/// Based on the original Titanic dataset structure, the typical feature order is:
-/// - String headers (in original order): Name, Ticket, Cabin, Embarked
-/// - Numeric headers (in original order): PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare
+/// - `path` - Directory path where the dataset will be stored
 ///
 /// # Returns
 ///
-/// - `&'static Array1<&'static str>`: Static reference to string feature headers
-/// - `&'static Array1<&'static str>`: Static reference to numeric feature headers
-/// - `&'static Array2<String>`: Static reference to string features matrix
-/// - `&'static Array2<f64>`: Static reference to numeric features matrix
+/// - `Array2<String>` - String features matrix with shape (891, 5), columns are: Name, Sex, Ticket, Cabin, Embarked (may be `NaN` if missing in the source)
+/// - `Array2<f64>` - Numeric features matrix with shape (891, 6), columns are: PassengerId, Pclass, Age, SibSp, Parch, Fare (may be `NaN` if missing in the source)
+/// - `Array1<f64>` - Label vector with shape (891,), values are: Survived (0.0 or 1.0)
+///
+/// # Errors
+///
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues
+/// - Temporary directory creation fails
+/// - File move, read, or other I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (891 samples)
+fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
+    // the path the user wants dataset to be stored in
+    let path = Path::new(path);
+    // create the directory if it doesn't exist
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    // temporary directory to store the downloaded zip file
+    let temp_dir = crate::create_temp_dir(path, ".tmp-titanic-")?;
+    let path_temp = temp_dir.path();
+    // download and extract titanic dataset
+    download_to(TITANIC_DATA_URL, path_temp)?;
+    // move downloaded file to final location
+    let src = path_temp.join("titanic.csv");
+    let dst = path.join("titanic.csv");
+    if dst.exists() {
+        remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+
+    let mut data = String::new();
+    let mut raw_data = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+    raw_data.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+
+    let lines: Vec<&str> = data.trim().lines().collect();
+
+    // Expected number of data rows (excluding header)
+    const EXPECTED_ROWS: usize = 891;
+
+    let mut string_features = Vec::with_capacity(EXPECTED_ROWS * 5);
+    let mut numeric_features = Vec::with_capacity(EXPECTED_ROWS * 6);
+    let mut labels = Vec::with_capacity(EXPECTED_ROWS);
+
+    // Process lines as data (skip header)
+    for line in &lines[1..] {
+        if line.is_empty() { continue; }
+        let cols = parse_csv_line(line);
+        if cols.len() != 12 {
+            return Err(DatasetError::DataFormatError(
+                format!("Expected 12 columns, got {} at line: {}", cols.len(), line)
+            ));
+        }
+
+        // Parse Survived (label) - index 1
+        labels.push(
+            if cols[1].is_empty() {
+                f64::NAN
+            } else {
+                cols[1].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Survived at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse PassengerId - index 0
+        numeric_features.push(
+            if cols[0].is_empty() {
+                f64::NAN
+            } else {
+                cols[0].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse PassengerId at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse Pclass - index 2
+        numeric_features.push(
+            if cols[2].is_empty() {
+                f64::NAN
+            } else {
+                cols[2].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Pclass at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse Age - index 5
+        numeric_features.push(
+            if cols[5].is_empty() {
+                f64::NAN
+            } else {
+                cols[5].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Age at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse SibSp - index 6
+        numeric_features.push(
+            if cols[6].is_empty() {
+                f64::NAN
+            } else {
+                cols[6].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse SibSp at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse Parch - index 7
+        numeric_features.push(
+            if cols[7].is_empty() {
+                f64::NAN
+            } else {
+                cols[7].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Parch at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // Parse Fare - index 9
+        numeric_features.push(
+            if cols[9].is_empty() {
+                f64::NAN
+            } else {
+                cols[9].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Fare at line {}: {}", line, e)
+                    )
+                )?
+            }
+        );
+
+        // String features: Name, Sex, Ticket, Cabin, Embarked
+        string_features.push(cols[3].clone()); // Name - index 3
+        string_features.push(cols[4].clone()); // Sex - index 4
+        string_features.push(cols[8].clone()); // Ticket - index 8
+        string_features.push(cols[10].clone()); // Cabin - index 10
+        string_features.push(cols[11].clone()); // Embarked - index 11
+    }
+
+    if labels.len() != EXPECTED_ROWS {
+        return Err(DatasetError::DataFormatError(
+            format!("Expected {} rows, got {}", EXPECTED_ROWS, labels.len())
+        ));
+    }
+    if numeric_features.len() != EXPECTED_ROWS * 6 {
+        return Err(DatasetError::DataFormatError(
+            format!("Expected {} elements in numeric features, got {}", EXPECTED_ROWS * 6, numeric_features.len())
+        ));
+    }
+    if string_features.len() != EXPECTED_ROWS * 5 {
+        return Err(DatasetError::DataFormatError(
+            format!("Expected {} elements in string features, got {}", EXPECTED_ROWS * 5, string_features.len())
+        ));
+    }
+
+    let string_array = Array2::from_shape_vec((EXPECTED_ROWS, 5), string_features)
+        .map_err(|e| DatasetError::DataFormatError(
+            format!("Failed to create string feature array: {}", e)
+        ))?;
+
+    let numeric_array = Array2::from_shape_vec((EXPECTED_ROWS, 6), numeric_features)
+        .map_err(|e| DatasetError::DataFormatError(
+            format!("Failed to create numeric feature array: {}", e)
+        ))?;
+
+    let labels_array = Array1::from_vec(labels);
+
+    Ok((string_array, numeric_array, labels_array))
+}
+
+/// Loads the Titanic dataset with automatic caching.
+///
+/// This function returns references to the cached data stored in TITANIC_DATA.
+/// On the first call, it downloads and parses the dataset, then memoizes it. Subsequent
+/// calls are fast and allocation-free.
+///
+/// If you need owned data that you can modify, prefer [`load_titanic_owned()`].
+///
+/// # About Dataset
+///
+/// The Titanic dataset contains passenger information and a binary survival label.
+/// It is commonly used for binary classification and feature engineering exercises.
+///
+/// String features (shape `(891, 5)`), in column order:
+/// - `Name`
+/// - `Sex`
+/// - `Ticket`
+/// - `Cabin`
+/// - `Embarked`
+///
+/// Numeric features (shape `(891, 6)`), in column order (may be `NaN` if missing in the source):
+/// - `PassengerId`
+/// - `Pclass`
+/// - `Age`
+/// - `SibSp`
+/// - `Parch`
+/// - `Fare`
+///
+/// Labels (shape `(891,)`):
+/// - `Survived` (0.0 or 1.0)
+///
+/// See more information at <https://www.kaggle.com/c/titanic/data>.
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset file (`titanic.csv`) will be stored.
+///
+/// # Returns
+///
+/// - `&Array2<String>` - String feature matrix with shape `(891, 5)` (may be `NaN` if missing in the source)
+/// - `&Array2<f64>` - Numeric feature matrix with shape `(891, 6)` (may be `NaN` if missing in the source)
+/// - `&Array1<f64>` - Labels vector with shape `(891,)`
+///
+/// # Errors
+///
+/// Returns [`DatasetError`] if:
+/// - Download fails due to network issues or invalid URL
+/// - Temporary directory creation fails
+/// - File move, read, or other I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (891 samples)
 ///
 /// # Examples
-/// ```rust
+///
+/// ```rust, no_run
 /// use rustyml_dataset::titanic::load_titanic;
 ///
-/// let (string_headers, numeric_headers, string_features, numeric_features) = load_titanic();
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
-/// // Access headers - typical expected counts
-/// println!("String headers: {:?}", string_headers);  // Should be: Name, Ticket, Cabin, Embarked
-/// println!("Numeric headers: {:?}", numeric_headers); // Should be: PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare
+/// let (string_features, num_features, labels) = load_titanic(download_dir).unwrap();
 ///
-/// // Check feature matrices shapes
-/// println!("String features shape: {:?}", string_features.shape());
-/// println!("Numeric features shape: {:?}", numeric_features.shape());
+/// assert_eq!(string_features.shape(), &[891, 5]); // 891 samples, 5 features
+/// assert_eq!(num_features.shape(), &[891, 6]); // 891 samples, 6 features
+/// assert_eq!(labels.len(), 891); // 891 samples
+///
+/// // clean up: remove the downloaded files
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_titanic() -> (
-    &'static Array1<&'static str>,
-    &'static Array1<&'static str>,
-    &'static Array2<String>,
-    &'static Array2<f64>,
-) {
-    let (string_headers, numeric_headers, string_features, numeric_features) =
-        TITANIC_DATA.get_or_init(load_titanic_internal);
-    (
-        string_headers,
-        numeric_headers,
-        string_features,
-        numeric_features,
-    )
+pub fn load_titanic(storage_path: &str) -> Result<
+    (&Array2<String>, &Array2<f64>, &Array1<f64>)
+    , DatasetError> {
+    // if already initialized
+    if let Some(cache) = TITANIC_DATA.get() {
+        return Ok((&cache.0, &cache.1, &cache.2));
+    }
+    // if not, initialize then store
+    let (string_features,
+        num_features,
+        labels) = load_titanic_internal(storage_path)?;
+
+    // Try to set value. If another thread already set it, that's fine - just use the existing value
+    let _ = TITANIC_DATA.set((string_features, num_features, labels));
+    let cache = TITANIC_DATA
+        .get()
+        .expect("TITANIC_DATA should be initialized after set");
+    Ok((&cache.0, &cache.1, &cache.2))
 }
 
-/// Loads the Titanic dataset and returns owned copies
+/// Loads the Titanic dataset and returns owned copies.
 ///
-/// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer `load_titanic()` which returns references.
+/// Use this function when you need owned data that can be modified independently.
+/// For read-only access with zero extra allocation, prefer [`load_titanic()`] which returns
+/// references to cached arrays.
 ///
-/// # Notes
+/// # About Dataset
 ///
-/// - Sex is converted to numeric: female=0.0, male=1.0
-/// - Missing values in numeric columns are handled as 0.0
-/// - Missing string values are handled as empty strings
+/// The Titanic dataset contains passenger information and a binary survival label.
+/// It is commonly used for binary classification and feature engineering exercises.
 ///
-/// # Feature Order
+/// String features (shape `(891, 5)`), in column order:
+/// - `Name`
+/// - `Sex`
+/// - `Ticket`
+/// - `Cabin`
+/// - `Embarked`
 ///
-/// Based on the original Titanic dataset structure, the typical feature order is:
-/// - String headers (in original order): Name, Ticket, Cabin, Embarked
-/// - Numeric headers (in original order): PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare
+/// Numeric features (shape `(891, 6)`), in column order (may be `NaN` if missing in the source):
+/// - `PassengerId`
+/// - `Pclass`
+/// - `Age`
+/// - `SibSp`
+/// - `Parch`
+/// - `Fare`
 ///
-/// Note: The actual order may vary if the dataset structure changes, as column types
-/// are determined dynamically by analyzing the data values.
+/// Labels (shape `(891,)`):
+/// - `Survived` (0.0 or 1.0)
+///
+/// See more information at <https://www.kaggle.com/c/titanic/data>.
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset file (`titanic.csv`) will be stored.
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>`: Owned array of string feature headers
-/// - `Array1<&'static str>`: Owned array of numeric feature headers
-/// - `Array2<String>`: Owned string features matrix
-/// - `Array2<f64>`: Owned numeric features matrix
+/// - `Array2<String>` - Owned string feature matrix with shape `(891, 5)` (may be `NaN` if missing in the source)
+/// - `Array2<f64>` - Owned numeric feature matrix with shape `(891, 6)` (may be `NaN` if missing in the source)
+/// - `Array1<f64>` - Owned labels vector with shape `(891,)`
 ///
-/// # Performance Notes
+/// # Errors
 ///
-/// This function creates owned copies by cloning the static data, which incurs additional memory allocation.
-/// If you only need read-only access to the data, use `load_titanic()` instead for better performance.
+/// Returns [`DatasetError`] if:
+/// - Download fails due to network issues or invalid URL
+/// - Temporary directory creation fails
+/// - File move, read, or other I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (891 samples)
+///
+/// # Performance
+///
+/// This function clones the cached arrays, which incurs additional memory allocation.
+/// If you don't need mutation, use [`load_titanic()`] for better performance.
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::titanic::load_titanic_owned;
 ///
-/// let (mut string_headers, mut numeric_headers, mut string_features, mut numeric_features) = load_titanic_owned();
+/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 ///
-/// // You can now modify the data since these are owned copies
-/// println!("String headers: {:?}", string_headers);  // Should be: Name, Ticket, Cabin, Embarked
-/// println!("Numeric headers: {:?}", numeric_headers); // Should be: PassengerId, Survived, Pclass, Sex, Age, SibSp, Parch, Fare
+/// let (mut string_features, mut num_features, mut labels) = load_titanic_owned(download_dir).unwrap();
 ///
-/// // Example: Modify feature values (not possible with references)
-/// if numeric_features.nrows() > 0 {
-///     numeric_features[[0, 0]] = 999.0;
+/// assert_eq!(string_features.nrows(), 891); // 891 samples
+/// assert_eq!(string_features.ncols(), 5); // 5 features
+/// assert_eq!(num_features.nrows(), 891); // 891 samples
+/// assert_eq!(num_features.ncols(), 6); // 6 features
+/// assert_eq!(labels.len(), 891); // 891 samples
+///
+/// // modify the data (not possible with references)
+/// num_features.mapv_inplace(|x| {
+///     if x.is_nan() { 0.0 } else { x }
+/// });
+///
+/// // clean up: remove the downloaded files
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
 /// }
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_titanic_owned() -> (
-    Array1<&'static str>,
-    Array1<&'static str>,
-    Array2<String>,
-    Array2<f64>,
-) {
-    let (string_headers, numeric_headers, string_features, numeric_features) = load_titanic();
-    (
-        string_headers.clone(),
-        numeric_headers.clone(),
-        string_features.clone(),
-        numeric_features.clone(),
-    )
+pub fn load_titanic_owned(storage_path: &str) -> Result<
+    (Array2<String>, Array2<f64>, Array1<f64>)
+    , DatasetError> {
+    let (string_features,
+        num_features,
+        labels) = load_titanic(storage_path)?;
+
+    Ok((string_features.clone(), num_features.clone(), labels.clone()))
 }

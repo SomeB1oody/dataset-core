@@ -194,7 +194,7 @@ pub fn load_boston_housing(storage_path: &str) -> Result<(&Array2<f64>, &Array1<
 
     let cache = BOSTON_HOUSING_DATA
         .get()
-        .expect("BOSTON_HOUSING_DATA should be initialized after get");
+        .expect("BOSTON_HOUSING_DATA should be initialized after set");
     Ok((&cache.0, &cache.1))
 }
 
@@ -266,6 +266,6 @@ pub fn load_boston_housing(storage_path: &str) -> Result<(&Array2<f64>, &Array1<
 /// }
 /// ```
 pub fn load_boston_housing_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let (features, targets) = load_boston_housing_internal(storage_path)?;
+    let (features, targets) = load_boston_housing(storage_path)?;
     Ok((features.clone(), targets.clone()))
 }

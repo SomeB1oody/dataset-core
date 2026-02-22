@@ -72,6 +72,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
     let path_temp = temp_dir.path();
     // download
     download_to(DIABETES_DATA_URL, path_temp)?;
+    // move downloaded file to final location
     let src = path_temp.join("diabetes.csv");
     let dst = path.join("diabetes.csv");
     // cover the existing file (if any) with the new one

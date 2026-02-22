@@ -5,12 +5,16 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-2-22
+### Changed
+- Replace hardcoded Titanic dataset with dynamic download and processing
+
 ## [0.1.0] - 2026-2-21
 ### Changed
 - Automatically create dataset directories if they do not exist
 
 ## [0.1.0] - 2026-2-20
-### Changed ``
+### Changed
 - Replace hardcoded Boston Housing dataset with dynamic download and processing
 
 ## [0.1.0] - 2026-2-19
