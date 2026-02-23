@@ -113,6 +113,17 @@ fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>)
             format!("Failed to parse target at line {}: {}", line, e)
         ))?);
     }
+    
+    if features.len() != 506 * 13 {
+        return Err(DatasetError::DataFormatError(
+            format!("Expected 506 * 13 elements in features, got {}", features.len())
+        ))
+    }
+    if targets.len() != 506 {
+        return Err(DatasetError::DataFormatError(
+            format!("Expected 506 elements in targets, got {}", targets.len())
+        ))
+    }
 
     let features_array = Array2::from_shape_vec((506, 13), features)
         .map_err(|e| DatasetError::DataFormatError(

@@ -10,8 +10,8 @@ use std::io::Read;
 /// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
 /// of its contents. It contains a tuple of:
 ///
-/// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset (e.g., sepal length, sepal width, petal length, petal width).
-/// - `Array1<&'static str>`: A 1-dimensional array containing the corresponding labels (e.g., species names such as "Iris-setosa", "Iris-versicolor", "Iris-virginica").
+/// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset (sepal length, sepal width, petal length, petal width).
+/// - `Array1<&'static str>`: A 1-dimensional array containing the corresponding labels (species names such as "Iris-setosa", "Iris-versicolor", "Iris-virginica").
 ///
 /// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
 /// for the lifetime of the program.
@@ -28,13 +28,13 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 /// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
 ///
 /// Features:
-/// - sepal length in cm
-/// - sepal width in cm
-/// - petal length in cm
-/// - petal width in cm
+///   - sepal length in cm
+///   - sepal width in cm
+///   - petal length in cm
+///   - petal width in cm
 ///
 /// labels:
-/// - name of the species (in `&str`):
+///   - name of the species (in `&str`):
 ///     - "Iris-setosa"
 ///     - "Iris-versicolor"
 ///     - "Iris-virginica"
@@ -48,7 +48,7 @@ pub static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/i
 /// parses the CSV-like format, and converts it into structured ndarray arrays.
 /// The function handles downloading, unzipping, file cleanup, and data parsing.
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// - `path` - Storage directory path where the dataset will be downloaded and extracted
 ///
@@ -166,7 +166,7 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// - `storage_path` - Directory path where the dataset will be stored
 ///
@@ -206,8 +206,8 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 /// ```
 pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
     // if already initialized
-    if let Some(cached) = IRIS_DATA.get() {
-        return Ok((&cached.0, &cached.1));
+    if let Some(cache) = IRIS_DATA.get() {
+        return Ok((&cache.0, &cache.1));
     }
 
     // if not, initialize then store
@@ -216,10 +216,10 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
     // Try to set the value. If another thread already set it, that's fine - just use the existing value
     let _ = IRIS_DATA.set(loaded);
 
-    let cached = IRIS_DATA
+    let cache = IRIS_DATA
         .get()
         .expect("IRIS_DATA should be initialized after set");
-    Ok((&cached.0, &cached.1))
+    Ok((&cache.0, &cache.1))
 }
 
 /// Loads the Iris dataset and returns owned copies
@@ -232,20 +232,20 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// It includes three iris species with 50 samples each as well as some properties about each flower. One flower species is linearly separable from the other two, but the other two are not linearly separable from each other.
 ///
 /// Features:
-/// - sepal length in cm
-/// - sepal width in cm
-/// - petal length in cm
-/// - petal width in cm
+///   - sepal length in cm
+///   - sepal width in cm
+///   - petal length in cm
+///   - petal width in cm
 ///
 /// labels:
-/// - name of the species (in `&str`):
+///   - name of the species (in `&str`):
 ///     - "Iris-setosa"
 ///     - "Iris-versicolor"
 ///     - "Iris-virginica"
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
-/// # Arguments
+/// # Parameters
 ///
 /// - `storage_path` - Directory path where the dataset will be stored
 ///

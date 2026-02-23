@@ -170,9 +170,6 @@ pub mod diabetes;
 /// measurements.
 pub mod iris;
 
-/// Internal module for raw data storage.
-mod raw_data;
-
 /// Titanic dataset module.
 ///
 /// Contains data about Titanic passengers for predicting survival based

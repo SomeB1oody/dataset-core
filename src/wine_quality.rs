@@ -1,283 +1,514 @@
-use super::raw_data::wine_quality_raw::{
-    load_red_wine_quality_raw_data, load_white_wine_quality_raw_data,
-};
+use std::fs::{create_dir_all, remove_file, File};
+use std::io::Read;
+use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
+use crate::{create_temp_dir, download_to, DatasetError, unzip};
 
-// Use `OnceLock` for thread-safe delayed initialization of red wine dataset
-static RED_WINE_DATA: OnceLock<(Array1<&'static str>, Array2<f64>)> = OnceLock::new();
-
-// Use `OnceLock` for thread-safe delayed initialization of white wine dataset
-static WHITE_WINE_DATA: OnceLock<(Array1<&'static str>, Array2<f64>)> = OnceLock::new();
-
-/// Parses wine quality dataset from raw string data into structured arrays.
+/// A static variable to store the Red Wine Quality dataset.
 ///
-/// This internal function extracts feature headers and wine quality data from raw string format,
-/// converting them into ndarray structures suitable for machine learning operations.
+/// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
+/// of its contents. It contains a tuple of:
+///
+/// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset
+/// (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol)
+/// - `Array1<f64>`: A 1-dimensional array containing the corresponding labels (wine quality scores, from 0 to 10)
+///
+/// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
+/// for the lifetime of the program.
+static RED_WINE_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
+
+/// A static variable to store the White Wine Quality dataset.
+///
+/// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
+/// of its contents. It contains a tuple of:
+///
+/// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset
+/// (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol)
+/// - `Array1<f64>`: A 1-dimensional array containing the corresponding labels (wine quality scores, from 0 to 10)
+///
+/// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
+/// for the lifetime of the program.
+static WHITE_WINE_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
+
+/// A static string slice containing the URL for the Wine Quality dataset.
+///
+/// # Citation
+///
+/// P. Cortez, A. Cerdeira, F. Almeida, T. Matos, and J. Reis. "Wine Quality," UCI Machine Learning Repository, 2009. \[Online\]. Available: <https://doi.org/10.24432/C56S3T>.
+///
+/// # About Dataset
+///
+/// The two datasets are related to red and white variants of the Portuguese "Vinho Verde" wine.
+///
+/// Features:
+///   - fixed acidity
+///   - volatile acidity
+///   - citric acid
+///   - residual sugar
+///   - chlorides
+///   - free sulfur dioxide
+///   - total sulfur dioxide
+///   - density
+///   - pH
+///   - sulphates
+///   - alcohol
+///
+/// Targets:
+/// - quality (score between 0 and 10)
+///
+/// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
+pub static WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
+
+/// Internal function to download, extract, and parse the Wine Quality datasets.
+///
+/// This function downloads the UCI Wine Quality archive, extracts the CSV files,
+/// moves them into `storage_path`, then parses both datasets into `ndarray` arrays.
+///
+/// It loads both datasets in one pass:
+/// - White wine: `winequality-white.csv` (4898 samples)
+/// - Red wine: `winequality-red.csv` (1599 samples)
 ///
 /// # Parameters
 ///
-/// - `raw_data` - Raw string containing both headers and wine data
-/// - `n_samples` - Number of data samples expected
+/// - `path` - Directory where the dataset files will be stored. The directory is created if missing.
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>` - Array of feature names (headers)
-/// - `Array2<f64>` - 2D array of wine quality features with shape (n_samples, 12)
-fn parse_wine_data(
-    raw_data: &'static str,
-    n_samples: usize,
-) -> (Array1<&'static str>, Array2<f64>) {
-    let lines: Vec<&str> = raw_data.trim().lines().collect();
+/// Returns a pair of `(features, targets)` tuples:
+///
+/// - `((Array2<f64>, Array1<f64>), (Array2<f64>, Array1<f64>))` where:
+///   - `.0` is white wine `(features, targets)`
+///     - features shape: `(4898, 11)`
+///     - targets length: `4898`
+///   - `.1` is red wine `(features, targets)`
+///     - features shape: `(1599, 11)`
+///     - targets length: `1599`
+///
+/// # Errors
+///
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues or invalid URL
+/// - Unzipping fails or the archive is corrupted
+/// - File I/O fails (creating directories, moving/removing files, reading CSV)
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Parsed dataset size does not match the expected number of samples
+fn parse_wine_data(path: &str) -> Result<
+    ((Array2<f64>, Array1<f64>), (Array2<f64>, Array1<f64>))
+    , DatasetError> {
+    let path = Path::new(path);
+    // create the directory if it doesn't exist
+    if !path.exists() {
+        create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    // temporary directory to store the downloaded zip file
+    let temp_dir = create_temp_dir(path, ".tmp-wine-")?;
+    let path_temp = temp_dir.path();
+    // download the zip file and extract it to the temporary directory
+    download_to(WINE_QUALITY_URL, path_temp)?;
+    unzip(&path_temp.join("wine+quality.zip"), path_temp)?;
+    // move the extracted files to the original directory
+    let src_white = path_temp.join("winequality-white.csv");
+    let src_red = path_temp.join("winequality-red.csv");
+    let dst_white = path.join("winequality-white.csv");
+    let dst_red = path.join("winequality-red.csv");
+    if dst_white.exists() {
+        remove_file(&dst_white).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    if dst_red.exists() {
+        remove_file(&dst_red).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    std::fs::rename(&src_white, &dst_white).map_err(|e| DatasetError::StdIoError(e))?;
+    std::fs::rename(&src_red, &dst_red).map_err(|e| DatasetError::StdIoError(e))?;
 
-    // First line contains headers (comma-separated)
-    let headers_line = lines[0];
-    let headers_array: Vec<&str> = headers_line.split(',').collect();
+    let mut white_wine_file = File::open(dst_white).map_err(|e| DatasetError::StdIoError(e))?;
+    let mut white_wine_data = String::new();
+    white_wine_file.read_to_string(&mut white_wine_data).map_err(|e| DatasetError::StdIoError(e))?;
 
-    // Remaining lines contain data (semicolon-separated)
-    let mut features_array = Vec::with_capacity(n_samples * 12);
+    let mut red_wine_file = File::open(dst_red).map_err(|e| DatasetError::StdIoError(e))?;
+    let mut red_wine_data = String::new();
+    red_wine_file.read_to_string(&mut red_wine_data).map_err(|e| DatasetError::StdIoError(e))?;
+
+    const WHITE_WINE_QUALITY_SAMPLES: usize = 4898;
+    const RED_WINE_QUALITY_SAMPLES: usize = 1599;
+
+    let white_wine_data_array = parse_wine_data_to_array(white_wine_data, WHITE_WINE_QUALITY_SAMPLES)?;
+    let red_wine_data_array = parse_wine_data_to_array(red_wine_data, RED_WINE_QUALITY_SAMPLES)?;
+
+    Ok((white_wine_data_array, red_wine_data_array))
+}
+
+/// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
+///
+/// The CSV is expected to be `;`-separated with a **header row**, followed by data rows.
+/// Each data row must contain:
+/// - 11 feature columns (all parseable as `f64`)
+/// - 1 target column (`quality`, parseable as `f64`)
+///
+/// # Parameters
+///
+/// - `data` - Full CSV file contents as a string.
+/// - `n_samples` - Expected number of samples (rows excluding the header).
+///
+/// # Returns
+///
+/// - `Array2<f64>` - Feature matrix with shape `(n_samples, 11)`.
+/// - `Array1<f64>` - Target vector with length `n_samples`.
+///
+/// # Errors
+///
+/// Returns `DatasetError::DataFormatError` if:
+/// - Any row has an unexpected number of columns
+/// - Any feature/target value fails to parse as `f64`
+/// - The final number of parsed values does not match the expected shape
+fn parse_wine_data_to_array(data: String, n_samples: usize) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    let lines: Vec<&str> = data.trim().lines().collect();
+
+    let mut features_array = Vec::with_capacity(n_samples * 11);
+    let mut target_array = Vec::with_capacity(n_samples);
 
     for line in &lines[1..] {
         if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(';').collect();
 
-        for i in 0..12 {
-            features_array.push(cols[i].parse::<f64>().unwrap());
+        if cols.len() != 12 {
+            return Err(DatasetError::DataFormatError(format!(
+                "Invalid wine quality data format: expected 13 columns, found {} at line {}"
+                , cols.len()
+                , line
+            )))
         }
+
+        for i in 0..11 {
+            features_array.push(cols[i].parse::<f64>().map_err(
+                |e| DatasetError::DataFormatError(
+                    format!("Failed to parse features {} at line {}: {}", i, line, e)))?);
+        }
+
+        target_array.push(cols[11].parse::<f64>().map_err(
+            |e| DatasetError::DataFormatError(
+                format!("Failed to parse target at line {}: {}", line, e))
+        )?);
+    }
+
+    if features_array.len() != n_samples * 11 {
+        return Err(DatasetError::DataFormatError(format!(
+            "Expected {} elements in features, got {}", n_samples * 11, features_array.len()
+        )))
+    }
+    if target_array.len() != n_samples {
+        return Err(DatasetError::DataFormatError(format!(
+            "Expected {} elements in target, got {}", n_samples, target_array.len()
+        )))
     }
 
     let features_array =
-        Array2::from_shape_vec((features_array.len() / 12, 12), features_array).unwrap();
-    let headers_array = Array1::from_vec(headers_array);
+        Array2::from_shape_vec((n_samples, 11), features_array)
+            .map_err(
+                |e| DatasetError::DataFormatError(
+                    format!("Failed to create features array: {}", e)
+                )
+            )?;
+    let target_array = Array1::from_vec(target_array);
 
-    (headers_array, features_array)
+    Ok((features_array, target_array))
 }
 
-/// Internal function to load and process the raw red wine quality dataset.
+/// Loads the Red Wine Quality dataset with automatic caching.
 ///
-/// This function loads the raw red wine quality dataset, parses the comma-separated headers
-/// and semicolon-separated data format, and converts it into structured ndarray arrays.
+/// This function returns references to cached data, which incurs no additional
+/// memory allocation after the first load. If you need owned data that you can
+/// modify, prefer [`load_red_wine_quality_owned()`].
+///
+/// # About Dataset
+///
+/// The dataset contains physicochemical properties of Portuguese "Vinho Verde"
+/// red wine samples and a quality score for each sample.
+///
+/// Features (11 total, all `f64`):
+///   - fixed acidity
+///   - volatile acidity
+///   - citric acid
+///   - residual sugar
+///   - chlorides
+///   - free sulfur dioxide
+///   - total sulfur dioxide
+///   - density
+///   - pH
+///   - sulphates
+///   - alcohol
+///
+/// Target:
+///   - quality (score between 0 and 10, stored as `f64`)
+///
+/// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset files will be stored
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>`: Array of column headers from the dataset
-/// - `Array2<f64>`: Feature matrix where each row represents a wine sample and each column represents a feature
+/// - `&Array2<f64>` - Static reference to feature matrix with shape `(1599, 11)`
+/// - `&Array1<f64>` - Static reference to target vector with length `1599`
 ///
-/// # Panics
+/// # Errors
 ///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-fn load_red_wine_quality_internal() -> (Array1<&'static str>, Array2<f64>) {
-    let red_wine_raw_data = load_red_wine_quality_raw_data();
-    parse_wine_data(red_wine_raw_data, 1599)
-}
-
-/// Internal function to load and process the raw white wine quality dataset.
-///
-/// This function loads the raw white wine quality dataset, parses the comma-separated headers
-/// and semicolon-separated data format, and converts it into structured ndarray arrays.
-///
-/// # Returns
-///
-/// - `Array1<&'static str>`: Array of column headers from the dataset
-/// - `Array2<f64>`: Feature matrix where each row represents a wine sample and each column represents a feature
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-fn load_white_wine_quality_internal() -> (Array1<&'static str>, Array2<f64>) {
-    let white_wine_raw_data = load_white_wine_quality_raw_data();
-    parse_wine_data(white_wine_raw_data, 4898)
-}
-
-/// Loads the red wine quality dataset with memoization for machine learning tasks.
-///
-/// This function provides access to a curated red wine quality dataset containing
-/// physical properties and quality ratings. The dataset includes 11 features
-/// such as acidity levels, sugar content, pH, and alcohol percentage, along with
-/// quality scores ranging from 3 to 8. Uses memoization for improved performance
-/// on repeated calls.
-///
-/// # Returns
-///
-/// - `&'static Array1<&'static str>` - Static reference to array of feature names including:
-///     - fixed acidity
-///     - volatile acidity
-///     - citric acid
-///     - residual sugar
-///     - chlorides
-///     - free sulfur dioxide
-///     - total sulfur dioxide
-///     - density
-///     - pH
-///     - sulphates
-///     - alcohol
-///     - quality
-/// - `&'static Array2<f64>` - Static reference to 2D feature matrix with shape (1599, 12)
-///   containing normalized wine quality measurements
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues
+/// - File extraction or I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
 ///
 /// # Example
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::wine_quality::load_red_wine_quality;
 ///
-/// let (headers, features) = load_red_wine_quality();
+/// let download_dir = "./downloads"; // the code will create this directory if it doesn't exist
 ///
-/// // Access feature names
-/// println!("Features: {:?}", headers);
-///
-/// // Use the feature matrix for machine learning
-/// assert_eq!(features.ncols(), 12);  // 12 features
-/// assert_eq!(features.nrows(), 1599); // 1599 samples
-///
-/// // Example: Extract quality scores (last column)
-/// let quality_scores = features.column(11);  // Quality is the 12th column (index 11)
-/// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_red_wine_quality() -> (&'static Array1<&'static str>, &'static Array2<f64>) {
-    let (headers, features) = RED_WINE_DATA.get_or_init(load_red_wine_quality_internal);
-    (headers, features)
-}
-
-/// Loads the white wine quality dataset with memoization for machine learning tasks.
-///
-/// This function provides access to a curated white wine quality dataset with
-/// the same structure as the red wine dataset. It contains physicochemical
-/// properties and quality ratings specifically for white wine samples.
-/// The dataset uses the same 12 features but with different value ranges
-/// typical for white wine characteristics. Uses memoization for improved
-/// performance on repeated calls.
-///
-/// # Returns
-///
-/// - `&'static Array1<&'static str>` - Static reference to an array of feature names including
-///     - fixed acidity
-///     - volatile acidity
-///     - citric acid
-///     - residual sugar
-///     - chlorides
-///     - free sulfur dioxide
-///     - total sulfur dioxide
-///     - density
-///     - pH
-///     - sulphates
-///     - alcohol
-///     - quality
-/// - `&'static Array2<f64>` - Static reference to 2D feature matrix with shape (4898, 12)
-///   containing normalized white wine quality measurements
-///
-/// # Example
-/// ```rust
-/// use rustyml_dataset::wine_quality::load_white_wine_quality;
-/// let (headers, features) = load_white_wine_quality();
-///
-/// // Access feature names
-/// println!("Features: {:?}", headers);
+/// let (features, targets) = load_red_wine_quality(download_dir).unwrap();
 ///
 /// // Use the feature matrix for machine learning
-/// assert_eq!(features.ncols(), 12);  // 12 features
-/// assert_eq!(features.nrows(), 4898); // 4898 samples
+/// assert_eq!(features.shape(), &[1599, 11]);  // 1599 samples, 11 features
+/// assert_eq!(targets.len(), 1599); // 1599 samples
 ///
-/// // Example: Extract quality scores (last column)
-/// let quality_scores = features.column(11);  // Quality is the 12th column (index 11)
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_white_wine_quality() -> (&'static Array1<&'static str>, &'static Array2<f64>) {
-    let (headers, features) = WHITE_WINE_DATA.get_or_init(load_white_wine_quality_internal);
-    (headers, features)
+pub fn load_red_wine_quality(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
+    // if already initialized
+    if let Some(cache) = RED_WINE_DATA.get() {
+        return Ok((&cache.0, &cache.1));
+    }
+
+    // if not, initialize then store
+    let (white_wine_arrays, red_wine_arrays) = parse_wine_data(storage_path)?;
+    // Try to set the value. If another thread already set it, that's fine - just use the existing value
+    let _ = RED_WINE_DATA.set(red_wine_arrays);
+    let _ = WHITE_WINE_DATA.set(white_wine_arrays);
+
+    let cache = RED_WINE_DATA
+        .get()
+        .expect("RED_WINE_DATA should be initialized after set");
+    Ok((&cache.0, &cache.1))
 }
 
-/// Loads the red wine quality dataset and returns owned copies
+/// Loads the Red Wine Quality dataset and returns owned copies.
 ///
 /// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer `load_red_wine_quality()` which returns references.
+/// For read-only access, prefer [`load_red_wine_quality()`] which returns references.
+///
+/// # About Dataset
+///
+/// The dataset contains physicochemical properties of Portuguese "Vinho Verde"
+/// red wine samples and a quality score for each sample.
+///
+/// Features (11 total, all `f64`):
+///   - fixed acidity
+///   - volatile acidity
+///   - citric acid
+///   - residual sugar
+///   - chlorides
+///   - free sulfur dioxide
+///   - total sulfur dioxide
+///   - density
+///   - pH
+///   - sulphates
+///   - alcohol
+///
+/// Target:
+///   - quality (score between 0 and 10, stored as `f64`)
+///
+/// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset files will be stored
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>`: Owned array of column headers from the dataset, containing 12 feature names
-/// - `Array2<f64>`: Owned feature matrix with shape (1599, 12) where each row represents a wine sample and each column represents a feature (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol, quality)
+/// - `Array2<f64>` - Owned feature matrix with shape `(1599, 11)`
+/// - `Array1<f64>` - Owned target vector with length `1599`
 ///
-/// # Performance Notes
+/// # Errors
 ///
-/// This function creates owned copies by cloning the static data, which incurs additional memory allocation.
-/// If you only need read-only access to the data, use `load_red_wine_quality()` instead for better performance.
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues
+/// - File extraction or I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
+///
+/// # Performance
+///
+/// This function creates owned copies by cloning the cached data, which incurs
+/// additional memory allocation. If you only need read-only access, use
+/// [`load_red_wine_quality()`] instead for better performance.
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::wine_quality::load_red_wine_quality_owned;
 ///
-/// let (mut headers, mut features) = load_red_wine_quality_owned();
+/// let download_dir = "./downloads"; // the code will create this directory if it doesn't exist
 ///
-/// // You can now modify the data since these are owned copies
-/// assert_eq!(headers.len(), 12);
-/// assert_eq!(features.shape(), &[1599, 12]);
+/// let (mut features, targets) = load_red_wine_quality_owned(download_dir).unwrap();
+///
+/// // Use the feature matrix for machine learning
+/// assert_eq!(features.shape(), &[1599, 11]);  // 1599 samples, 11 features
+/// assert_eq!(targets.len(), 1599); // 1599 samples
 ///
 /// // Example: Modify feature values (not possible with references)
 /// features[[0, 0]] = 10.0;
+///
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_red_wine_quality_owned() -> (Array1<&'static str>, Array2<f64>) {
-    let (headers, features) = load_red_wine_quality();
-    (headers.clone(), features.clone())
+pub fn load_red_wine_quality_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    let (red_wine_features, red_wine_targets) = load_red_wine_quality(storage_path)?;
+    Ok((red_wine_features.clone(), red_wine_targets.clone()))
 }
 
-/// Loads the white wine quality dataset and returns owned copies
+/// Loads the White Wine Quality dataset with automatic caching.
 ///
-/// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer `load_white_wine_quality()` which returns references.
+/// This function returns references to cached data, which incurs no additional
+/// memory allocation after the first load. If you need owned data that you can
+/// modify, prefer [`load_white_wine_quality_owned()`].
+///
+/// # About Dataset
+///
+/// The dataset contains physicochemical properties of Portuguese "Vinho Verde"
+/// white wine samples and a quality score for each sample.
+///
+/// Features (11 total, all `f64`):
+///   - fixed acidity
+///   - volatile acidity
+///   - citric acid
+///   - residual sugar
+///   - chlorides
+///   - free sulfur dioxide
+///   - total sulfur dioxide
+///   - density
+///   - pH
+///   - sulphates
+///   - alcohol
+///
+/// Target:
+///   - quality (score between 0 and 10, stored as `f64`)
+///
+/// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset files will be stored
 ///
 /// # Returns
 ///
-/// - `Array1<&'static str>`: Owned array of column headers from the dataset, containing 12 feature names
-/// - `Array2<f64>`: Owned feature matrix with shape (4898, 12) where each row represents a wine sample and each column represents a feature (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol, quality)
+/// - `&Array2<f64>` - Static reference to feature matrix with shape `(4898, 11)`
+/// - `&Array1<f64>` - Static reference to target vector with length `4898`
 ///
-/// # Performance Notes
+/// # Errors
 ///
-/// This function creates owned copies by cloning the static data, which incurs additional memory allocation.
-/// If you only need read-only access to the data, use `load_white_wine_quality()` instead for better performance.
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues
+/// - File extraction or I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
+///
+/// # Example
+/// ```rust, no_run
+/// use rustyml_dataset::wine_quality::load_white_wine_quality;
+///
+/// let download_dir = "./downloads"; // the code will create this directory if it doesn't exist
+///
+/// let (features, targets) = load_white_wine_quality(download_dir).unwrap();
+///
+/// // Use the feature matrix for machine learning
+/// assert_eq!(features.shape(), &[4898, 11]);  // 4898 samples, 11 features
+/// assert_eq!(targets.len(), 4898); // 4898 samples
+///
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
+/// ```
+pub fn load_white_wine_quality(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
+    // if already initialized
+    if let Some(cache) = WHITE_WINE_DATA.get() {
+        return Ok((&cache.0, &cache.1));
+    }
+
+    // if not, initialize then store
+    let (white_wine_arrays, red_wine_arrays) = parse_wine_data(storage_path)?;
+    // Try to set the value. If another thread already set it, that's fine - just use the existing value
+    let _ = RED_WINE_DATA.set(red_wine_arrays);
+    let _ = WHITE_WINE_DATA.set(white_wine_arrays);
+
+    let cache = WHITE_WINE_DATA
+        .get()
+        .expect("RED_WINE_DATA should be initialized after set");
+    Ok((&cache.0, &cache.1))
+}
+
+/// Loads the White Wine Quality dataset and returns owned copies.
+///
+/// Use this function when you need owned data that can be modified.
+/// For read-only access, prefer [`load_white_wine_quality()`] which returns references.
+///
+/// # Parameters
+///
+/// - `storage_path` - Directory path where the dataset files will be stored
+///
+/// # Returns
+///
+/// - `Array2<f64>` - Owned feature matrix with shape `(4898, 11)`
+/// - `Array1<f64>` - Owned target vector with length `4898`
+///
+/// # Errors
+///
+/// Returns `DatasetError` if:
+/// - Download fails due to network issues
+/// - File extraction or I/O operations fail
+/// - Data format is invalid (wrong number of columns, unparseable values)
+/// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
+///
+/// # Performance
+///
+/// This function creates owned copies by cloning the cached data, which incurs
+/// additional memory allocation. If you only need read-only access, use
+/// [`load_white_wine_quality()`] instead for better performance.
 ///
 /// # Examples
-/// ```rust
+/// ```rust, no_run
 /// use rustyml_dataset::wine_quality::load_white_wine_quality_owned;
-/// let (mut headers, mut features) = load_white_wine_quality_owned();
 ///
-/// // You can now modify the data since these are owned copies
-/// assert_eq!(headers.len(), 12);
-/// assert_eq!(features.shape(), &[4898, 12]);
+/// let download_dir = "./downloads"; // the code will create this directory if it doesn't exist
+///
+/// let (mut features, targets) = load_white_wine_quality_owned(download_dir).unwrap();
+///
+/// // Use the feature matrix for machine learning
+/// assert_eq!(features.shape(), &[4898, 11]);  // 4898 samples, 11 features
+/// assert_eq!(targets.len(), 4898); // 4898 samples
 ///
 /// // Example: Modify feature values (not possible with references)
 /// features[[0, 0]] = 10.0;
+///
+/// // clean up: remove the downloaded files if they exist
+/// if let Ok(entries) = std::fs::read_dir(download_dir) {
+///     for entry in entries.flatten() {
+///         let _ = std::fs::remove_file(entry.path());
+///     }
+/// }
 /// ```
-///
-/// # Panics
-///
-/// This function will panic if:
-/// - The raw data cannot be parsed as valid f64 values
-/// - The dataset structure doesn't match the expected format
-/// - Memory allocation fails during array creation
-pub fn load_white_wine_quality_owned() -> (Array1<&'static str>, Array2<f64>) {
-    let (headers, features) = load_white_wine_quality();
-    (headers.clone(), features.clone())
+pub fn load_white_wine_quality_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    let (white_wine_features, white_wine_targets) = load_white_wine_quality(storage_path)?;
+    Ok((white_wine_features.clone(), white_wine_targets.clone()))
 }
