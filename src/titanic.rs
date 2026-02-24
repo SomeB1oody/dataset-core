@@ -47,7 +47,22 @@ static TITANIC_DATA: OnceLock<(
 /// - Survived - Weather Survived or not: 0 = No, 1 = Yes
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
-pub static TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+pub const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+
+/// The prefix for temporary files created during dataset download and parsing.
+const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
+
+/// A static string slice containing the name of the Titanic dataset file.
+const TITANIC_FILENAME: &str = "titanic.csv";
+
+/// The number of samples in the Titanic dataset.
+const TITANIC_SAMPLE_SIZE: usize = 891;
+
+/// The number of string features in the Titanic dataset.
+const TITANIC_NUM_STRING_FEATURES: usize = 5;
+
+/// The number of numeric features in the Titanic dataset.
+const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
 
 /// Parses a CSV line, correctly handling quoted fields that may contain commas.
 ///
@@ -118,13 +133,13 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
     }
     // temporary directory to store the downloaded zip file
-    let temp_dir = crate::create_temp_dir(path, ".tmp-titanic-")?;
+    let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;
     let path_temp = temp_dir.path();
     // download and extract titanic dataset
     download_to(TITANIC_DATA_URL, path_temp)?;
     // move downloaded file to final location
-    let src = path_temp.join("titanic.csv");
-    let dst = path.join("titanic.csv");
+    let src = path_temp.join(TITANIC_FILENAME);
+    let dst = path.join(TITANIC_FILENAME);
     if dst.exists() {
         remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
@@ -136,20 +151,20 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
 
     let lines: Vec<&str> = data.trim().lines().collect();
 
-    // Expected number of data rows (excluding header)
-    const EXPECTED_ROWS: usize = 891;
-
-    let mut string_features = Vec::with_capacity(EXPECTED_ROWS * 5);
-    let mut numeric_features = Vec::with_capacity(EXPECTED_ROWS * 6);
-    let mut labels = Vec::with_capacity(EXPECTED_ROWS);
+    let mut string_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * 5);
+    let mut numeric_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * 6);
+    let mut labels = Vec::with_capacity(TITANIC_SAMPLE_SIZE);
 
     // Process lines as data (skip header)
     for line in &lines[1..] {
         if line.is_empty() { continue; }
         let cols = parse_csv_line(line);
-        if cols.len() != 12 {
+        if cols.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
             return Err(DatasetError::DataFormatError(
-                format!("Expected 12 columns, got {} at line: {}", cols.len(), line)
+                format!("Expected {} columns, got {} at line: {}", 
+                        TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1, 
+                        cols.len(), 
+                        line)
             ));
         }
 
@@ -252,28 +267,36 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
         string_features.push(cols[11].clone()); // Embarked - index 11
     }
 
-    if labels.len() != EXPECTED_ROWS {
+    if labels.len() != TITANIC_SAMPLE_SIZE {
         return Err(DatasetError::DataFormatError(
-            format!("Expected {} rows, got {}", EXPECTED_ROWS, labels.len())
+            format!("Expected {} rows, got {}", TITANIC_SAMPLE_SIZE, labels.len())
         ));
     }
-    if numeric_features.len() != EXPECTED_ROWS * 6 {
+    if numeric_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES {
         return Err(DatasetError::DataFormatError(
-            format!("Expected {} elements in numeric features, got {}", EXPECTED_ROWS * 6, numeric_features.len())
+            format!("Expected {} * {} elements in numeric features, got {}", 
+                    TITANIC_SAMPLE_SIZE, 
+                    TITANIC_NUM_NUMERIC_FEATURES, 
+                    numeric_features.len()
+            )
         ));
     }
-    if string_features.len() != EXPECTED_ROWS * 5 {
+    if string_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES {
         return Err(DatasetError::DataFormatError(
-            format!("Expected {} elements in string features, got {}", EXPECTED_ROWS * 5, string_features.len())
+            format!("Expected {} * {} elements in string features, got {}", 
+                    TITANIC_SAMPLE_SIZE, 
+                    TITANIC_NUM_STRING_FEATURES, 
+                    string_features.len()
+            )
         ));
     }
 
-    let string_array = Array2::from_shape_vec((EXPECTED_ROWS, 5), string_features)
+    let string_array = Array2::from_shape_vec((TITANIC_SAMPLE_SIZE, TITANIC_NUM_STRING_FEATURES), string_features)
         .map_err(|e| DatasetError::DataFormatError(
             format!("Failed to create string feature array: {}", e)
         ))?;
 
-    let numeric_array = Array2::from_shape_vec((EXPECTED_ROWS, 6), numeric_features)
+    let numeric_array = Array2::from_shape_vec((TITANIC_SAMPLE_SIZE, TITANIC_NUM_NUMERIC_FEATURES), numeric_features)
         .map_err(|e| DatasetError::DataFormatError(
             format!("Failed to create numeric feature array: {}", e)
         ))?;

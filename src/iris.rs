@@ -40,7 +40,19 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 ///     - "Iris-virginica"
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
-pub static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+pub const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+
+/// The prefix for temporary files created during dataset download and extraction.
+const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";
+
+/// The name of the zip file downloaded.
+const IRIS_ZIP_FILENAME: &str = "iris.zip";
+
+/// The number of samples in the Iris dataset.
+const IRIS_SAMPLE_SIZE: usize = 150;
+
+/// The number of features in the Iris dataset.
+const IRIS_NUM_FEATURES: usize = 4;
 
 /// Internal function to download and process the Iris dataset.
 ///
@@ -55,7 +67,7 @@ pub static IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/i
 /// # Returns
 ///
 /// - `Array2<f64>` - Feature matrix with shape (150, 4) where each row represents a flower sample
-/// - `Array1<&'static str>` - Target labels array with shape (150,) containing species names (setosa, versicolor, virginica)
+/// - `Array1<&'static str>` - Labels array with shape (150,) containing species names (setosa, versicolor, virginica)
 ///
 /// # Errors
 ///
@@ -72,11 +84,11 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
     }
     // temporary directory to store the downloaded zip file
-    let temp_dir = create_temp_dir(path, ".tmp-iris-")?;
+    let temp_dir = create_temp_dir(path, IRIS_TEMP_FILE_PREFIX)?;
     let path_temp = temp_dir.path();
     // download and extract iris dataset
     download_to(IRIS_DATA_URL, path_temp)?;
-    unzip(&path_temp.join("iris.zip"), path_temp)?;
+    unzip(&path_temp.join(IRIS_ZIP_FILENAME), path_temp)?;
 
     // move iris.data out of the temporary directory
     let src = path_temp.join("iris.data");
@@ -92,24 +104,25 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
     file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
     let lines: Vec<&str> = data.trim().lines().collect();
 
-    let mut features = Vec::with_capacity(150 * 4);
-    let mut labels = Vec::with_capacity(150);
+    let mut features = Vec::with_capacity(IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES);
+    let mut labels = Vec::with_capacity(IRIS_SAMPLE_SIZE);
 
     for line in lines {
         if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(',').collect();
-        if cols.len() != 5 {
+        if cols.len() != IRIS_NUM_FEATURES + 1 {
             return Err(DatasetError::DataFormatError(
-                format!("Expected 5 columns, got {} at line {}",
+                format!("Expected {} columns, got {} at line {}",
+                        IRIS_NUM_FEATURES + 1,
                         cols.len(),
                         line)
             ));
         }
 
-        for i in 0..4 {
+        for i in 0..IRIS_NUM_FEATURES {
             features.push(cols[i].parse::<f64>().map_err(
                 |e| DatasetError::DataFormatError(
-                        format!("Failed to parse feature {} at line {}: {}", i, line, e)
+                        format!("Failed to parse Iris dataset feature {} at line {}: {}", i, line, e)
                     ))?
             );
         }
@@ -119,22 +132,26 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
             "Iris-versicolor" => "versicolor",
             "Iris-virginica" => "virginica",
             _ => return Err(DatasetError::DataFormatError(
-                format!("Invalid label at line {}", line)
+                format!("Failed to parse Iris dataset label {} at line {}", cols[4], line)
             ))
         });
     }
-    if features.len() != 150 * 4 {
+    if features.len() != IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 150 * 4 elements in features, got {} ", features.len())
+            format!("Expected {} * {} elements in features, got {} ",
+                    IRIS_SAMPLE_SIZE,
+                    IRIS_NUM_FEATURES,
+                    features.len()
+            )
         ));
     }
-    if labels.len() != 150 {
+    if labels.len() != IRIS_SAMPLE_SIZE {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 150 elements in labels, got {} ", labels.len())
+            format!("Expected {} elements in labels, got {} ", IRIS_SAMPLE_SIZE, labels.len())
         ));
     }
 
-    let features_array = Array2::from_shape_vec((150, 4), features)
+    let features_array = Array2::from_shape_vec((IRIS_SAMPLE_SIZE, IRIS_NUM_FEATURES), features)
         .map_err(|e| DatasetError::DataFormatError(
             format!("Failed to create features array: {}", e)
         ))?;

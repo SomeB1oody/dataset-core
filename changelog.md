@@ -7,6 +7,10 @@ Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-d
 
 ## [0.1.0] - 2026-2-23
 ### Changed
+- Replace hardcoded dataset configurations with reusable constants across datasets
+
+## [0.1.0] - 2026-2-23
+### Changed
 - Replace hardcoded Wine Quality dataset with dynamic download and processing
 
 ## [0.1.0] - 2026-2-22

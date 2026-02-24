@@ -38,7 +38,19 @@ static DIABETES_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 /// - Outcome: Class variable (0 or 1)
 ///
 /// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
-pub static DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+pub const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+
+/// A static string slice containing the name of the Diabetes dataset file.
+const DIABETES_FILENAME: &str = "diabetes.csv";
+
+/// The number of samples in the Diabetes dataset.
+const DIABETES_SAMPLE_SIZE: usize = 768;
+
+/// The number of features in the Diabetes dataset.
+const DIABETES_NUM_FEATURES: usize = 8;
+
+/// The prefix for temporary files created during dataset download and parsing.
+const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 
 /// Downloads, parses, and validates the Diabetes dataset.
 ///
@@ -68,13 +80,13 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
     }
     // temporary directory
-    let temp_dir = create_temp_dir(path, ".tmp-diabetes-")?;
+    let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
     let path_temp = temp_dir.path();
-    // download
+    // download file to temporary directory
     download_to(DIABETES_DATA_URL, path_temp)?;
     // move downloaded file to final location
-    let src = path_temp.join("diabetes.csv");
-    let dst = path.join("diabetes.csv");
+    let src = path_temp.join(DIABETES_FILENAME);
+    let dst = path.join(DIABETES_FILENAME);
     // cover the existing file (if any) with the new one
     if dst.exists() {
         remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
@@ -86,42 +98,50 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
     raw_data.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
     let lines: Vec<&str> = data.trim().lines().collect();
 
-    let mut features = Vec::with_capacity(768 * 8);
-    let mut labels = Vec::with_capacity(768);
+    let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
+    let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
 
     // Process lines as data (skip header)
     for line in &lines[1..] {
         if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(',').collect();
-        if cols.len() != 9 {
+        if cols.len() != DIABETES_NUM_FEATURES + 1 {
             return Err(DatasetError::DataFormatError(
-                format!("Expected 9 columns, got {} at line {}", cols.len(), line)
+                format!("Expected {} columns, got {} at line {}", 
+                        DIABETES_NUM_FEATURES + 1, 
+                        cols.len(), 
+                        line
+                )
             ));
         }
-        for i in 0..8 {
+        for i in 0..DIABETES_NUM_FEATURES {
             features.push(cols[i].parse::<f64>().map_err(
                 |e| DatasetError::DataFormatError(
-                        format!("Failed to parse feature {} at line {}: {}", i, line, e)
+                        format!("Failed to parse Diabetes dataset features {} at line {}: {}", i, line, e)
                     ))?);
         }
 
         labels.push(cols[8].parse::<f64>().map_err(
             |e| DatasetError::DataFormatError(
-                    format!("Failed to parse label at line {}: {}", line, e)
+                    format!("Failed to parse Diabetes label at line {}: {}", line, e)
                 )
         )?);
     }
-    if features.len() != 768 * 8 {
+    if features.len() != DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 768 * 8 elements in features, got {} ", features.len())
+            format!("Expected {} * {} elements in features, got {} ", 
+                    DIABETES_SAMPLE_SIZE, 
+                    DIABETES_NUM_FEATURES, 
+                    features.len()
+            )
         ));
     }
-    if labels.len() != 768 {
+    if labels.len() != DIABETES_SAMPLE_SIZE {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 768 elements in labels, got {} ", labels.len())
+            format!("Expected {} elements in labels, got {} ", DIABETES_SAMPLE_SIZE, labels.len())
         ));
     }
-    let features_array = Array2::from_shape_vec((768, 8), features)
+    let features_array = Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
         .map_err(|e| DatasetError::DataFormatError(
             format!("Failed to create feature array: {}", e))
         )?;

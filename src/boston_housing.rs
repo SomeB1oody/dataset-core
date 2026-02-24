@@ -40,7 +40,25 @@ static BOSTON_HOUSING_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new
 ///
 /// Targets:
 /// - MEDV - Median value of owner-occupied homes in $1000's
-pub static BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
+pub const BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
+
+/// The prefix for temporary files used during dataset download and extraction
+const BOSTON_HOUSING_TEMP_FILE_PREFIX: &str = ".tmp-boston-housing-";
+
+/// The downloaded zip file name
+const BOSTON_HOUSING_ZIP_FILENAME: &str = "373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
+
+/// The folder where the file is located inside after extraction
+const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
+
+/// The name of the file inside the extracted folder
+const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
+
+/// The number of samples in the dataset
+const BOSTON_HOUSING_SAMPLE_SIZE: usize = 506;
+
+/// The number of features in the dataset
+const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
 /// Internal function to download, parse, and validate the Boston Housing dataset.
 ///
@@ -66,14 +84,14 @@ fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>)
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
     }
     // temporary directory to store the downloaded zip file
-    let temp_dir = create_temp_dir(path, ".tmp-boston-housing-")?;
+    let temp_dir = create_temp_dir(path, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
     let path_temp = temp_dir.path();
     // download and extract boston housing dataset
     download_to(BOSTON_HOUSING_DATA_URL, path_temp)?;
-    unzip(&path_temp.join("373a856a3c9c1119e34b344de9230ae2ea89569d.zip"), path_temp)?;
+    unzip(&path_temp.join(BOSTON_HOUSING_ZIP_FILENAME), path_temp)?;
     // move boston_housing.csv out of the temporary directory
-    let src = path_temp.join("def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d/BostonHousing.csv");
-    let dst = path.join("BostonHousing.csv");
+    let src = path_temp.join(BOSTON_HOUSING_UNZIP_FOLDER).join( BOSTON_HOUSING_FILENAME);
+    let dst = path.join(BOSTON_HOUSING_FILENAME);
     // cover the existing file (if any) with the new one
     if dst.exists() {
         std::fs::remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
@@ -84,48 +102,51 @@ fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>)
     let mut data = String::new();
     file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
 
-    let mut features = Vec::with_capacity(506 * 13);
-    let mut targets = Vec::with_capacity(506);
+    let mut features = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
+    let mut targets = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE);
 
     let lines: Vec<&str> = data.trim().lines().collect();
 
     for line in &lines[1..] {
         if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(',').collect();
-        if cols.len() < 14 {
+        if cols.len() < BOSTON_HOUSING_NUM_FEATURES + 1 {
             return Err(DatasetError::DataFormatError(
-                format!("Number of columns should be at least 14, got {} at line {}",
+                format!("Number of columns should be at least {}, got {} at line {}",
+                        BOSTON_HOUSING_NUM_FEATURES + 1,
                         cols.len(),
                         line)
             ))
         }
         // Features are columns 0-12 (13 features)
-        for i in 0..13 {
+        for i in 0..BOSTON_HOUSING_NUM_FEATURES {
             features.push(cols[i].parse::<f64>().map_err(
                 |e| DatasetError::DataFormatError(
-                format!("Failed to parse features {} at line {}: {}", i, line, e)
+                format!("Failed to parse Boston Housing dataset features {} at line {}: {}", i, line, e)
             ))?);
         }
 
         // Target is column 13 (MEDV)
         targets.push(cols[13].parse::<f64>().map_err(
             |e| DatasetError::DataFormatError(
-            format!("Failed to parse target at line {}: {}", line, e)
+            format!("Failed to parse Boston Housing dataset target at line {}: {}", line, e)
         ))?);
     }
     
-    if features.len() != 506 * 13 {
+    if features.len() != BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 506 * 13 elements in features, got {}", features.len())
+            format!("Expected {} * {} elements in features, got {}", BOSTON_HOUSING_SAMPLE_SIZE,
+                    BOSTON_HOUSING_NUM_FEATURES,
+                    features.len())
         ))
     }
-    if targets.len() != 506 {
+    if targets.len() != BOSTON_HOUSING_SAMPLE_SIZE {
         return Err(DatasetError::DataFormatError(
-            format!("Expected 506 elements in targets, got {}", targets.len())
+            format!("Expected {} elements in targets, got {}", BOSTON_HOUSING_SAMPLE_SIZE, targets.len())
         ))
     }
 
-    let features_array = Array2::from_shape_vec((506, 13), features)
+    let features_array = Array2::from_shape_vec((BOSTON_HOUSING_SAMPLE_SIZE, BOSTON_HOUSING_NUM_FEATURES), features)
         .map_err(|e| DatasetError::DataFormatError(
             format!("Failed to create features array: {}", e)
         ))?;

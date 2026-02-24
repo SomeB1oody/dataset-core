@@ -12,7 +12,7 @@ use crate::{create_temp_dir, download_to, DatasetError, unzip};
 ///
 /// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset
 /// (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol)
-/// - `Array1<f64>`: A 1-dimensional array containing the corresponding labels (wine quality scores, from 0 to 10)
+/// - `Array1<f64>`: A 1-dimensional array containing the corresponding targets (wine quality scores, from 0 to 10)
 ///
 /// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
 /// for the lifetime of the program.
@@ -25,7 +25,7 @@ static RED_WINE_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 ///
 /// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset
 /// (fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol)
-/// - `Array1<f64>`: A 1-dimensional array containing the corresponding labels (wine quality scores, from 0 to 10)
+/// - `Array1<f64>`: A 1-dimensional array containing the corresponding targets (wine quality scores, from 0 to 10)
 ///
 /// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
 /// for the lifetime of the program.
@@ -58,7 +58,28 @@ static WHITE_WINE_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 /// - quality (score between 0 and 10)
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
-pub static WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
+pub const WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
+
+/// The prefix for temporary files created during dataset download and extraction.
+const WINE_QUALITY_TEMP_FILE_PREFIX: &str = ".tmp-wine-quality-";
+
+/// The filename of the zip archive containing the Wine Quality datasets.
+const WINE_QUALITY_ZIP_FILENAME: &str = "wine+quality.zip";
+
+/// The red wine file of the CSV files inside the zip archive.
+const RED_WINE_QUALITY_FILENAME: &str = "winequality-red.csv";
+
+/// The white wine file of the CSV files inside the zip archive.
+const WHITE_WINE_QUALITY_FILENAME: &str = "winequality-white.csv";
+
+/// The number of samples in white wine quality datasets.
+const WHITE_WINE_QUALITY_SAMPLE_SIZE: usize = 4898;
+
+/// The number of samples in red wine quality datasets.
+const RED_WINE_QUALITY_SAMPLE_SIZE: usize = 1599;
+
+/// The number of features in the Wine Quality datasets.
+const WINE_QUALITY_NUM_FEATURES: usize = 11;
 
 /// Internal function to download, extract, and parse the Wine Quality datasets.
 ///
@@ -102,16 +123,16 @@ fn parse_wine_data(path: &str) -> Result<
         create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
     }
     // temporary directory to store the downloaded zip file
-    let temp_dir = create_temp_dir(path, ".tmp-wine-")?;
+    let temp_dir = create_temp_dir(path, WINE_QUALITY_TEMP_FILE_PREFIX)?;
     let path_temp = temp_dir.path();
     // download the zip file and extract it to the temporary directory
     download_to(WINE_QUALITY_URL, path_temp)?;
-    unzip(&path_temp.join("wine+quality.zip"), path_temp)?;
+    unzip(&path_temp.join(WINE_QUALITY_ZIP_FILENAME), path_temp)?;
     // move the extracted files to the original directory
-    let src_white = path_temp.join("winequality-white.csv");
-    let src_red = path_temp.join("winequality-red.csv");
-    let dst_white = path.join("winequality-white.csv");
-    let dst_red = path.join("winequality-red.csv");
+    let src_white = path_temp.join(WHITE_WINE_QUALITY_FILENAME);
+    let src_red = path_temp.join(RED_WINE_QUALITY_FILENAME);
+    let dst_white = path.join(WHITE_WINE_QUALITY_FILENAME);
+    let dst_red = path.join(RED_WINE_QUALITY_FILENAME);
     if dst_white.exists() {
         remove_file(&dst_white).map_err(|e| DatasetError::StdIoError(e))?;
     }
@@ -129,11 +150,8 @@ fn parse_wine_data(path: &str) -> Result<
     let mut red_wine_data = String::new();
     red_wine_file.read_to_string(&mut red_wine_data).map_err(|e| DatasetError::StdIoError(e))?;
 
-    const WHITE_WINE_QUALITY_SAMPLES: usize = 4898;
-    const RED_WINE_QUALITY_SAMPLES: usize = 1599;
-
-    let white_wine_data_array = parse_wine_data_to_array(white_wine_data, WHITE_WINE_QUALITY_SAMPLES)?;
-    let red_wine_data_array = parse_wine_data_to_array(red_wine_data, RED_WINE_QUALITY_SAMPLES)?;
+    let white_wine_data_array = parse_wine_data_to_array(white_wine_data, WHITE_WINE_QUALITY_SAMPLE_SIZE)?;
+    let red_wine_data_array = parse_wine_data_to_array(red_wine_data, RED_WINE_QUALITY_SAMPLE_SIZE)?;
 
     Ok((white_wine_data_array, red_wine_data_array))
 }
@@ -164,36 +182,39 @@ fn parse_wine_data(path: &str) -> Result<
 fn parse_wine_data_to_array(data: String, n_samples: usize) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let lines: Vec<&str> = data.trim().lines().collect();
 
-    let mut features_array = Vec::with_capacity(n_samples * 11);
+    let mut features_array = Vec::with_capacity(n_samples * WINE_QUALITY_NUM_FEATURES);
     let mut target_array = Vec::with_capacity(n_samples);
 
     for line in &lines[1..] {
         if line.is_empty() { continue; }
         let cols: Vec<&str> = line.split(';').collect();
 
-        if cols.len() != 12 {
+        if cols.len() != WINE_QUALITY_NUM_FEATURES + 1 {
             return Err(DatasetError::DataFormatError(format!(
-                "Invalid wine quality data format: expected 13 columns, found {} at line {}"
+                "Invalid wine quality data format: expected {} columns, found {} at line {}"
+                , WINE_QUALITY_NUM_FEATURES + 1
                 , cols.len()
                 , line
             )))
         }
 
-        for i in 0..11 {
+        for i in 0..WINE_QUALITY_NUM_FEATURES {
             features_array.push(cols[i].parse::<f64>().map_err(
                 |e| DatasetError::DataFormatError(
-                    format!("Failed to parse features {} at line {}: {}", i, line, e)))?);
+                    format!("Failed to parse Wine Quality dataset features {} at line {}: {}", i, line, e)))?);
         }
 
         target_array.push(cols[11].parse::<f64>().map_err(
             |e| DatasetError::DataFormatError(
-                format!("Failed to parse target at line {}: {}", line, e))
+                format!("Failed to parse Wine Quality target at line {}: {}", line, e))
         )?);
     }
 
-    if features_array.len() != n_samples * 11 {
+    if features_array.len() != n_samples * WINE_QUALITY_NUM_FEATURES {
         return Err(DatasetError::DataFormatError(format!(
-            "Expected {} elements in features, got {}", n_samples * 11, features_array.len()
+            "Expected {} * {} elements in features, got {}", n_samples, 
+            WINE_QUALITY_NUM_FEATURES, 
+            features_array.len()
         )))
     }
     if target_array.len() != n_samples {
@@ -203,7 +224,7 @@ fn parse_wine_data_to_array(data: String, n_samples: usize) -> Result<(Array2<f6
     }
 
     let features_array =
-        Array2::from_shape_vec((n_samples, 11), features_array)
+        Array2::from_shape_vec((n_samples, WINE_QUALITY_NUM_FEATURES), features_array)
             .map_err(
                 |e| DatasetError::DataFormatError(
                     format!("Failed to create features array: {}", e)
