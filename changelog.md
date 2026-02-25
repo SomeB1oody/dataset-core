@@ -5,7 +5,11 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
-## [0.1.0] - 2026-2-23
+## [0.1.0] - 2026-2-25
+### Changed
+- Update documentation to reflect automatic downloading, caching, and expanded feature set
+
+## [0.1.0] - 2026-2-24
 ### Changed
 - Replace hardcoded dataset configurations with reusable constants across datasets
 

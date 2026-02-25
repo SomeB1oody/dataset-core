@@ -1,24 +1,36 @@
-//! A collection of classic machine learning datasets for Rust.
+//! A collection of classic machine learning datasets with automatic download and caching for Rust.
 //!
-//! This crate provides easy access to popular datasets commonly used in machine learning
-//! and data science education and research. Each dataset module includes functions to load
-//! the data along with utilities for splitting into training and testing sets.
+//! `rustyml-dataset` provides easy access to popular machine learning datasets with built-in
+//! support for the `ndarray` crate. Datasets are automatically downloaded from their original
+//! sources on first use and cached in memory using thread-safe `OnceLock` for optimal performance.
+//!
+//! # Features
+//!
+//! - **Automatic downloading**: Datasets are fetched from original sources on demand
+//! - **Thread-safe memoization**: Uses `OnceLock` for lazy initialization and caching
+//! - **ndarray integration**: All data returned as `ndarray` types (`Array1`, `Array2`)
+//! - **Flexible API**: Both reference-based and owned data access patterns
+//! - **Local storage**: Downloaded datasets are stored locally for offline access
 //!
 //! # Available Datasets
 //!
-//! - **Boston Housing**: Regression dataset for predicting house prices
-//! - **Diabetes**: Regression dataset for predicting disease progression
-//! - **Iris**: Classification dataset for flower species identification
-//! - **Titanic**: Classification dataset for survival prediction
-//! - **Wine Quality**: Classification/regression dataset for wine quality assessment
+//! | Dataset              | Samples | Features | Task Type      | Source                    |
+//! |----------------------|---------|----------|----------------|---------------------------|
+//! | Iris                 | 150     | 4        | Classification | UCI ML Repository         |
+//! | Boston Housing       | 506     | 13       | Regression     | UCI ML Repository         |
+//! | Diabetes             | 768     | 8        | Classification | Kaggle                    |
+//! | Titanic              | 891     | 12       | Classification | Kaggle                    |
+//! | Wine Quality (Red)   | 1599    | 12       | Regression     | UCI ML Repository         |
+//! | Wine Quality (White) | 4898    | 12       | Regression     | UCI ML Repository         |
 //!
-//! # Example
+//! # Quick Start
 //!
 //! ```rust
 //! use rustyml_dataset::iris::load_iris;
 //!
 //! let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
 //!
+//! // Load the Iris dataset (downloads on first call, cached afterwards)
 //! let (features, labels) = load_iris(download_dir).unwrap();
 //! assert_eq!(features.shape(), &[150, 4]);
 //! assert_eq!(labels.len(), 150);
@@ -30,6 +42,20 @@
 //!     }
 //! }
 //! ```
+//!
+//! # API Patterns
+//!
+//! Each dataset module provides two loading functions:
+//!
+//! - **Reference functions** (`load_*()`): Return static references to cached data (zero allocation)
+//! - **Owned functions** (`load_*_owned()`): Return cloned copies suitable for mutation
+//!
+//! # Performance Considerations
+//!
+//! The first call to any `load_*` function downloads, parses, and caches the dataset.
+//! Subsequent calls return references to the cached data with zero overhead. Use reference
+//! functions when possible for better performance; use owned functions when you need to
+//! modify the data.
 
 use zip::result::ZipError;
 use downloader::downloader::Builder;
