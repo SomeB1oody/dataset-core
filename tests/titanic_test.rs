@@ -1,8 +1,9 @@
 use rustyml_dataset::titanic::*;
+use std::fs::remove_dir_all;
 
 #[test]
 fn test_load_titanic() {
-    let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_titanic"; // the code will create the directory if it doesn't exist
 
     let (string_features, num_features, labels) = load_titanic(download_dir).unwrap();
 
@@ -13,16 +14,12 @@ fn test_load_titanic() {
     assert_eq!(labels.len(), 891); // 891 samples
 
     // clean up: remove the downloaded files
-    if let Ok(entries) = std::fs::read_dir(download_dir) {
-        for entry in entries.flatten() {
-            let _ = std::fs::remove_file(entry.path());
-        }
-    }
+    remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
 fn test_load_titanic_owned() {
-    let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_titanic_owned"; // the code will create the directory if it doesn't exist
 
     let (string_features, mut num_features, labels) = load_titanic_owned(download_dir).unwrap();
 
@@ -38,9 +35,5 @@ fn test_load_titanic_owned() {
     });
 
     // clean up: remove the downloaded files
-    if let Ok(entries) = std::fs::read_dir(download_dir) {
-        for entry in entries.flatten() {
-            let _ = std::fs::remove_file(entry.path());
-        }
-    }
+    remove_dir_all(download_dir).unwrap();
 }

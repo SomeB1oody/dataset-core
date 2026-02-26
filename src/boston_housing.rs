@@ -1,8 +1,8 @@
-use std::fs::{rename, File};
+use std::fs::{rename, File, remove_file};
 use std::io::Read;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{DatasetError, create_temp_dir, download_to, unzip};
+use crate::{DatasetError, create_temp_dir, download_to, unzip, file_sha256_matches};
 use std::path::Path;
 
 /// A static variable to store the Boston Housing dataset.
@@ -60,6 +60,9 @@ const BOSTON_HOUSING_SAMPLE_SIZE: usize = 506;
 /// The number of features in the dataset
 const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
+/// The SHA256 hash of the dataset file
+const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+
 /// Internal function to download, parse, and validate the Boston Housing dataset.
 ///
 /// This function downloads the dataset archive into a temporary directory under `path`,
@@ -80,23 +83,42 @@ const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 ///   content is not in the expected format/dimensions.
 fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
+    let dst = path.join(BOSTON_HOUSING_FILENAME);
+    let mut need_download = true;
+    let mut need_overwrite = false;
+    // create the directory if it doesn't exist
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    } else {
+        // check if the file exists and matches the expected SHA256 hash
+        if dst.exists() {
+            if file_sha256_matches(dst.as_path(), BOSTON_HOUSING_SHA256)? {
+                need_download = false;
+            } else {
+                // if file exists but hash doesn't match, overwrite it
+                need_overwrite = true;
+            }
+        }
     }
-    // temporary directory to store the downloaded zip file
-    let temp_dir = create_temp_dir(path, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
-    let path_temp = temp_dir.path();
-    // download and extract boston housing dataset
-    download_to(BOSTON_HOUSING_DATA_URL, path_temp)?;
-    unzip(&path_temp.join(BOSTON_HOUSING_ZIP_FILENAME), path_temp)?;
-    // move boston_housing.csv out of the temporary directory
-    let src = path_temp.join(BOSTON_HOUSING_UNZIP_FOLDER).join( BOSTON_HOUSING_FILENAME);
-    let dst = path.join(BOSTON_HOUSING_FILENAME);
-    // cover the existing file (if any) with the new one
-    if dst.exists() {
-        std::fs::remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    // download and extract boston housing dataset if needed
+    if need_download {
+        // temporary directory to store the downloaded zip file
+        let temp_dir = create_temp_dir(path, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
+        let path_temp = temp_dir.path();
+        // download and extract boston housing dataset
+        download_to(BOSTON_HOUSING_DATA_URL, path_temp)?;
+        unzip(&path_temp.join(BOSTON_HOUSING_ZIP_FILENAME), path_temp)?;
+        let src = path_temp.join(BOSTON_HOUSING_UNZIP_FOLDER).join(BOSTON_HOUSING_FILENAME);
+        // check if the file exists and matches the expected SHA256 hash
+        if !file_sha256_matches(src.as_path(), BOSTON_HOUSING_SHA256)? {
+            return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", BOSTON_HOUSING_FILENAME)));
+        }
+        if need_overwrite {
+            remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+        }
+        // move boston_housing.csv out of the temporary directory
+        rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
-    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
 
     let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
     let mut data = String::new();

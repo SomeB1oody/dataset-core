@@ -61,6 +61,8 @@ use zip::result::ZipError;
 use downloader::downloader::Builder;
 use downloader::Download;
 use std::path::Path;
+use std::io::Read;
+use sha2::{Digest, Sha256};
 use zip::ZipArchive;
 use std::fs::File;
 
@@ -144,6 +146,43 @@ pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfil
     Ok(temp_dir)
 }
 
+/// Verify that a file's SHA256 hash matches an expected value.
+///
+/// This function computes the SHA256 hash of the file at the given path and compares
+/// it with the expected hexadecimal hash string (case-insensitive). It is used by
+/// dataset loaders to validate downloaded files before parsing.
+///
+/// # Parameters
+///
+/// - `path` - Path to the file to verify.
+/// - `expected_hex` - Expected SHA256 hash as a hexadecimal string.
+///
+/// # Returns
+///
+/// - `bool` - true if the computed hash matches the expected hash, false if the hashes don't match
+///
+/// # Errors
+///
+/// - `DatasetError::StdIoError` - Returned when file I/O operations fail (opening file, reading data).
+pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
+    let mut file = File::open(path).map_err(|e| DatasetError::StdIoError(e))?;
+
+    let mut hasher = Sha256::new();
+    let mut buf = [0u8; 8192];
+
+    loop {
+        let read = file.read(&mut buf).map_err(|e| DatasetError::StdIoError(e))?;
+        if read == 0 {
+            break;
+        }
+        hasher.update(&buf[..read]);
+    }
+
+    let digest = hasher.finalize();
+    let actual_hex = format!("{:x}", digest);
+    Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
+}
+
 /// Error type used by dataset loading utilities.
 ///
 /// # Variants
@@ -155,6 +194,7 @@ pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfil
 #[derive(Debug)]
 pub enum DatasetError {
     DownloadError(downloader::Error),
+    ValidationError(String),
     UnzipError(ZipError),
     StdIoError(std::io::Error),
     DataFormatError(String),
@@ -165,6 +205,7 @@ impl std::fmt::Display for DatasetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
+            DatasetError::ValidationError(e) => write!(f, "Validation error: {}", e),
             DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
             DatasetError::StdIoError(e) => write!(f, "Std IO error: {}", e),
             DatasetError::DataFormatError(e) => write!(f, "Data format error: {}", e),
