@@ -8,6 +8,7 @@ Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-d
 ## [0.1.0] - 2026-2-25
 ### Changed
 - Update documentation to reflect automatic downloading, caching, and expanded feature set
+- Update `tempfile` version to 3.26.0
 
 ## [0.1.0] - 2026-2-24
 ### Changed
