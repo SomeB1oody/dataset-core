@@ -1,5 +1,8 @@
 use rustyml_dataset::diabetes::*;
-use std::fs::remove_dir_all;
+use std::fs::{create_dir_all, remove_dir_all, File};
+use std::io::Write;
+use std::path::Path;
+use rustyml_dataset::download_to;
 
 #[test]
 fn test_load_diabetes() {
@@ -28,4 +31,38 @@ fn test_load_diabetes_owned() {
     
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();   
+}
+
+#[test]
+fn test_load_diabetes_no_need_download() {
+    let download_dir = "./test_load_diabetes_no_need_download";
+    let download_dir_path = Path::new(download_dir);
+    create_dir_all(download_dir_path).unwrap();
+
+    // download in advance
+    download_to("https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv", download_dir_path).unwrap();
+
+    // should use cached data
+    let (_features, _labels) = load_diabetes(download_dir).unwrap();
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+fn test_load_diabetes_overwrite() {
+    let download_dir = "./test_load_diabetes_overwrite";
+    // create fake data in the download directory
+    {
+        let download_dir_path = Path::new(download_dir);
+        create_dir_all(download_dir_path).unwrap();
+        let diabetes_path = download_dir_path.join("diabetes.csv");
+        let mut fake_diabetes = File::create(diabetes_path).unwrap();
+        fake_diabetes.write_all(b"fake data").unwrap();
+    }
+    // should overwrite data
+    let (_features, _labels) = load_diabetes(download_dir).unwrap();
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
 }

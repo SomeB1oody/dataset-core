@@ -2,7 +2,7 @@ use std::fs::{remove_file, rename};
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{download_to, DatasetError, create_temp_dir};
+use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches};
 use std::fs::File;
 use std::io::Read;
 
@@ -52,6 +52,9 @@ const DIABETES_NUM_FEATURES: usize = 8;
 /// The prefix for temporary files created during dataset download and parsing.
 const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 
+/// The SHA256 hash of the Diabetes dataset file.
+const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
+
 /// Downloads, parses, and validates the Diabetes dataset.
 ///
 /// This internal function downloads the dataset CSV into a temporary directory under `path`,
@@ -76,22 +79,41 @@ const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
 fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
+    let dst = path.join(DIABETES_FILENAME);
+    let mut need_download = true;
+    let mut need_overwrite = false;
+    // create directory if it doesn't exist
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    } else {
+        // check if the file exists and matches the expected SHA256 hash
+        if dst.exists() {
+            if file_sha256_matches(dst.as_path(), DIABETES_SHA256)? {
+                need_download = false;
+            } else {
+                // if file exists but hash doesn't match, overwrite it
+                need_overwrite = true;
+                println!("Overwriting existing file: {}", dst.display());
+            }
+        }
     }
-    // temporary directory
-    let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
-    let path_temp = temp_dir.path();
-    // download file to temporary directory
-    download_to(DIABETES_DATA_URL, path_temp)?;
-    // move downloaded file to final location
-    let src = path_temp.join(DIABETES_FILENAME);
-    let dst = path.join(DIABETES_FILENAME);
-    // cover the existing file (if any) with the new one
-    if dst.exists() {
-        remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    if need_download {
+        // temporary directory
+        let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
+        let path_temp = temp_dir.path();
+        // download file to temporary directory
+        download_to(DIABETES_DATA_URL, path_temp)?;
+        // move downloaded file to final location
+        let src = path_temp.join(DIABETES_FILENAME);
+        // check if the file matches the expected SHA256 hash
+        if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
+            return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", DIABETES_FILENAME)));
+        }
+        if need_overwrite {
+            remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+        }
+        rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
-    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
 
     let mut raw_data = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
     let mut data = String::new();
