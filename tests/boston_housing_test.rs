@@ -1,6 +1,6 @@
 use rustyml_dataset::boston_housing::*;
 use std::fs::{remove_dir_all, rename, create_dir_all};
-use rustyml_dataset::{download_to, unzip};
+use rustyml_dataset::{download_to, file_sha256_matches, unzip};
 use std::path::Path;
 use std::fs::File;
 use std::io::Write;
@@ -69,10 +69,10 @@ fn test_boston_housing_no_need_download() {
 #[test]
 fn test_boston_housing_overwrite() {
     let download_dir = "./test_boston_housing_overwrite";
+    let download_dir_path = Path::new(download_dir);
+    create_dir_all(download_dir_path).unwrap();
     // create a fake Boston Housing dataset in advance
     {
-        let download_dir_path = Path::new(download_dir);
-        create_dir_all(download_dir_path).unwrap();
         let boston_housing_path = download_dir_path.join("BostonHousing.csv");
         let mut fake_boston_housing = File::create(boston_housing_path).unwrap();
         fake_boston_housing.write_all(b"fake data").unwrap();
@@ -80,6 +80,12 @@ fn test_boston_housing_overwrite() {
 
     // should overwrite the fake Boston Housing dataset
     let (_features, _targets) = load_boston_housing(download_dir).unwrap();
+
+    // check the fake file is overwritten
+    assert!(file_sha256_matches(
+        &download_dir_path.join("BostonHousing.csv"),
+        "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451"
+    ).unwrap());
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();

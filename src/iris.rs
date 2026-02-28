@@ -1,6 +1,6 @@
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{create_temp_dir, download_to, unzip, DatasetError};
+use crate::{create_temp_dir, download_to, file_sha256_matches, unzip, DatasetError};
 use std::path::Path;
 use std::fs::{remove_file, rename, File};
 use std::io::Read;
@@ -48,11 +48,17 @@ const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";
 /// The name of the zip file downloaded.
 const IRIS_ZIP_FILENAME: &str = "iris.zip";
 
+/// The name of the file in the zip after extraction.
+const IRIS_FILENAME: &str = "iris.data";
+
 /// The number of samples in the Iris dataset.
 const IRIS_SAMPLE_SIZE: usize = 150;
 
 /// The number of features in the Iris dataset.
 const IRIS_NUM_FEATURES: usize = 4;
+
+/// The SHA256 hash of the Iris dataset file.
+const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
 
 /// Internal function to download and process the Iris dataset.
 ///
@@ -79,25 +85,43 @@ const IRIS_NUM_FEATURES: usize = 4;
 fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
+    let dst = path.join(IRIS_FILENAME);
+    let mut need_download = true;
+    let mut need_overwrite = false;
     // create the directory if it doesn't exist
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    } else {
+        if dst.exists() {
+            if file_sha256_matches(dst.as_path(), IRIS_SHA256)? {
+                need_download = false;
+                println!("Using cached dataset");
+            } else {
+                need_overwrite = true;
+            }
+        }
     }
-    // temporary directory to store the downloaded zip file
-    let temp_dir = create_temp_dir(path, IRIS_TEMP_FILE_PREFIX)?;
-    let path_temp = temp_dir.path();
-    // download and extract iris dataset
-    download_to(IRIS_DATA_URL, path_temp)?;
-    unzip(&path_temp.join(IRIS_ZIP_FILENAME), path_temp)?;
-
-    // move iris.data out of the temporary directory
-    let src = path_temp.join("iris.data");
-    let dst = path.join("iris.csv");
-    // cover the existing file (if any) with the new one
-    if dst.exists() {
-        remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    if need_download {
+        // temporary directory to store the downloaded zip file
+        let temp_dir = create_temp_dir(path, IRIS_TEMP_FILE_PREFIX)?;
+        let path_temp = temp_dir.path();
+        // download and extract iris dataset
+        download_to(IRIS_DATA_URL, path_temp)?;
+        unzip(&path_temp.join(IRIS_ZIP_FILENAME), path_temp)?;
+        // move iris.data out of the temporary directory
+        let src = path_temp.join(IRIS_FILENAME);
+        // check if the file is valid
+        if !file_sha256_matches(src.as_path(), IRIS_SHA256)? {
+            return Err(DatasetError::ValidationError(
+                format!("{} SHA256 validation failed", IRIS_FILENAME)
+            ))
+        }
+        // overwrite the existing file if needed
+        if need_overwrite {
+            remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+        }
+        rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
-    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
 
     let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
     let mut data = String::new();

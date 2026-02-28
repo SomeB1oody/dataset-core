@@ -93,7 +93,6 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
             } else {
                 // if file exists but hash doesn't match, overwrite it
                 need_overwrite = true;
-                println!("Overwriting existing file: {}", dst.display());
             }
         }
     }
@@ -115,9 +114,9 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
         rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
 
-    let mut raw_data = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+    let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
     let mut data = String::new();
-    raw_data.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+    file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
     let lines: Vec<&str> = data.trim().lines().collect();
 
     let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);

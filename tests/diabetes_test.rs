@@ -2,7 +2,7 @@ use rustyml_dataset::diabetes::*;
 use std::fs::{create_dir_all, remove_dir_all, File};
 use std::io::Write;
 use std::path::Path;
-use rustyml_dataset::download_to;
+use rustyml_dataset::{download_to, file_sha256_matches};
 
 #[test]
 fn test_load_diabetes() {
@@ -52,16 +52,22 @@ fn test_load_diabetes_no_need_download() {
 #[test]
 fn test_load_diabetes_overwrite() {
     let download_dir = "./test_load_diabetes_overwrite";
+    let download_dir_path = Path::new(download_dir);
+    create_dir_all(download_dir_path).unwrap();
     // create fake data in the download directory
     {
-        let download_dir_path = Path::new(download_dir);
-        create_dir_all(download_dir_path).unwrap();
         let diabetes_path = download_dir_path.join("diabetes.csv");
         let mut fake_diabetes = File::create(diabetes_path).unwrap();
         fake_diabetes.write_all(b"fake data").unwrap();
     }
     // should overwrite data
     let (_features, _labels) = load_diabetes(download_dir).unwrap();
+
+    // check the fake file is overwritten
+    assert!(file_sha256_matches(
+        &download_dir_path.join("diabetes.csv"),
+        "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72"
+    ).unwrap());
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();

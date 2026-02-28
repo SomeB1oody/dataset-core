@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-2-28
+### Changed
+- Add SHA256 validation for Iris dataset download
+
 ## [0.1.0] - 2026-2-27
 ### Changed
 - Add SHA256 validation for Diabetes dataset download
