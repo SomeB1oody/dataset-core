@@ -3,7 +3,7 @@ use std::io::Read;
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{DatasetError, download_to};
+use crate::{DatasetError, download_to, file_sha256_matches};
 
 /// A static variable to store the Titanic dataset.
 ///
@@ -63,6 +63,9 @@ const TITANIC_NUM_STRING_FEATURES: usize = 5;
 
 /// The number of numeric features in the Titanic dataset.
 const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
+
+/// The SHA256 hash of the Titanic dataset file.
+const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
 
 /// Parses a CSV line, correctly handling quoted fields that may contain commas.
 ///
@@ -128,22 +131,40 @@ fn parse_csv_line(line: &str) -> Vec<String> {
 fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
+    let dst = path.join(TITANIC_FILENAME);
+    let mut need_download = true;
+    let mut need_overwrite = false;
     // create the directory if it doesn't exist
     if !path.exists() {
         std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    } else {
+        // check if the file exists and matches the expected SHA256
+        if dst.exists() {
+            if file_sha256_matches(dst.as_path(), TITANIC_SHA256)? {
+                need_download = false;
+            } else {
+                need_overwrite = true;
+            }
+        }
     }
-    // temporary directory to store the downloaded zip file
-    let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;
-    let path_temp = temp_dir.path();
-    // download and extract titanic dataset
-    download_to(TITANIC_DATA_URL, path_temp)?;
-    // move downloaded file to final location
-    let src = path_temp.join(TITANIC_FILENAME);
-    let dst = path.join(TITANIC_FILENAME);
-    if dst.exists() {
-        remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+    if need_download {
+        // temporary directory to store the downloaded zip file
+        let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;
+        let path_temp = temp_dir.path();
+        // download and extract titanic dataset
+        download_to(TITANIC_DATA_URL, path_temp)?;
+        // move downloaded file to final location
+        let src = path_temp.join(TITANIC_FILENAME);
+        if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
+            return Err(DatasetError::ValidationError(
+                format!("{} SHA256 validation failed", TITANIC_SHA256)
+            ));
+        }
+        if need_overwrite {
+            remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+        }
+        rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
-    rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
 
     let mut data = String::new();
     let mut raw_data = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;

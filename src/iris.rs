@@ -95,7 +95,6 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
         if dst.exists() {
             if file_sha256_matches(dst.as_path(), IRIS_SHA256)? {
                 need_download = false;
-                println!("Using cached dataset");
             } else {
                 need_overwrite = true;
             }
