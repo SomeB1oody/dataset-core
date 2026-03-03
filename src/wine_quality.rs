@@ -1,9 +1,9 @@
-use std::fs::{create_dir_all, remove_file, rename, File};
+use std::fs::{remove_file, rename, File};
 use std::io::Read;
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{create_temp_dir, download_to, DatasetError, unzip, file_sha256_matches};
+use crate::{create_temp_dir, download_to, DatasetError, unzip, file_sha256_matches, prepare_download_dir};
 
 /// A static variable to store the Red Wine Quality dataset.
 ///
@@ -87,6 +87,71 @@ const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87
 /// The SHA256 hash of the red wine quality dataset.
 const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
 
+/// Downloads and stores a Wine Quality CSV file if needed.
+///
+/// This internal helper function handles the download, extraction, and validation
+/// of a specific Wine Quality CSV file (either red or white wine data). It downloads
+/// the UCI Wine Quality zip archive, extracts the specified CSV file, validates it
+/// against the expected SHA256 hash, and moves it to the target location.
+///
+/// # Parameters
+///
+/// - `storage_dir` - Directory where the dataset files will be stored
+/// - `dst_file` - Target path where the CSV file should be placed
+/// - `csv_filename` - Name of the CSV file to extract from the zip archive
+/// - `expected_sha256` - Expected SHA256 hash for file validation
+/// - `need_download` - Whether download is needed (if false, function returns early)
+/// - `need_overwrite` - Whether to overwrite the existing file if it exists
+///
+/// # Returns
+///
+/// Returns `Ok(())` if the operation succeeds, or returns early if `need_download` is false.
+///
+/// # Errors
+///
+/// Returns `DatasetError` if:
+/// - Creating temporary directory fails
+/// - Download fails due to network issues or invalid URL
+/// - Unzipping fails or the archive is corrupted
+/// - SHA256 validation fails (file corruption or wrong data)
+/// - File I/O operations fail (removing existing file, moving extracted file)
+fn ensure_wine_quality_csv(
+    storage_dir: &Path,
+    dst_file: &Path,
+    csv_filename: &str,
+    expected_sha256: &str,
+    need_download: bool,
+    need_overwrite: bool,
+) -> Result<(), DatasetError> {
+    if !need_download {
+        return Ok(());
+    }
+
+    // temporary directory to store the downloaded zip file
+    let temp_dir = create_temp_dir(storage_dir, WINE_QUALITY_TEMP_FILE_PREFIX)?;
+    let path_temp = temp_dir.path();
+
+    // download the zip file and extract it to the temporary directory
+    download_to(WINE_QUALITY_URL, path_temp)?;
+    unzip(&path_temp.join(WINE_QUALITY_ZIP_FILENAME), path_temp)?;
+
+    // move the extracted file to the original directory
+    let src_file = path_temp.join(csv_filename);
+
+    if !file_sha256_matches(src_file.as_path(), expected_sha256)? {
+        return Err(DatasetError::ValidationError(format!(
+            "{} SHA256 validation failed",
+            csv_filename
+        )));
+    }
+    if need_overwrite {
+        remove_file(dst_file).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+    rename(&src_file, dst_file).map_err(|e| DatasetError::StdIoError(e))?;
+
+    Ok(())
+}
+
 /// Internal function to download, extract, and parse the Red Wine Quality dataset.
 ///
 /// This function downloads the UCI Wine Quality archive, extracts the CSV file,
@@ -113,37 +178,16 @@ const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e
 fn parse_red_wine_data(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
     let dst_red = path.join(RED_WINE_QUALITY_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-
-    // create the directory if it doesn't exist
-    if !path.exists() {
-        create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        if dst_red.exists() {
-            if file_sha256_matches(dst_red.as_path(), RED_WINE_QUALITY_SHA256)? {
-                need_download = false;
-            } else {
-                need_overwrite = true;
-            }
-        }
-    }
-    if need_download {
-        // temporary directory to store the downloaded zip file
-        let temp_dir = create_temp_dir(path, WINE_QUALITY_TEMP_FILE_PREFIX)?;
-        let path_temp = temp_dir.path();
-
-        // download the zip file and extract it to the temporary directory
-        download_to(WINE_QUALITY_URL, path_temp)?;
-        unzip(&path_temp.join(WINE_QUALITY_ZIP_FILENAME), path_temp)?;
-
-        // move the extracted file to the original directory
-        let src_red = path_temp.join(RED_WINE_QUALITY_FILENAME);
-        if need_overwrite {
-            remove_file(&dst_red).map_err(|e| DatasetError::StdIoError(e))?;
-        }
-        rename(&src_red, &dst_red).map_err(|e| DatasetError::StdIoError(e))?;
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst_red, RED_WINE_QUALITY_SHA256)?;
+    ensure_wine_quality_csv(
+        path,
+        &dst_red,
+        RED_WINE_QUALITY_FILENAME,
+        RED_WINE_QUALITY_SHA256,
+        need_download,
+        need_overwrite,
+    )?;
 
     let mut red_wine_file = File::open(dst_red).map_err(|e| DatasetError::StdIoError(e))?;
     let mut red_wine_data = String::new();
@@ -178,37 +222,16 @@ fn parse_red_wine_data(path: &str) -> Result<(Array2<f64>, Array1<f64>), Dataset
 fn parse_white_wine_data(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
     let dst_white = path.join(WHITE_WINE_QUALITY_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-
-    // create the directory if it doesn't exist
-    if !path.exists() {
-        create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        if dst_white.exists() {
-            if file_sha256_matches(dst_white.as_path(), WHITE_WINE_QUALITY_SHA256)? {
-                need_download = false;
-            } else {
-                need_overwrite = true;
-            }
-        }
-    }
-    if need_download {
-        // temporary directory to store the downloaded zip file
-        let temp_dir = create_temp_dir(path, WINE_QUALITY_TEMP_FILE_PREFIX)?;
-        let path_temp = temp_dir.path();
-
-        // download the zip file and extract it to the temporary directory
-        download_to(WINE_QUALITY_URL, path_temp)?;
-        unzip(&path_temp.join(WINE_QUALITY_ZIP_FILENAME), path_temp)?;
-
-        // move the extracted file to the original directory
-        let src_white = path_temp.join(WHITE_WINE_QUALITY_FILENAME);
-        if need_overwrite {
-            remove_file(&dst_white).map_err(|e| DatasetError::StdIoError(e))?;
-        }
-        rename(&src_white, &dst_white).map_err(|e| DatasetError::StdIoError(e))?;
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst_white, WHITE_WINE_QUALITY_SHA256)?;
+    ensure_wine_quality_csv(
+        path,
+        &dst_white,
+        WHITE_WINE_QUALITY_FILENAME,
+        WHITE_WINE_QUALITY_SHA256,
+        need_download,
+        need_overwrite,
+    )?;
 
     let mut white_wine_file = File::open(dst_white).map_err(|e| DatasetError::StdIoError(e))?;
     let mut white_wine_data = String::new();

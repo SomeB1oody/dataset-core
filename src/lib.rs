@@ -183,6 +183,49 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
     Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
 }
 
+/// Prepare a dataset download directory and determine if download/overwrite is needed.
+///
+/// This helper ensures the target directory exists and checks whether the destination
+/// file already matches the expected SHA256 hash.
+///
+/// # Parameters
+///
+/// - `path` - Directory path where the dataset will be stored.
+/// - `dst` - Destination file path for the dataset.
+/// - `expected_sha256` - Expected SHA256 hash for the dataset file.
+///
+/// # Returns
+///
+/// - `(need_download, need_overwrite)` - Flags indicating whether to download and
+///   whether an existing file should be overwritten.
+///
+/// # Errors
+///
+/// - `DatasetError::StdIoError` - Returned when creating the directory fails or when
+///   file I/O operations fail during hash verification.
+pub fn prepare_download_dir(
+    path: &Path,
+    dst: &Path,
+    expected_sha256: &str,
+) -> Result<(bool, bool), DatasetError> {
+    let mut need_download = true;
+    let mut need_overwrite = false;
+
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+    }
+
+    if dst.exists() {
+        if file_sha256_matches(dst, expected_sha256)? {
+            need_download = false;
+        } else {
+            need_overwrite = true;
+        }
+    }
+
+    Ok((need_download, need_overwrite))
+}
+
 /// Error type used by dataset loading utilities.
 ///
 /// # Variants

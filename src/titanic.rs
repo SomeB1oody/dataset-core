@@ -3,7 +3,7 @@ use std::io::Read;
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{DatasetError, download_to, file_sha256_matches};
+use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir};
 
 /// A static variable to store the Titanic dataset.
 ///
@@ -132,21 +132,8 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
     let dst = path.join(TITANIC_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-    // create the directory if it doesn't exist
-    if !path.exists() {
-        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        // check if the file exists and matches the expected SHA256
-        if dst.exists() {
-            if file_sha256_matches(dst.as_path(), TITANIC_SHA256)? {
-                need_download = false;
-            } else {
-                need_overwrite = true;
-            }
-        }
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst, TITANIC_SHA256)?;
     if need_download {
         // temporary directory to store the downloaded zip file
         let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;

@@ -2,7 +2,7 @@ use std::fs::{remove_file, rename};
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches};
+use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches, prepare_download_dir};
 use std::fs::File;
 use std::io::Read;
 
@@ -80,22 +80,8 @@ const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba
 fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
     let dst = path.join(DIABETES_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-    // create directory if it doesn't exist
-    if !path.exists() {
-        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        // check if the file exists and matches the expected SHA256 hash
-        if dst.exists() {
-            if file_sha256_matches(dst.as_path(), DIABETES_SHA256)? {
-                need_download = false;
-            } else {
-                // if file exists but hash doesn't match, overwrite it
-                need_overwrite = true;
-            }
-        }
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst, DIABETES_SHA256)?;
     if need_download {
         // temporary directory
         let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;

@@ -2,7 +2,7 @@ use std::fs::{rename, File, remove_file};
 use std::io::Read;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{DatasetError, create_temp_dir, download_to, unzip, file_sha256_matches};
+use crate::{DatasetError, create_temp_dir, download_to, unzip, file_sha256_matches, prepare_download_dir};
 use std::path::Path;
 
 /// A static variable to store the Boston Housing dataset.
@@ -84,22 +84,8 @@ const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3
 fn load_boston_housing_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let path = Path::new(path);
     let dst = path.join(BOSTON_HOUSING_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-    // create the directory if it doesn't exist
-    if !path.exists() {
-        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        // check if the file exists and matches the expected SHA256 hash
-        if dst.exists() {
-            if file_sha256_matches(dst.as_path(), BOSTON_HOUSING_SHA256)? {
-                need_download = false;
-            } else {
-                // if file exists but hash doesn't match, overwrite it
-                need_overwrite = true;
-            }
-        }
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst, BOSTON_HOUSING_SHA256)?;
     // download and extract boston housing dataset if needed
     if need_download {
         // temporary directory to store the downloaded zip file

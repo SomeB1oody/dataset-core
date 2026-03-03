@@ -1,6 +1,6 @@
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{create_temp_dir, download_to, file_sha256_matches, unzip, DatasetError};
+use crate::{create_temp_dir, download_to, file_sha256_matches, unzip, DatasetError, prepare_download_dir};
 use std::path::Path;
 use std::fs::{remove_file, rename, File};
 use std::io::Read;
@@ -86,20 +86,8 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
     // the path the user wants dataset to be stored in
     let path = Path::new(path);
     let dst = path.join(IRIS_FILENAME);
-    let mut need_download = true;
-    let mut need_overwrite = false;
-    // create the directory if it doesn't exist
-    if !path.exists() {
-        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
-    } else {
-        if dst.exists() {
-            if file_sha256_matches(dst.as_path(), IRIS_SHA256)? {
-                need_download = false;
-            } else {
-                need_overwrite = true;
-            }
-        }
-    }
+    let (need_download, need_overwrite) =
+        prepare_download_dir(path, &dst, IRIS_SHA256)?;
     if need_download {
         // temporary directory to store the downloaded zip file
         let temp_dir = create_temp_dir(path, IRIS_TEMP_FILE_PREFIX)?;
