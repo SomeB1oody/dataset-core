@@ -10,9 +10,9 @@ use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir
 /// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
 /// of its contents. It contains a tuple of:
 ///
-/// - `Array2<String>` - String features matrix with shape (891, 5), columns are: Name, Sex, Ticket, Cabin, Embarked (may be `NaN` if missing in the source)
-/// - `Array2<f64>` - Numeric features matrix with shape (891, 6), columns are: PassengerId, Pclass, Age, SibSp, Parch, Fare (may be `NaN` if missing in the source)
-/// - `Array1<f64>` - Label vector with shape (891,), values are: Survived (0.0 or 1.0)
+/// - `Array2<String>` - String features matrix with shape `(891, 5)`, columns: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked` (empty string if missing in source)
+/// - `Array2<f64>` - Numeric features matrix with shape `(891, 6)`, columns: `PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare` (`NaN` if missing in source)
+/// - `Array1<f64>` - Label vector with shape `(891,)`, values are `Survived` (`0.0`/`1.0`, `NaN` if missing in source)
 ///
 /// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
 /// for the lifetime of the program.
@@ -30,7 +30,7 @@ static TITANIC_DATA: OnceLock<(
 /// Unfortunately, there weren’t enough lifeboats for everyone on board, resulting in the death of 1502 out of 2224 passengers and crew.
 /// While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
 ///
-/// Features (may be `NaN` if missing in the source):
+/// Features:
 /// - PassengerId - Passenger ID
 /// - Pclass - Ticket class: 1 = 1st, 2 = 2nd, 3 = 3rd
 /// - Name - Name of the Passenger
@@ -43,8 +43,12 @@ static TITANIC_DATA: OnceLock<(
 /// - Cabin - Cabin number
 /// - Embarked - Port of Embarkation: C = Cherbourg, Q = Queenstown, S = Southampton
 ///
-/// Lables:
-/// - Survived - Weather Survived or not: 0 = No, 1 = Yes
+/// Missing values:
+/// - Numeric fields are parsed as `NaN` when missing.
+/// - String fields are parsed as empty strings when missing.
+///
+/// Labels:
+/// - Survived - Whether the passenger survived: 0 = No, 1 = Yes
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 pub const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
@@ -116,9 +120,9 @@ fn parse_csv_line(line: &str) -> Vec<String> {
 ///
 /// # Returns
 ///
-/// - `Array2<String>` - String features matrix with shape (891, 5), columns are: Name, Sex, Ticket, Cabin, Embarked (may be `NaN` if missing in the source)
-/// - `Array2<f64>` - Numeric features matrix with shape (891, 6), columns are: PassengerId, Pclass, Age, SibSp, Parch, Fare (may be `NaN` if missing in the source)
-/// - `Array1<f64>` - Label vector with shape (891,), values are: Survived (0.0 or 1.0)
+/// - `Array2<String>` - String features matrix with shape `(891, 5)`, columns: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked` (empty string if missing in source)
+/// - `Array2<f64>` - Numeric features matrix with shape `(891, 6)`, columns: `PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare` (`NaN` if missing in source)
+/// - `Array1<f64>` - Label vector with shape `(891,)`, values are `Survived` (`0.0`/`1.0`, `NaN` if missing in source)
 ///
 /// # Errors
 ///
@@ -343,7 +347,7 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
 /// - `Fare`
 ///
 /// Labels (shape `(891,)`):
-/// - `Survived` (0.0 or 1.0)
+/// - `Survived` (`0.0` or `1.0`; `NaN` if missing in source)
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 ///
@@ -353,9 +357,9 @@ fn load_titanic_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Arr
 ///
 /// # Returns
 ///
-/// - `&Array2<String>` - String feature matrix with shape `(891, 5)` (may be `NaN` if missing in the source)
-/// - `&Array2<f64>` - Numeric feature matrix with shape `(891, 6)` (may be `NaN` if missing in the source)
-/// - `&Array1<f64>` - Labels vector with shape `(891,)`
+/// - `&Array2<String>` - String feature matrix with shape `(891, 5)` (empty string if missing in source)
+/// - `&Array2<f64>` - Numeric feature matrix with shape `(891, 6)` (`NaN` if missing in source)
+/// - `&Array1<f64>` - Labels vector with shape `(891,)` (`0.0`/`1.0`, `NaN` if missing in source)
 ///
 /// # Errors
 ///
@@ -433,7 +437,7 @@ pub fn load_titanic(storage_path: &str) -> Result<
 /// - `Fare`
 ///
 /// Labels (shape `(891,)`):
-/// - `Survived` (0.0 or 1.0)
+/// - `Survived` (`0.0` or `1.0`; `NaN` if missing in source)
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 ///
@@ -443,9 +447,9 @@ pub fn load_titanic(storage_path: &str) -> Result<
 ///
 /// # Returns
 ///
-/// - `Array2<String>` - Owned string feature matrix with shape `(891, 5)` (may be `NaN` if missing in the source)
-/// - `Array2<f64>` - Owned numeric feature matrix with shape `(891, 6)` (may be `NaN` if missing in the source)
-/// - `Array1<f64>` - Owned labels vector with shape `(891,)`
+/// - `Array2<String>` - Owned string feature matrix with shape `(891, 5)` (empty string if missing in source)
+/// - `Array2<f64>` - Owned numeric feature matrix with shape `(891, 6)` (`NaN` if missing in source)
+/// - `Array1<f64>` - Owned labels vector with shape `(891,)` (`0.0`/`1.0`, `NaN` if missing in source)
 ///
 /// # Errors
 ///

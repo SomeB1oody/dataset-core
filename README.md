@@ -28,9 +28,9 @@ A collection of classic machine learning datasets with automatic download, cachi
 | Iris                     | 150     | 4        | Classification | UCI ML Repository         |
 | Boston Housing           | 506     | 13       | Regression     | UCI ML Repository         |
 | Diabetes                 | 768     | 8        | Classification | Kaggle                    |
-| Titanic                  | 891     | 12       | Classification | Kaggle                    |
-| Wine Quality (Red)       | 1599    | 12       | Regression     | UCI ML Repository         |
-| Wine Quality (White)     | 4898    | 12       | Regression     | UCI ML Repository         |
+| Titanic                  | 891     | 11       | Classification | Kaggle                    |
+| Wine Quality (Red)       | 1599    | 11       | Regression     | UCI ML Repository         |
+| Wine Quality (White)     | 4898    | 11       | Regression     | UCI ML Repository         |
 
 ### Dataset Information
 
@@ -102,12 +102,13 @@ fn main() {
 - **Features**: Pregnancies, glucose, blood pressure, skin thickness, insulin, BMI, diabetes pedigree, age
 
 ### Titanic
-- **Samples**: 891 | **Features**: 12 | **Task**: Classification
+- **Samples**: 891 | **Features**: 11 | **Task**: Classification
 - **Description**: Predict passenger survival on the Titanic
-- **Features**: Passenger class, sex, age, siblings/spouses, parents/children, fare, embarked location, and more
+- **Features**: Returned as two matrices:
+  string features (`Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`) and numeric features (`PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare`)
 
 ### Wine Quality
-- **Samples**: 1599 (red) / 4898 (white) | **Features**: 12 | **Task**: Regression
+- **Samples**: 1599 (red) / 4898 (white) | **Features**: 11 | **Task**: Regression
 - **Description**: Predict wine quality ratings based on physicochemical properties
 - **Features**: Acidity levels, sugar, chlorides, sulfur dioxide, density, pH, sulphates, alcohol
 
@@ -154,7 +155,7 @@ Each dataset module provides two functions:
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/SomeB1oody/RustyML-dataset/blob/master/README.md) file for details.
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
 
 ## Contributing
 

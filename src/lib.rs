@@ -19,9 +19,9 @@
 //! | Iris                 | 150     | 4        | Classification | UCI ML Repository         |
 //! | Boston Housing       | 506     | 13       | Regression     | UCI ML Repository         |
 //! | Diabetes             | 768     | 8        | Classification | Kaggle                    |
-//! | Titanic              | 891     | 12       | Classification | Kaggle                    |
-//! | Wine Quality (Red)   | 1599    | 12       | Regression     | UCI ML Repository         |
-//! | Wine Quality (White) | 4898    | 12       | Regression     | UCI ML Repository         |
+//! | Titanic              | 891     | 11       | Classification | Kaggle                    |
+//! | Wine Quality (Red)   | 1599    | 11       | Regression     | UCI ML Repository         |
+//! | Wine Quality (White) | 4898    | 11       | Regression     | UCI ML Repository         |
 //!
 //! # Quick Start
 //!
@@ -231,9 +231,11 @@ pub fn prepare_download_dir(
 /// # Variants
 ///
 /// - `DownloadError` - The download step failed (network, invalid URL, or downloader configuration).
+/// - `ValidationError` - Downloaded file content failed integrity validation (SHA256 mismatch).
 /// - `UnzipError` - Extracting a zip archive failed.
 /// - `StdIoError` - A standard I/O operation failed (reading directories, opening/removing files, etc.).
 /// - `DataFormatError` - The dataset content was not in the expected format.
+/// - `TempFileError` - Creating a temporary directory failed.
 #[derive(Debug)]
 pub enum DatasetError {
     DownloadError(downloader::Error),
@@ -268,9 +270,8 @@ pub mod boston_housing;
 
 /// Diabetes dataset module.
 ///
-/// Contains a dataset for predicting diabetes disease progression one year
-/// after baseline, using ten baseline variables including age, sex, BMI,
-/// and six blood serum measurements.
+/// Contains the Pima Indians Diabetes dataset for binary classification
+/// based on 8 diagnostic measurements.
 pub mod diabetes;
 
 /// Iris flower dataset module.

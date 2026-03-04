@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-4
+### Changed
+- Update dataset documentation for clarity and consistency
+
 ## [0.1.0] - 2026-3-3
 ### Changed
 - Refactor dataset modules to use `prepare_download_dir` for unified download and validation logic

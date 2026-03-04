@@ -11,7 +11,7 @@ use std::io::Read;
 /// of its contents. It contains a tuple of:
 ///
 /// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset (sepal length, sepal width, petal length, petal width).
-/// - `Array1<&'static str>`: A 1-dimensional array containing the corresponding labels (species names such as "Iris-setosa", "Iris-versicolor", "Iris-virginica").
+/// - `Array1<&'static str>`: A 1-dimensional array containing the corresponding labels (`"setosa"`, `"versicolor"`, `"virginica"`).
 ///
 /// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
 /// for the lifetime of the program.
@@ -21,7 +21,8 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 ///
 /// # Citation
 ///
-/// M. Kahn. "Diabetes," UCI Machine Learning Repository,  \[Online\]. Available: <https://doi.org/10.24432/C5T59G>
+/// R. A. Fisher. "Iris," UCI Machine Learning Repository, \[Online\].
+/// Available: <https://doi.org/10.24432/C56C76>
 ///
 /// # About Dataset
 ///
@@ -33,11 +34,8 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 ///   - petal length in cm
 ///   - petal width in cm
 ///
-/// labels:
-///   - name of the species (in `&str`):
-///     - "Iris-setosa"
-///     - "Iris-versicolor"
-///     - "Iris-virginica"
+/// Labels:
+///   - species name (in `&str`): `"setosa"`, `"versicolor"`, `"virginica"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 pub const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
@@ -186,11 +184,8 @@ fn load_iris_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>),
 /// - petal length in cm
 /// - petal width in cm
 ///
-/// labels:
-/// - name of the species (in `&str`):
-///     - "Iris-setosa"
-///     - "Iris-versicolor"
-///     - "Iris-virginica"
+/// Labels:
+/// - species name (in `&str`): `"setosa"`, `"versicolor"`, `"virginica"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
@@ -265,11 +260,8 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 ///   - petal length in cm
 ///   - petal width in cm
 ///
-/// labels:
-///   - name of the species (in `&str`):
-///     - "Iris-setosa"
-///     - "Iris-versicolor"
-///     - "Iris-virginica"
+/// Labels:
+///   - species name (in `&str`): `"setosa"`, `"versicolor"`, `"virginica"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
 ///
@@ -280,7 +272,7 @@ pub fn load_iris(storage_path: &str) -> Result<(&Array2<f64>, &Array1<&'static s
 /// # Returns
 ///
 /// - `Array2<f64>` - Owned feature matrix with shape (150, 4) containing measurements (sepal length, sepal width, petal length, petal width)
-/// - `Array1<&'static str>` - Owned labels array with shape (150,) containing species names (Iris-setosa, Iris-versicolor, Iris-virginica)
+/// - `Array1<&'static str>` - Owned labels array with shape `(150,)` containing species names (`setosa`, `versicolor`, `virginica`)
 ///
 /// # Errors
 ///

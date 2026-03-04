@@ -6,7 +6,7 @@ use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches, pre
 use std::fs::File;
 use std::io::Read;
 
-/// A static variable to store the Iris dataset.
+/// A static variable to store the Diabetes dataset.
 ///
 /// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
 /// of its contents. It contains a tuple of:
@@ -26,7 +26,7 @@ static DIABETES_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 ///
 /// Features:
 /// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
+/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
 /// - BloodPressure: Diastolic blood pressure (mm Hg)
 /// - SkinThickness: Triceps skin fold thickness (mm)
 /// - Insulin: 2-Hour serum insulin (mu U/ml)
@@ -168,7 +168,7 @@ fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), Data
 ///
 /// Features:
 /// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
+/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
 /// - BloodPressure: Diastolic blood pressure (mm Hg)
 /// - SkinThickness: Triceps skin fold thickness (mm)
 /// - Insulin: 2-Hour serum insulin (mu U/ml)
@@ -244,7 +244,7 @@ pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>),
 ///
 /// Features:
 /// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration a 2 hours in an oral glucose tolerance tests
+/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
 /// - BloodPressure: Diastolic blood pressure (mm Hg)
 /// - SkinThickness: Triceps skin fold thickness (mm)
 /// - Insulin: 2-Hour serum insulin (mu U/ml)
