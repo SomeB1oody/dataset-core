@@ -38,7 +38,7 @@ static DIABETES_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 /// - Outcome: Class variable (0 or 1)
 ///
 /// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
-pub const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
 
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";

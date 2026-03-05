@@ -38,7 +38,7 @@ static IRIS_DATA: OnceLock<(Array2<f64>, Array1<&'static str>)> = OnceLock::new(
 ///   - species name (in `&str`): `"setosa"`, `"versicolor"`, `"virginica"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>
-pub const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
 
 /// The prefix for temporary files created during dataset download and extraction.
 const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";

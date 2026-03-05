@@ -51,7 +51,7 @@ static TITANIC_DATA: OnceLock<(
 /// - Survived - Whether the passenger survived: 0 = No, 1 = Yes
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
-pub const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
 
 /// The prefix for temporary files created during dataset download and parsing.
 const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";

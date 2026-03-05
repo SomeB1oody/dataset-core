@@ -58,7 +58,7 @@ static WHITE_WINE_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
 /// - quality (score between 0 and 10)
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
-pub const WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
+const WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
 
 /// The prefix for temporary files created during dataset download and extraction.
 const WINE_QUALITY_TEMP_FILE_PREFIX: &str = ".tmp-wine-quality-";

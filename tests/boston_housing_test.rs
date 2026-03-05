@@ -9,27 +9,21 @@ use std::io::Write;
 fn test_load_boston_housing() {
     let download_dir = "./test_load_boston_housing"; // the code will create the directory if it doesn't exist
 
-    let (features, targets) = load_boston_housing(download_dir).unwrap();
+    let dataset = BostonHousing::new(download_dir);
+    let features = dataset.features().unwrap();
+    let targets = dataset.targets().unwrap();
+
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    // clean up: remove the downloaded files
-    remove_dir_all(download_dir).unwrap();
-}
+    let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+    // you can use `.to_owned()` to get owned copies of the data
+    let mut features_owned = features.to_owned();
+    let mut targets_owned = targets.to_owned();
 
-#[test]
-fn test_load_boston_housing_owned() {
-    let download_dir = "./test_load_boston_housing_owned"; // the code will create the directory if it doesn't exist
-
-    let (mut features, mut targets) = load_boston_housing_owned(download_dir).unwrap();
-
-    // You can now modify the data since these are owned copies
-    assert_eq!(features.shape(), &[506, 13]);
-    assert_eq!(targets.len(), 506);
-
-    // Example: Modify feature values (not possible with references)
-    features[[0, 0]] = 0.1;
-    targets[0] = 25.5;
+    // Example: Modify feature values
+    features_owned[[0, 0]] = 0.1;
+    targets_owned[0] = 25.5;
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
@@ -60,7 +54,8 @@ fn test_boston_housing_no_need_download() {
     }
 
     // should use cached Boston Housing dataset
-    let (_features, _targets) = load_boston_housing(download_dir).unwrap();
+    let dataset = BostonHousing::new(download_dir);
+    let (_features, _targets) = dataset.data().unwrap();
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
@@ -79,7 +74,8 @@ fn test_boston_housing_overwrite() {
     }
 
     // should overwrite the fake Boston Housing dataset
-    let (_features, _targets) = load_boston_housing(download_dir).unwrap();
+    let dataset = BostonHousing::new(download_dir);
+    let (_features, _targets) = dataset.data().unwrap();
 
     // check the fake file is overwritten
     assert!(file_sha256_matches(
