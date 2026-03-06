@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-6
+### Changed
+- Refactor Diabetes dataset handling to enable lazy loading and improve modularity
+
 ## [0.1.0] - 2026-3-5
 ### Changed
 - Refactor Boston Housing dataset handling to enable lazy loading and improve modularity

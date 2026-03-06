@@ -1,44 +1,15 @@
-use std::fs::{remove_file, rename};
+use std::fs::{remove_file, rename, File};
+use std::io::Read;
 use std::path::Path;
 use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
 use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches, prepare_download_dir};
-use std::fs::File;
-use std::io::Read;
 
-/// A static variable to store the Diabetes dataset.
-///
-/// This variable is of type `OnceLock`, which ensures thread-safe, one-time initialization
-/// of its contents. It contains a tuple of:
-///
-/// - `Array2<f64>`: A 2-dimensional array representing the numerical features of the dataset(Pregnancies, Glucose, BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction, Age).
-/// - `Array1<f64>`: A 1-dimensional array containing the corresponding labels (1 for tested positive, 0 for negative).
-///
-/// The `OnceLock` ensures that the dataset is initialized only once and is then immutable
-/// for the lifetime of the program.
-static DIABETES_DATA: OnceLock<(Array2<f64>, Array1<f64>)> = OnceLock::new();
-
-/// A static string slice containing the URL for the Diabetes dataset.
-///
-/// # About Dataset
-///
-/// This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The objective is to predict based on diagnostic measurements whether a patient has diabetes.
-///
-/// Features:
-/// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
-/// - BloodPressure: Diastolic blood pressure (mm Hg)
-/// - SkinThickness: Triceps skin fold thickness (mm)
-/// - Insulin: 2-Hour serum insulin (mu U/ml)
-/// - BMI: Body mass index (weight in kg/(height in m)^2)
-/// - DiabetesPedigreeFunction: Diabetes pedigree function
-/// - Age: Age (years)
-///
-/// Labels:
-/// - Outcome: Class variable (0 or 1)
-///
-/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
+/// The URL for the Diabetes dataset.
 const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+
+/// The prefix for temporary files created during dataset download and parsing.
+const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";
@@ -49,260 +20,270 @@ const DIABETES_SAMPLE_SIZE: usize = 768;
 /// The number of features in the Diabetes dataset.
 const DIABETES_NUM_FEATURES: usize = 8;
 
-/// The prefix for temporary files created during dataset download and parsing.
-const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
-
 /// The SHA256 hash of the Diabetes dataset file.
 const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
 
-/// Downloads, parses, and validates the Diabetes dataset.
+/// A struct representing the Diabetes dataset with lazy loading.
 ///
-/// This internal function downloads the dataset CSV into a temporary directory under `path`,
-/// moves it to `path/diabetes.csv`, then parses the file into ndarray arrays.
+/// The dataset is not loaded until you call one of the data accessor methods.
+/// Once loaded, the data is cached for subsequent accesses.
 ///
-/// # Parameters
+/// # About Dataset
 ///
-/// - `path` - Directory path where the dataset will be stored
+/// This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases.
+/// The objective is to predict based on diagnostic measurements whether a patient has diabetes.
 ///
-/// # Returns
+/// Features:
+/// - Pregnancies: Number of times pregnant
+/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
+/// - BloodPressure: Diastolic blood pressure (mm Hg)
+/// - SkinThickness: Triceps skin fold thickness (mm)
+/// - Insulin: 2-Hour serum insulin (mu U/ml)
+/// - BMI: Body mass index (weight in kg/(height in m)^2)
+/// - DiabetesPedigreeFunction: Diabetes pedigree function
+/// - Age: Age (years)
 ///
-/// - `Array2<f64>` - Feature matrix with shape (768, 8)
-/// - `Array1<f64>` - Label vector with shape (768,), where values are 0.0 or 1.0
+/// Labels:
+/// - Outcome: Class variable (0 or 1)
 ///
-/// # Errors
+/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
 ///
-/// Returns `DatasetError` if:
-/// - Download fails due to network issues
-/// - Temporary directory creation fails
-/// - File move, read, or other I/O operations fail
-/// - Data format is invalid (wrong number of columns, unparseable values)
-/// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
-fn load_diabetes_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let path = Path::new(path);
-    let dst = path.join(DIABETES_FILENAME);
-    let (need_download, need_overwrite) =
-        prepare_download_dir(path, &dst, DIABETES_SHA256)?;
-    if need_download {
-        // temporary directory
-        let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
-        let path_temp = temp_dir.path();
-        // download file to temporary directory
-        download_to(DIABETES_DATA_URL, path_temp)?;
-        // move downloaded file to final location
-        let src = path_temp.join(DIABETES_FILENAME);
-        // check if the file matches the expected SHA256 hash
-        if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
-            return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", DIABETES_FILENAME)));
+/// # Fields
+///
+/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::diabetes::Diabetes;
+///
+/// let download_dir = "./diabetes"; // the code will create the directory if it doesn't exist
+///
+/// let dataset = Diabetes::new(download_dir);
+/// let features = dataset.features().unwrap();
+/// let labels = dataset.labels().unwrap();
+///
+/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+/// // you can use `.to_owned()` to get owned copies of the data
+/// let mut features_owned = features.to_owned();
+/// let mut labels_owned = labels.to_owned();
+///
+/// // Example: Modify feature values
+/// features_owned[[0, 0]] = 10.0;
+/// labels_owned[0] = 1.0;
+///
+/// assert_eq!(features.shape(), &[768, 8]);
+/// assert_eq!(labels.len(), 768);
+///
+/// // clean up: remove the downloaded files
+/// std::fs::remove_dir_all(download_dir).unwrap();
+/// ```
+pub struct Diabetes {
+    storage_path: String,
+    data: OnceLock<(Array2<f64>, Array1<f64>)>,
+}
+
+impl Diabetes {
+    /// Create a new Diabetes instance without loading data.
+    ///
+    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// This is a lightweight operation that only stores the storage path.
+    ///
+    /// # Parameters
+    ///
+    /// - `storage_path` - Directory path where the dataset will be stored.
+    ///
+    /// # Returns
+    ///
+    /// - `Self` - `Diabetes` instance ready for lazy loading.
+    pub fn new(storage_path: &str) -> Self {
+        Diabetes {
+            storage_path: storage_path.to_string(),
+            data: OnceLock::new(),
         }
-        if need_overwrite {
-            remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
-        }
-        rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
     }
 
-    let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
-    let mut data = String::new();
-    file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
-    let lines: Vec<&str> = data.trim().lines().collect();
+    /// Internal function to load the dataset from disk or download it.
+    ///
+    /// This function is called automatically by the accessor methods.
+    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        let path = Path::new(path);
+        let dst = path.join(DIABETES_FILENAME);
+        let (need_download, need_overwrite) =
+            prepare_download_dir(path, &dst, DIABETES_SHA256)?;
 
-    let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
-    let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
+        if need_download {
+            // temporary directory
+            let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
+            let path_temp = temp_dir.path();
+            // download file to temporary directory
+            download_to(DIABETES_DATA_URL, path_temp)?;
+            // move downloaded file to final location
+            let src = path_temp.join(DIABETES_FILENAME);
+            // check if the file matches the expected SHA256 hash
+            if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
+                return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", DIABETES_FILENAME)));
+            }
+            if need_overwrite {
+                remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+            }
+            rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+        }
 
-    // Process lines as data (skip header)
-    for line in &lines[1..] {
-        if line.is_empty() { continue; }
-        let cols: Vec<&str> = line.split(',').collect();
-        if cols.len() != DIABETES_NUM_FEATURES + 1 {
+        let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+        let mut data = String::new();
+        file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+
+        let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
+        let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
+
+        let lines: Vec<&str> = data.trim().lines().collect();
+
+        // Process lines as data (skip header)
+        for line in &lines[1..] {
+            if line.is_empty() { continue; }
+            let cols: Vec<&str> = line.split(',').collect();
+            if cols.len() != DIABETES_NUM_FEATURES + 1 {
+                return Err(DatasetError::DataFormatError(
+                    format!("Expected {} columns, got {} at line {}",
+                            DIABETES_NUM_FEATURES + 1,
+                            cols.len(),
+                            line
+                    )
+                ));
+            }
+
+            for i in 0..DIABETES_NUM_FEATURES {
+                features.push(cols[i].parse::<f64>().map_err(
+                    |e| DatasetError::DataFormatError(
+                        format!("Failed to parse Diabetes dataset features {} at line {}: {}", i, line, e)
+                    ))?);
+            }
+
+            labels.push(cols[8].parse::<f64>().map_err(
+                |e| DatasetError::DataFormatError(
+                    format!("Failed to parse Diabetes label at line {}: {}", line, e)
+                )
+            )?);
+        }
+
+        if features.len() != DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES {
             return Err(DatasetError::DataFormatError(
-                format!("Expected {} columns, got {} at line {}", 
-                        DIABETES_NUM_FEATURES + 1, 
-                        cols.len(), 
-                        line
+                format!("Expected {} * {} elements in features, got {}",
+                        DIABETES_SAMPLE_SIZE,
+                        DIABETES_NUM_FEATURES,
+                        features.len()
                 )
             ));
         }
-        for i in 0..DIABETES_NUM_FEATURES {
-            features.push(cols[i].parse::<f64>().map_err(
-                |e| DatasetError::DataFormatError(
-                        format!("Failed to parse Diabetes dataset features {} at line {}: {}", i, line, e)
-                    ))?);
+        if labels.len() != DIABETES_SAMPLE_SIZE {
+            return Err(DatasetError::DataFormatError(
+                format!("Expected {} elements in labels, got {}", DIABETES_SAMPLE_SIZE, labels.len())
+            ));
         }
 
-        labels.push(cols[8].parse::<f64>().map_err(
-            |e| DatasetError::DataFormatError(
-                    format!("Failed to parse Diabetes label at line {}: {}", line, e)
-                )
-        )?);
+        let features_array = Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
+            .map_err(|e| DatasetError::DataFormatError(
+                format!("Failed to create features array: {}", e)
+            ))?;
+        let labels_array = Array1::from_vec(labels);
+
+        Ok((features_array, labels_array))
     }
-    if features.len() != DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES {
-        return Err(DatasetError::DataFormatError(
-            format!("Expected {} * {} elements in features, got {} ", 
-                    DIABETES_SAMPLE_SIZE, 
-                    DIABETES_NUM_FEATURES, 
-                    features.len()
-            )
-        ));
+
+    /// Internal helper to ensure data is loaded and return a reference.
+    fn load_data(&self) -> Result<&(Array2<f64>, Array1<f64>), DatasetError> {
+        // if already initialized
+        if let Some(cache) = self.data.get() {
+            return Ok(cache);
+        }
+        // if not, initialize then store
+        let (features, labels) = Self::load_data_internal(&self.storage_path)?;
+
+        // Try to set the value. If another thread already set it, that's fine - just use the existing value
+        let _ = self.data.set((features, labels));
+
+        let cache = self.data
+            .get()
+            .expect("DIABETES_DATA should be initialized after set");
+        Ok(cache)
     }
-    if labels.len() != DIABETES_SAMPLE_SIZE {
-        return Err(DatasetError::DataFormatError(
-            format!("Expected {} elements in labels, got {} ", DIABETES_SAMPLE_SIZE, labels.len())
-        ));
+
+    /// Get a reference to the feature matrix.
+    ///
+    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// the cached data instantly.
+    ///
+    /// # Returns
+    ///
+    /// - `&Array2<f64>` - Reference to feature matrix with shape `(768, 8)` containing:
+    ///     - Pregnancies: Number of times pregnant
+    ///     - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
+    ///     - BloodPressure: Diastolic blood pressure (mm Hg)
+    ///     - SkinThickness: Triceps skin fold thickness (mm)
+    ///     - Insulin: 2-Hour serum insulin (mu U/ml)
+    ///     - BMI: Body mass index (weight in kg/(height in m)^2)
+    ///     - DiabetesPedigreeFunction: Diabetes pedigree function
+    ///     - Age: Age (years)
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if:
+    /// - Download fails due to network issues
+    /// - File extraction or I/O operations fail
+    /// - Data format is invalid (wrong number of columns, unparseable values)
+    /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
+    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
+        Ok(&self.load_data()?.0)
     }
-    let features_array = Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
-        .map_err(|e| DatasetError::DataFormatError(
-            format!("Failed to create feature array: {}", e))
-        )?;
-    let labels_array = Array1::from_vec(labels);
 
-    Ok((features_array, labels_array))
-}
-
-/// Loads the Diabetes dataset with automatic caching.
-/// 
-/// This function returns references to the cached data.
-/// If you need owned data, prefer [`load_diabetes_owned()`] which returns owned copies.
-///
-/// # About Dataset
-///
-/// This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The objective is to predict based on diagnostic measurements whether a patient has diabetes.
-///
-/// Features:
-/// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
-/// - BloodPressure: Diastolic blood pressure (mm Hg)
-/// - SkinThickness: Triceps skin fold thickness (mm)
-/// - Insulin: 2-Hour serum insulin (mu U/ml)
-/// - BMI: Body mass index (weight in kg/(height in m)^2)
-/// - DiabetesPedigreeFunction: Diabetes pedigree function
-/// - Age: Age (years)
-///
-/// Labels:
-/// - Outcome: Class variable (0 or 1)
-///
-/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
-///
-/// # Parameters
-///
-/// - `storage_path` - Directory path where the dataset will be stored
-///
-/// # Returns
-///
-/// - `&Array2<f64>` - Static reference to the feature matrix with shape (768, 8)
-/// - `&Array1<f64>` - Static reference to the labels vector with shape (768,)
-///
-/// # Errors
-///
-/// Returns `DatasetError` if:
-/// - Download fails due to network issues
-/// - Temporary directory creation fails
-/// - File move, read, or other I/O operations fail
-/// - Data format is invalid (wrong number of columns, unparseable values)
-/// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
-///
-/// # Examples
-/// ```rust, no_run
-/// use rustyml_dataset::diabetes::load_diabetes;
-///
-/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
-///
-/// let (features, labels) = load_diabetes(download_dir).unwrap();
-/// assert_eq!(features.shape(), &[768, 8]);
-/// assert_eq!(labels.len(), 768);
-///
-/// // clean up: remove the downloaded files if they exist
-/// if let Ok(entries) = std::fs::read_dir(download_dir) {
-///     for entry in entries.flatten() {
-///         let _ = std::fs::remove_file(entry.path());
-///     }
-/// }
-/// ```
-pub fn load_diabetes(storage_path: &str) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-    // if already initialized
-    if let Some(cache) = DIABETES_DATA.get() {
-        return Ok((&cache.0, &cache.1));
+    /// Get a reference to the label vector.
+    ///
+    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// the cached data instantly.
+    ///
+    /// # Returns
+    ///
+    /// - `&Array1<f64>` - Reference to label vector with shape `(768,)` containing class variable (0 or 1)
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if:
+    /// - Download fails due to network issues
+    /// - File extraction or I/O operations fail
+    /// - Data format is invalid (wrong number of columns, unparseable values)
+    /// - Dataset size doesn't match expected dimensions (768 samples)
+    pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
+        Ok(&self.load_data()?.1)
     }
-    // if not, initialize then store
-    let (features, labels) = load_diabetes_internal(storage_path)?;
 
-    // Try to set the value. If another thread already set it, that's fine - just use the existing value
-    let _ = DIABETES_DATA.set((features, labels));
-
-    let cache = DIABETES_DATA
-        .get()
-        .expect("DIABETES_DATA should be initialized after set");
-    Ok((&cache.0, &cache.1))
-}
-
-/// Loads the Diabetes dataset and returns owned copies.
-///
-/// Use this function when you need owned data that can be modified.
-/// For read-only access, prefer [`load_diabetes()`] which returns references.
-///
-/// # About Dataset
-///
-/// This dataset is originally from the National Institute of Diabetes and Digestive and Kidney Diseases. The objective is to predict based on diagnostic measurements whether a patient has diabetes.
-///
-/// Features:
-/// - Pregnancies: Number of times pregnant
-/// - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
-/// - BloodPressure: Diastolic blood pressure (mm Hg)
-/// - SkinThickness: Triceps skin fold thickness (mm)
-/// - Insulin: 2-Hour serum insulin (mu U/ml)
-/// - BMI: Body mass index (weight in kg/(height in m)^2)
-/// - DiabetesPedigreeFunction: Diabetes pedigree function
-/// - Age: Age (years)
-///
-/// Labels:
-/// - Outcome: Class variable (0 or 1)
-///
-/// See more information at <https://www.kaggle.com/datasets/mathchi/diabetes-data-set/data>
-///
-/// # Parameters
-///
-/// - `storage_path` - Directory path where the dataset will be stored
-///
-/// # Returns
-///
-/// - `Array2<f64>` - Owned feature matrix with shape (768, 8)
-/// - `Array1<f64>` - Owned labels vector with shape (768,)
-///
-/// # Errors
-///
-/// Returns `DatasetError` if:
-/// - Download fails due to network issues
-/// - Temporary directory creation fails
-/// - File move, read, or other I/O operations fail
-/// - Data format is invalid (wrong number of columns, unparseable values)
-/// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
-///
-/// # Performance
-///
-/// This function creates owned copies by cloning the cached data, which incurs additional
-/// memory allocation. If you only need read-only access, use [`load_diabetes()`] instead.
-///
-/// # Examples
-/// ```rust, no_run
-/// use rustyml_dataset::diabetes::load_diabetes_owned;
-///
-/// let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
-///
-/// let (mut features, mut labels) = load_diabetes_owned(download_dir).unwrap();
-///
-/// assert_eq!(features.shape(), &[768, 8]);
-/// assert_eq!(labels.len(), 768);
-///
-/// // Example: Modify feature values (not possible with references)
-/// features[[0, 0]] = 10.0;
-/// labels[0] = 1.0;
-///
-/// // clean up: remove the downloaded files
-/// if let Ok(entries) = std::fs::read_dir(download_dir) {
-///     for entry in entries.flatten() {
-///         let _ = std::fs::remove_file(entry.path());
-///     }
-/// }
-/// ```
-pub fn load_diabetes_owned(storage_path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let (features, labels) = load_diabetes(storage_path)?;
-    Ok((features.clone(), labels.clone()))
+    /// Get both features and labels as references.
+    ///
+    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// the cached data instantly.
+    ///
+    /// # Returns
+    ///
+    /// - `&Array2<f64>` - Reference to feature matrix with shape `(768, 8)` containing:
+    ///     - Pregnancies: Number of times pregnant
+    ///     - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
+    ///     - BloodPressure: Diastolic blood pressure (mm Hg)
+    ///     - SkinThickness: Triceps skin fold thickness (mm)
+    ///     - Insulin: 2-Hour serum insulin (mu U/ml)
+    ///     - BMI: Body mass index (weight in kg/(height in m)^2)
+    ///     - DiabetesPedigreeFunction: Diabetes pedigree function
+    ///     - Age: Age (years)
+    /// - `&Array1<f64>` - Reference to label vector with shape `(768,)` containing class variable (0 or 1)
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if:
+    /// - Download fails due to network issues
+    /// - File extraction or I/O operations fail
+    /// - Data format is invalid (wrong number of columns, unparseable values)
+    /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
+    pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
+        let data = self.load_data()?;
+        Ok((&data.0, &data.1))
+    }
 }
