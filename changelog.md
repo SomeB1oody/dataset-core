@@ -7,6 +7,10 @@ Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-d
 
 ## [0.1.0] - 2026-3-6
 ### Changed
+- Refactor Iris dataset handling to enable lazy loading and improve modularity
+
+## [0.1.0] - 2026-3-6
+### Changed
 - Refactor Diabetes dataset handling to enable lazy loading and improve modularity
 
 ## [0.1.0] - 2026-3-5
