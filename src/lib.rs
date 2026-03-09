@@ -26,21 +26,28 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use rustyml_dataset::iris::load_iris;
+//! use rustyml_dataset::iris::Iris;
 //!
-//! let download_dir = "./downloads"; // the code will create the directory if it doesn't exist
+//! let download_dir = "./iris"; // the code will create the directory if it doesn't exist
 //!
-//! // Load the Iris dataset (downloads on first call, cached afterwards)
-//! let (features, labels) = load_iris(download_dir).unwrap();
+//! let dataset = Iris::new(download_dir);
+//! let features = dataset.features().unwrap();
+//! let labels = dataset.labels().unwrap();
+//!
+//! let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+//! // you can use `.to_owned()` to get owned copies of the data
+//! let mut features_owned = features.to_owned();
+//! let mut labels_owned = labels.to_owned();
+//!
+//! // Example: Modify feature values
+//! features_owned[[0, 0]] = 5.5;
+//! labels_owned[0] = "setosa-modified";
+//!
 //! assert_eq!(features.shape(), &[150, 4]);
 //! assert_eq!(labels.len(), 150);
 //!
 //! // clean up: remove the downloaded files
-//! if let Ok(entries) = std::fs::read_dir(download_dir) {
-//!     for entry in entries.flatten() {
-//!         let _ = std::fs::remove_file(entry.path());
-//!     }
-//! }
+//! std::fs::remove_dir_all(download_dir).unwrap();
 //! ```
 //!
 //! # API Patterns
