@@ -17,7 +17,7 @@ A collection of classic machine learning datasets with automatic download, cachi
 - **Automatic downloading**: Datasets are fetched from original sources on demand
 - **Thread-safe memoization**: Uses `OnceLock` for lazy initialization and caching
 - **ndarray integration**: All data returned as `ndarray` types (`Array1`, `Array2`)
-- **Flexible API**: Both reference-based and owned data access patterns
+- **Struct-based API**: Each dataset is a struct with lazy-loading accessor methods
 - **Local storage**: Downloaded datasets are stored locally for offline access
 - **Minimal binary size**: Datasets are not embedded in your binary
 
@@ -34,7 +34,7 @@ A collection of classic machine learning datasets with automatic download, cachi
 
 ### Dataset Information
 
-Each dataset is automatically downloaded from its original source on first use. The documentation comments for each function provide detailed information about the features, labels, and data format. You can also find dataset descriptions in the module documentation.
+Each dataset is automatically downloaded from its original source on first use. The documentation comments for each struct and method provide detailed information about the features, labels/targets, and data format.
 
 ## Getting Started
 
@@ -54,8 +54,11 @@ fn main() {
     // Specify where to store downloaded datasets
     let download_dir = "./datasets";
 
-    // Load the Iris dataset (downloads on first call, then cached)
-    let (features, labels) = load_iris(download_dir).unwrap();
+    // Create a dataset instance (no I/O happens yet)
+    let dataset = Iris::new(download_dir);
+
+    // Access data — downloads on first call, then cached in memory
+    let (features, labels) = dataset.data().unwrap();
 
     println!("Dataset shape: {:?}", features.shape()); // [150, 4]
     println!("First sample: {:?}", features.row(0));
@@ -65,22 +68,24 @@ fn main() {
 
 **Note**: The dataset will be automatically downloaded to the specified directory on first use. Subsequent calls will use the cached in-memory version for instant access.
 
-## Owned Data
+## Modifying Data / Owned References
 
-If you need to modify the data, use the `load_*_owned` functions:
+If you need to modify the data or owned references, call `.to_owned()` on the returned reference:
 
 ```rust
 use rustyml_dataset::iris::load_iris_owned;
 
 fn main() {
-    let download_dir = "./datasets";
+    let dataset = Iris::new(download_dir);
+    let (features, labels) = dataset.data().unwrap();
 
-    // Returns owned copies that can be modified
-    let (mut features, mut labels) = load_iris_owned(download_dir).unwrap();
+    // Clone into owned arrays that can be modified
+    let mut features_owned = features.to_owned();
+    let mut labels_owned = labels.to_owned();
 
     // Now you can modify the data
-    features[[0, 0]] = 5.5;
-    labels[0] = "setosa-modified";
+    features_owned[[0, 0]] = 5.5;
+    labels_owned[0] = "setosa-modified";
 }
 ```
 
@@ -88,70 +93,91 @@ fn main() {
 
 ### Iris
 - **Samples**: 150 | **Features**: 4 | **Task**: Classification
+- **Struct**: `rustyml_dataset::iris::Iris`
 - **Description**: Classic flower species classification (setosa, versicolor, virginica)
 - **Features**: Sepal length, sepal width, petal length, petal width
+- **Labels** (`labels()`): Species name as `&str` — `"setosa"`, `"versicolor"`, `"virginica"`
 
 ### Boston Housing
 - **Samples**: 506 | **Features**: 13 | **Task**: Regression
+- **Struct**: `rustyml_dataset::boston_housing::BostonHousing`
 - **Description**: Predict median home values in Boston suburbs
-- **Features**: Crime rate, zoning, industrial proportion, Charles River proximity, NOx concentration, rooms, age, employment distance, highway access, tax rate, pupil-teacher ratio, demographic metrics
+- **Features**: Crime rate, zoning, industrial proportion, Charles River proximity, NOx concentration, rooms, age, employment distance, highway access, tax rate, pupil-teacher ratio, demographic metrics, lower status percentage
+- **Targets** (`targets()`): Median value of owner-occupied homes in $1000's (MEDV)
 
 ### Diabetes
 - **Samples**: 768 | **Features**: 8 | **Task**: Classification
+- **Struct**: `rustyml_dataset::diabetes::Diabetes`
 - **Description**: Pima Indians diabetes binary classification
 - **Features**: Pregnancies, glucose, blood pressure, skin thickness, insulin, BMI, diabetes pedigree, age
+- **Labels** (`labels()`): Outcome — `0.0` or `1.0`
 
 ### Titanic
-- **Samples**: 891 | **Features**: 11 | **Task**: Classification
+- **Samples**: 891 | **Task**: Classification
+- **Struct**: `rustyml_dataset::titanic::Titanic`
 - **Description**: Predict passenger survival on the Titanic
-- **Features**: Returned as two matrices:
-  string features (`Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`) and numeric features (`PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare`)
+- **Features** (`features()`): Returns two matrices —
+  - String features `(891, 5)`: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`
+  - Numeric features `(891, 6)`: `PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare`
+- **Labels** (`labels()`): `Survived` — `0.0` or `1.0` (`NaN` if missing)
+- **Data** (`data()`): Returns `(string_features, numeric_features, labels)`
 
 ### Wine Quality
 - **Samples**: 1599 (red) / 4898 (white) | **Features**: 11 | **Task**: Regression
+- **Structs**: `rustyml_dataset::wine_quality::RedWineQuality` / `WhiteWineQuality`
 - **Description**: Predict wine quality ratings based on physicochemical properties
-- **Features**: Acidity levels, sugar, chlorides, sulfur dioxide, density, pH, sulphates, alcohol
+- **Features**: Fixed acidity, volatile acidity, citric acid, residual sugar, chlorides, free sulfur dioxide, total sulfur dioxide, density, pH, sulphates, alcohol
+- **Targets** (`targets()`): Quality score (0–10)
 
 ## Performance Considerations
 
 ### Download and Caching
 
-The first call to any `load_*` function:
+The first call to any accessor method on a dataset struct:
 1. Downloads the dataset from the original source (if not already on disk)
-2. Extracts and parses the data
-3. Caches it in memory using `OnceLock`
+2. Validates the file via SHA256 hash
+3. Parses the data and caches it in memory using `OnceLock`
 
 Subsequent calls return references to the cached data with zero overhead:
 
-``` rust
-let download_dir = "./datasets";
+```rust
+use rustyml_dataset::iris::load_iris;
 
-// First call: downloads, parses, and caches data
-let (features, labels) = load_iris(download_dir).unwrap();
+fn main() {
+    let download_dir = "./datasets";
+  
+    let dataset = Iris::new(download_dir);
 
-// Subsequent calls: instant access to cached data (no I/O)
-let (features2, labels2) = load_iris(download_dir).unwrap();
+    // First call: downloads, parses, and caches data 
+    let (features, labels) = dataset.data().unwrap();
+
+    // Subsequent calls: instant access to cached data (no I/O) 
+    let (features2, labels2) = dataset.data().unwrap(); 
+}
 ```
 
-### Reference vs Owned
+### References vs Owned Copies
 
-- **Reference functions** (`load_*`): Return static references, zero allocation after caching
-- **Owned functions** (`load_*_owned`): Clone the cached data, suitable for mutation
-
-Choose reference functions when possible for better performance.
+- **Accessor methods** (`features()`, `labels()`, `targets()`, `data()`): Return references to the in-memory cache — zero allocation after the first call.
+- **`.to_owned()`**: Clones the cached data into a new owned array — use only when you need to mutate the data.
 
 ### Offline Usage
 
-Once downloaded, datasets are stored locally in the specified directory. Your application can work offline as long as the files exist on disk. The in-memory cache persists for the lifetime of your program.
+Once downloaded, datasets are stored locally in the specified directory. Your application can work offline as long as the files exist on disk. The in-memory cache persists for the lifetime of the dataset struct.
 
 ## API Reference
 
-Each dataset module provides two functions:
+Each dataset module provides a struct with the following methods:
 
-| Function          | Returns            | Use Case                              |
-|-------------------|--------------------|---------------------------------------|
-| `load_*()`        | Static references  | Read-only access, optimal performance |
-| `load_*_owned()`  | Owned copies       | Mutable data, independent copies      |
+| Method            | Returns                      | Use Case                              |
+|-------------------|------------------------------|---------------------------------------|
+| `new(path)`       | Dataset struct               | Create instance (no I/O)              |
+| `features()`      | Reference(s) to feature data | Read feature matrix                   |
+| `labels()`        | Reference to label vector    | Read labels (classification datasets) |
+| `targets()`       | Reference to target vector   | Read targets (regression datasets)    |
+| `data()`          | All references at once       | Read features + labels/targets        |
+
+> **Note**: The Titanic dataset's `features()` returns a tuple of `(&Array2<String>, &Array2<f64>)`, and `data()` returns a triple `(&Array2<String>, &Array2<f64>, &Array1<f64>)`.
 
 ## License
 

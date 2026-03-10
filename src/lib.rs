@@ -9,7 +9,7 @@
 //! - **Automatic downloading**: Datasets are fetched from original sources on demand
 //! - **Thread-safe memoization**: Uses `OnceLock` for lazy initialization and caching
 //! - **ndarray integration**: All data returned as `ndarray` types (`Array1`, `Array2`)
-//! - **Flexible API**: Both reference-based and owned data access patterns
+//! - **Struct-based API**: Each dataset is a struct with lazy-loading accessor methods
 //! - **Local storage**: Downloaded datasets are stored locally for offline access
 //!
 //! # Available Datasets
@@ -35,7 +35,7 @@
 //! let labels = dataset.labels().unwrap();
 //!
 //! let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
-//! // you can use `.to_owned()` to get owned copies of the data
+//! // use `.to_owned()` to get owned copies of the data that can be modified
 //! let mut features_owned = features.to_owned();
 //! let mut labels_owned = labels.to_owned();
 //!
@@ -52,17 +52,22 @@
 //!
 //! # API Patterns
 //!
-//! Each dataset module provides two loading functions:
+//! Each dataset is represented as a struct with lazy loading. Data is not fetched until
+//! you call one of the accessor methods:
 //!
-//! - **Reference functions** (`load_*()`): Return static references to cached data (zero allocation)
-//! - **Owned functions** (`load_*_owned()`): Return cloned copies suitable for mutation
+//! - **`new(storage_path)`**: Create a dataset instance (lightweight, no I/O)
+//! - **`features()`**: Return a reference to the feature matrix
+//! - **`labels()` / `targets()`**: Return a reference to the label/target vector
+//! - **`data()`**: Return references to both features and labels/targets at once
+//!
+//! Call `.to_owned()` on any returned reference to get an owned, mutable copy.
 //!
 //! # Performance Considerations
 //!
-//! The first call to any `load_*` function downloads, parses, and caches the dataset.
-//! Subsequent calls return references to the cached data with zero overhead. Use reference
-//! functions when possible for better performance; use owned functions when you need to
-//! modify the data.
+//! The first call to any accessor method downloads, parses, and caches the dataset.
+//! Subsequent calls return references to the cached data with zero overhead. Use the
+//! reference accessors when possible for better performance; call `.to_owned()` only
+//! when you need to modify the data.
 
 use zip::result::ZipError;
 use downloader::downloader::Builder;

@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-10
+### Changed
+- Update crate documentation to reflect the struct-based API
+
 ## [0.1.0] - 2026-3-9
 ### Changed
 - Refactor Wine Quality dataset handling to enable lazy loading and improve modularity
