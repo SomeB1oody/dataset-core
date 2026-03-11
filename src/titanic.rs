@@ -1,12 +1,13 @@
-use std::fs::{remove_file, rename, File};
+use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir};
+use ndarray::{Array1, Array2};
+use std::fs::{File, remove_file, rename};
 use std::io::Read;
 use std::path::Path;
-use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir};
 
 /// The URL for the Titanic dataset.
-const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+const TITANIC_DATA_URL: &str =
+    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
 
 /// The prefix for temporary files created during dataset download and parsing.
 const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
@@ -25,6 +26,7 @@ const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
 
 /// The SHA256 hash of the Titanic dataset file.
 const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
+const TITANIC_DATASET_NAME: &str = "titanic";
 
 /// A struct representing the Titanic dataset with lazy loading.
 ///
@@ -159,12 +161,13 @@ impl Titanic {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data_internal(
+        path: &str,
+    ) -> Result<(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
         // the path the user wants dataset to be stored in
         let path = Path::new(path);
         let dst = path.join(TITANIC_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst, TITANIC_SHA256)?;
+        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, TITANIC_SHA256)?;
         if need_download {
             // temporary directory to store the downloaded zip file
             let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;
@@ -174,19 +177,19 @@ impl Titanic {
             // move downloaded file to final location
             let src = path_temp.join(TITANIC_FILENAME);
             if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
-                return Err(DatasetError::ValidationError(
-                    format!("{} SHA256 validation failed", TITANIC_SHA256)
-                ));
+                return Err(DatasetError::sha256_validation_failed(TITANIC_FILENAME));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+                remove_file(&dst).map_err(DatasetError::io)?;
             }
-            rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+            rename(src, &dst).map_err(DatasetError::io)?;
         }
 
         let mut data = String::new();
-        let mut raw_data = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
-        raw_data.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+        let mut raw_data = File::open(dst).map_err(DatasetError::io)?;
+        raw_data
+            .read_to_string(&mut data)
+            .map_err(DatasetError::io)?;
 
         let lines: Vec<&str> = data.trim().lines().collect();
 
@@ -196,107 +199,81 @@ impl Titanic {
 
         // Process lines as data (skip header)
         for line in &lines[1..] {
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
             let cols = Self::parse_csv_line(line);
             if cols.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
-                return Err(DatasetError::DataFormatError(
-                    format!("Expected {} columns, got {} at line: {}",
-                            TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1,
-                            cols.len(),
-                            line)
+                return Err(DatasetError::invalid_column_count(
+                    TITANIC_DATASET_NAME,
+                    TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1,
+                    cols.len(),
+                    line,
                 ));
             }
 
             // Parse Survived (label) - index 1
-            labels.push(
-                if cols[1].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[1].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse Survived at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            labels.push(if cols[1].is_empty() {
+                f64::NAN
+            } else {
+                cols[1].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "survived", line, e)
+                })?
+            });
 
             // Parse PassengerId - index 0
-            numeric_features.push(
-                if cols[0].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[0].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse PassengerId at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[0].is_empty() {
+                f64::NAN
+            } else {
+                cols[0].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "passenger_id", line, e)
+                })?
+            });
 
             // Parse Pclass - index 2
-            numeric_features.push(
-                if cols[2].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[2].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse Pclass at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[2].is_empty() {
+                f64::NAN
+            } else {
+                cols[2].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "pclass", line, e)
+                })?
+            });
 
             // Parse Age - index 5
-            numeric_features.push(
-                if cols[5].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[5].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse Age at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[5].is_empty() {
+                f64::NAN
+            } else {
+                cols[5]
+                    .parse::<f64>()
+                    .map_err(|e| DatasetError::parse_failed(TITANIC_DATASET_NAME, "age", line, e))?
+            });
 
             // Parse SibSp - index 6
-            numeric_features.push(
-                if cols[6].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[6].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse SibSp at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[6].is_empty() {
+                f64::NAN
+            } else {
+                cols[6].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "sib_sp", line, e)
+                })?
+            });
 
             // Parse Parch - index 7
-            numeric_features.push(
-                if cols[7].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[7].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse Parch at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[7].is_empty() {
+                f64::NAN
+            } else {
+                cols[7].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "parch", line, e)
+                })?
+            });
 
             // Parse Fare - index 9
-            numeric_features.push(
-                if cols[9].is_empty() {
-                    f64::NAN
-                } else {
-                    cols[9].parse::<f64>().map_err(
-                        |e| DatasetError::DataFormatError(
-                            format!("Failed to parse Fare at line {}: {}", line, e)
-                        )
-                    )?
-                }
-            );
+            numeric_features.push(if cols[9].is_empty() {
+                f64::NAN
+            } else {
+                cols[9].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "fare", line, e)
+                })?
+            });
 
             // String features: Name, Sex, Ticket, Cabin, Embarked
             string_features.push(cols[3].clone()); // Name - index 3
@@ -307,38 +284,43 @@ impl Titanic {
         }
 
         if labels.len() != TITANIC_SAMPLE_SIZE {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} rows, got {}", TITANIC_SAMPLE_SIZE, labels.len())
+            return Err(DatasetError::length_mismatch(
+                TITANIC_DATASET_NAME,
+                "labels",
+                TITANIC_SAMPLE_SIZE,
+                labels.len(),
             ));
         }
         if numeric_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} * {} elements in numeric features, got {}",
-                        TITANIC_SAMPLE_SIZE,
-                        TITANIC_NUM_NUMERIC_FEATURES,
-                        numeric_features.len()
-                )
+            return Err(DatasetError::length_mismatch(
+                TITANIC_DATASET_NAME,
+                "numeric_features",
+                TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES,
+                numeric_features.len(),
             ));
         }
         if string_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} * {} elements in string features, got {}",
-                        TITANIC_SAMPLE_SIZE,
-                        TITANIC_NUM_STRING_FEATURES,
-                        string_features.len()
-                )
+            return Err(DatasetError::length_mismatch(
+                TITANIC_DATASET_NAME,
+                "string_features",
+                TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES,
+                string_features.len(),
             ));
         }
 
-        let string_array = Array2::from_shape_vec((TITANIC_SAMPLE_SIZE, TITANIC_NUM_STRING_FEATURES), string_features)
-            .map_err(|e| DatasetError::DataFormatError(
-                format!("Failed to create string feature array: {}", e)
-            ))?;
+        let string_array = Array2::from_shape_vec(
+            (TITANIC_SAMPLE_SIZE, TITANIC_NUM_STRING_FEATURES),
+            string_features,
+        )
+        .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
 
-        let numeric_array = Array2::from_shape_vec((TITANIC_SAMPLE_SIZE, TITANIC_NUM_NUMERIC_FEATURES), numeric_features)
-            .map_err(|e| DatasetError::DataFormatError(
-                format!("Failed to create numeric feature array: {}", e)
-            ))?;
+        let numeric_array = Array2::from_shape_vec(
+            (TITANIC_SAMPLE_SIZE, TITANIC_NUM_NUMERIC_FEATURES),
+            numeric_features,
+        )
+        .map_err(|e| {
+            DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
+        })?;
 
         let labels_array = Array1::from_vec(labels);
 
@@ -352,12 +334,14 @@ impl Titanic {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (string_features, numeric_features, labels) = Self::load_data_internal(&self.storage_path)?;
+        let (string_features, numeric_features, labels) =
+            Self::load_data_internal(&self.storage_path)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((string_features, numeric_features, labels));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("TITANIC_DATA should be initialized after set");
         Ok(cache)

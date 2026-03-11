@@ -28,7 +28,7 @@
 //! ```rust
 //! use rustyml_dataset::iris::Iris;
 //!
-//! let download_dir = "./iris"; // the code will create the directory if it doesn't exist
+//! let download_dir = "./data"; // the code will create the directory if it doesn't exist
 //!
 //! let dataset = Iris::new(download_dir);
 //! let features = dataset.features().unwrap();
@@ -69,14 +69,14 @@
 //! reference accessors when possible for better performance; call `.to_owned()` only
 //! when you need to modify the data.
 
-use zip::result::ZipError;
-use downloader::downloader::Builder;
 use downloader::Download;
-use std::path::Path;
-use std::io::Read;
+use downloader::downloader::Builder;
 use sha2::{Digest, Sha256};
-use zip::ZipArchive;
 use std::fs::File;
+use std::io::Read;
+use std::path::Path;
+use zip::ZipArchive;
+use zip::result::ZipError;
 
 /// Download a remote file into the given directory.
 ///
@@ -99,15 +99,13 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
         .connect_timeout(std::time::Duration::from_secs(10))
         .download_folder(storage_path)
         .build()
-        .map_err(|e| DatasetError::DownloadError(e))?;
+        .map_err(DatasetError::download)?;
 
-    let response = dl
-        .download(&[data])
-        .map_err(|e| DatasetError::DownloadError(e))?;
+    let response = dl.download(&[data]).map_err(DatasetError::download)?;
 
     for r in response {
         if let Err(e) = r {
-            return Err(DatasetError::DownloadError(e));
+            return Err(DatasetError::download(e));
         }
     }
 
@@ -125,12 +123,12 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
 ///
 /// - `DatasetError` - Returned when opening the zip file fails or when extraction fails.
 pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
-    let file = File::open(file_path).map_err(|e| DatasetError::UnzipError(ZipError::Io(e)))?;
+    let file = File::open(file_path).map_err(|e| DatasetError::unzip(ZipError::Io(e)))?;
 
     ZipArchive::new(file)
-        .map_err(|e| DatasetError::UnzipError(e))?
+        .map_err(DatasetError::unzip)?
         .extract(extract_dir)
-        .map_err(|e| DatasetError::UnzipError(e))?;
+        .map_err(DatasetError::unzip)?;
 
     Ok(())
 }
@@ -149,11 +147,14 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// # Errors
 ///
 /// - `DatasetError` - Returned if the temporary directory cannot be created.
-pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfile::TempDir, DatasetError> {
+pub fn create_temp_dir(
+    tempdir_in: &Path,
+    temp_dir_name: &str,
+) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new()
         .prefix(temp_dir_name)
         .tempdir_in(tempdir_in)
-        .map_err(|e| DatasetError::TempFileError(e))?;
+        .map_err(DatasetError::temp_file)?;
 
     Ok(temp_dir)
 }
@@ -177,13 +178,13 @@ pub fn create_temp_dir(tempdir_in: &Path, temp_dir_name: &str) -> Result<tempfil
 ///
 /// - `DatasetError::StdIoError` - Returned when file I/O operations fail (opening file, reading data).
 pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
-    let mut file = File::open(path).map_err(|e| DatasetError::StdIoError(e))?;
+    let mut file = File::open(path).map_err(DatasetError::io)?;
 
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 8192];
 
     loop {
-        let read = file.read(&mut buf).map_err(|e| DatasetError::StdIoError(e))?;
+        let read = file.read(&mut buf).map_err(DatasetError::io)?;
         if read == 0 {
             break;
         }
@@ -224,7 +225,7 @@ pub fn prepare_download_dir(
     let mut need_overwrite = false;
 
     if !path.exists() {
-        std::fs::create_dir_all(path).map_err(|e| DatasetError::StdIoError(e))?;
+        std::fs::create_dir_all(path).map_err(DatasetError::io)?;
     }
 
     if dst.exists() {
@@ -264,7 +265,7 @@ impl std::fmt::Display for DatasetError {
             DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
             DatasetError::ValidationError(e) => write!(f, "Validation error: {}", e),
             DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
-            DatasetError::StdIoError(e) => write!(f, "Std IO error: {}", e),
+            DatasetError::StdIoError(e) => write!(f, "I/O error: {}", e),
             DatasetError::DataFormatError(e) => write!(f, "Data format error: {}", e),
             DatasetError::TempFileError(e) => write!(f, "Temp file error: {}", e),
         }
@@ -272,6 +273,223 @@ impl std::fmt::Display for DatasetError {
 }
 
 impl std::error::Error for DatasetError {}
+
+impl DatasetError {
+    /// Creates a download error variant.
+    ///
+    /// # Parameters
+    ///
+    /// - `error` - The downloader error returned by the download backend.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DownloadError` value wrapping the provided error.
+    pub fn download(error: downloader::Error) -> Self {
+        Self::DownloadError(error)
+    }
+
+    ///
+    /// Creates a validation error variant from a message.
+    ///
+    /// # Parameters
+    ///
+    /// - `message` - The human-readable validation failure message.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::ValidationError` value containing the message.
+    pub fn validation(message: impl Into<String>) -> Self {
+        Self::ValidationError(message.into())
+    }
+
+    /// Creates an unzip error variant.
+    ///
+    /// # Parameters
+    ///
+    /// - `error` - The zip extraction/parsing error.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::UnzipError` value wrapping the provided error.
+    pub fn unzip(error: ZipError) -> Self {
+        Self::UnzipError(error)
+    }
+
+    /// Creates an I/O error variant.
+    ///
+    /// # Parameters
+    ///
+    /// - `error` - The standard I/O error returned by file or directory operations.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::StdIoError` value wrapping the provided error.
+    pub fn io(error: std::io::Error) -> Self {
+        Self::StdIoError(error)
+    }
+
+    /// Creates a data format error variant from a message.
+    ///
+    /// # Parameters
+    ///
+    /// - `message` - The human-readable data format failure message.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` value containing the message.
+    pub fn data_format(message: impl Into<String>) -> Self {
+        Self::DataFormatError(message.into())
+    }
+
+    /// Creates a temporary file related error variant.
+    ///
+    /// # Parameters
+    ///
+    /// - `error` - The standard I/O error returned by temporary file or directory creation.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::TempFileError` value wrapping the provided error.
+    pub fn temp_file(error: std::io::Error) -> Self {
+        Self::TempFileError(error)
+    }
+
+    /// Creates a standard SHA256 validation failure error message for a file.
+    ///
+    /// # Parameters
+    ///
+    /// - `file_name` - The dataset file name that failed checksum validation.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::ValidationError` with a unified SHA256 failure message.
+    pub fn sha256_validation_failed(file_name: &str) -> Self {
+        Self::validation(format!("SHA256 validation failed for file `{}`", file_name))
+    }
+
+    /// Creates a unified invalid-column-count data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `expected` - The exact expected number of columns.
+    /// - `actual` - The actual number of columns found.
+    /// - `line` - The original input line that failed validation.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the column count mismatch.
+    pub fn invalid_column_count(dataset: &str, expected: usize, actual: usize, line: &str) -> Self {
+        Self::data_format(format!(
+            "[{}] invalid column count: expected {}, got {} (line: `{}`)",
+            dataset, expected, actual, line
+        ))
+    }
+
+    /// Creates a unified insufficient-column-count data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `min_expected` - The minimum required number of columns.
+    /// - `actual` - The actual number of columns found.
+    /// - `line` - The original input line that failed validation.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the insufficient column count.
+    pub fn insufficient_column_count(
+        dataset: &str,
+        min_expected: usize,
+        actual: usize,
+        line: &str,
+    ) -> Self {
+        Self::data_format(format!(
+            "[{}] insufficient columns: expected at least {}, got {} (line: `{}`)",
+            dataset, min_expected, actual, line
+        ))
+    }
+
+    /// Creates a unified parse failure data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `field` - The logical field name that failed to parse.
+    /// - `line` - The original input line where parsing failed.
+    /// - `err` - The underlying parser error detail.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the parse failure.
+    pub fn parse_failed(
+        dataset: &str,
+        field: &str,
+        line: &str,
+        err: impl std::fmt::Display,
+    ) -> Self {
+        Self::data_format(format!(
+            "[{}] failed to parse `{}` at line `{}`: {}",
+            dataset, field, line, err
+        ))
+    }
+
+    /// Creates a unified invalid-field-value data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `field` - The logical field name with an invalid value.
+    /// - `value` - The invalid raw value.
+    /// - `line` - The original input line where the invalid value was found.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the invalid value.
+    pub fn invalid_value(dataset: &str, field: &str, value: &str, line: &str) -> Self {
+        Self::data_format(format!(
+            "[{}] invalid value for `{}`: `{}` (line: `{}`)",
+            dataset, field, value, line
+        ))
+    }
+
+    /// Creates a unified vector/row length mismatch data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `field` - The logical field name whose length is being validated.
+    /// - `expected` - The expected length.
+    /// - `actual` - The actual length.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the length mismatch.
+    pub fn length_mismatch(dataset: &str, field: &str, expected: usize, actual: usize) -> Self {
+        Self::data_format(format!(
+            "[{}] invalid `{}` length: expected {}, got {}",
+            dataset, field, expected, actual
+        ))
+    }
+
+    /// Creates a unified ndarray shape construction data format error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset` - The dataset identifier used in the error prefix.
+    /// - `array_name` - The logical array name that failed to build.
+    /// - `err` - The underlying ndarray shape construction error detail.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError` - A `DatasetError::DataFormatError` describing the array shape failure.
+    pub fn array_shape_error(dataset: &str, array_name: &str, err: impl std::fmt::Display) -> Self {
+        Self::data_format(format!(
+            "[{}] failed to build `{}` array: {}",
+            dataset, array_name, err
+        ))
+    }
+}
 
 /// Boston Housing dataset module.
 ///

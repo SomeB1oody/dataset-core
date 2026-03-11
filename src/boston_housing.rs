@@ -1,9 +1,11 @@
-use std::fs::{rename, File, remove_file};
-use std::io::Read;
+use crate::{
+    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir, unzip,
+};
 use ndarray::{Array1, Array2};
-use std::sync::OnceLock;
-use crate::{DatasetError, create_temp_dir, download_to, unzip, file_sha256_matches, prepare_download_dir};
+use std::fs::{File, remove_file, rename};
+use std::io::Read;
 use std::path::Path;
+use std::sync::OnceLock;
 
 /// The URL for the Boston Housing dataset.
 const BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
@@ -15,7 +17,8 @@ const BOSTON_HOUSING_TEMP_FILE_PREFIX: &str = ".tmp-boston-housing-";
 const BOSTON_HOUSING_ZIP_FILENAME: &str = "373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
 
 /// The folder where the file is located inside after extraction
-const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
+const BOSTON_HOUSING_UNZIP_FOLDER: &str =
+    "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
 
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
@@ -27,7 +30,9 @@ const BOSTON_HOUSING_SAMPLE_SIZE: usize = 506;
 const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
 /// The SHA256 hash of the dataset file
-const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+const BOSTON_HOUSING_SHA256: &str =
+    "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 
 /// A struct representing the Boston Housing dataset with lazy loading.
 ///
@@ -58,20 +63,20 @@ const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3
 /// - MEDV - Median value of owner-occupied homes in $1000's
 ///
 /// # Fields
-/// 
+///
 /// - `storage_path` - Directory path where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
-/// 
+///
 /// # Example
 /// ```rust
 /// use rustyml_dataset::boston_housing::BostonHousing;
-/// 
+///
 /// let download_dir = "./boston_housing"; // the code will create the directory if it doesn't exist
-/// 
+///
 /// let dataset = BostonHousing::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
-/// 
+///
 /// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
 /// // you can use `.to_owned()` to get owned copies of the data
 /// let mut features_owned = features.to_owned();
@@ -80,10 +85,10 @@ const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3
 /// // Example: Modify feature values
 /// features_owned[[0, 0]] = 0.1;
 /// targets_owned[0] = 25.5;
-/// 
+///
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
-/// 
+///
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
@@ -129,70 +134,81 @@ impl BostonHousing {
             // download and extract boston housing dataset
             download_to(BOSTON_HOUSING_DATA_URL, path_temp)?;
             unzip(&path_temp.join(BOSTON_HOUSING_ZIP_FILENAME), path_temp)?;
-            let src = path_temp.join(BOSTON_HOUSING_UNZIP_FOLDER).join(BOSTON_HOUSING_FILENAME);
+            let src = path_temp
+                .join(BOSTON_HOUSING_UNZIP_FOLDER)
+                .join(BOSTON_HOUSING_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), BOSTON_HOUSING_SHA256)? {
-                return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", BOSTON_HOUSING_FILENAME)));
+                return Err(DatasetError::sha256_validation_failed(
+                    BOSTON_HOUSING_FILENAME,
+                ));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+                remove_file(&dst).map_err(DatasetError::io)?;
             }
             // move boston_housing.csv out of the temporary directory
-            rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+            rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+        let mut file = File::open(dst).map_err(DatasetError::io)?;
         let mut data = String::new();
-        file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+        file.read_to_string(&mut data).map_err(DatasetError::io)?;
 
-        let mut features = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
+        let mut features =
+            Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
         let mut targets = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE);
 
         let lines: Vec<&str> = data.trim().lines().collect();
 
         for line in &lines[1..] {
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
             let cols: Vec<&str> = line.split(',').collect();
             if cols.len() < BOSTON_HOUSING_NUM_FEATURES + 1 {
-                return Err(DatasetError::DataFormatError(
-                    format!("Number of columns should be at least {}, got {} at line {}",
-                            BOSTON_HOUSING_NUM_FEATURES + 1,
-                            cols.len(),
-                            line)
-                ))
+                return Err(DatasetError::insufficient_column_count(
+                    BOSTON_HOUSING_DATASET_NAME,
+                    BOSTON_HOUSING_NUM_FEATURES + 1,
+                    cols.len(),
+                    line,
+                ));
             }
             // Features are columns 0-12 (13 features)
             for i in 0..BOSTON_HOUSING_NUM_FEATURES {
-                features.push(cols[i].parse::<f64>().map_err(
-                    |e| DatasetError::DataFormatError(
-                        format!("Failed to parse Boston Housing dataset features {} at line {}: {}", i, line, e)
-                    ))?);
+                let field = format!("feature[{i}]");
+                features.push(cols[i].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(BOSTON_HOUSING_DATASET_NAME, &field, line, e)
+                })?);
             }
 
             // Target is column 13 (MEDV)
-            targets.push(cols[13].parse::<f64>().map_err(
-                |e| DatasetError::DataFormatError(
-                    format!("Failed to parse Boston Housing dataset target at line {}: {}", line, e)
-                ))?);
+            targets.push(cols[13].parse::<f64>().map_err(|e| {
+                DatasetError::parse_failed(BOSTON_HOUSING_DATASET_NAME, "target", line, e)
+            })?);
         }
 
         if features.len() != BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} * {} elements in features, got {}", BOSTON_HOUSING_SAMPLE_SIZE,
-                        BOSTON_HOUSING_NUM_FEATURES,
-                        features.len())
-            ))
+            return Err(DatasetError::length_mismatch(
+                BOSTON_HOUSING_DATASET_NAME,
+                "features",
+                BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES,
+                features.len(),
+            ));
         }
         if targets.len() != BOSTON_HOUSING_SAMPLE_SIZE {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} elements in targets, got {}", BOSTON_HOUSING_SAMPLE_SIZE, targets.len())
-            ))
+            return Err(DatasetError::length_mismatch(
+                BOSTON_HOUSING_DATASET_NAME,
+                "targets",
+                BOSTON_HOUSING_SAMPLE_SIZE,
+                targets.len(),
+            ));
         }
 
-        let features_array = Array2::from_shape_vec((BOSTON_HOUSING_SAMPLE_SIZE, BOSTON_HOUSING_NUM_FEATURES), features)
-            .map_err(|e| DatasetError::DataFormatError(
-                format!("Failed to create features array: {}", e)
-            ))?;
+        let features_array = Array2::from_shape_vec(
+            (BOSTON_HOUSING_SAMPLE_SIZE, BOSTON_HOUSING_NUM_FEATURES),
+            features,
+        )
+        .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;
         let targets_array = Array1::from_vec(targets);
 
         Ok((features_array, targets_array))
@@ -210,7 +226,8 @@ impl BostonHousing {
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("BOSTON_HOUSING_DATA should be initialized after set");
         Ok(cache)

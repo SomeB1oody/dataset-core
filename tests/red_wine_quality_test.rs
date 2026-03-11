@@ -1,8 +1,8 @@
 use rustyml_dataset::wine_quality::RedWineQuality;
-use std::fs::{create_dir_all, remove_dir_all, File};
+use rustyml_dataset::{download_to, file_sha256_matches, unzip};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
-use rustyml_dataset::{download_to, file_sha256_matches, unzip};
 
 #[test]
 fn test_load_red_wine_quality() {
@@ -38,9 +38,14 @@ fn test_red_wine_quality_no_need_download() {
     {
         download_to(
             "https://archive.ics.uci.edu/static/public/186/wine+quality.zip",
-            download_dir_path
-        ).unwrap();
-        unzip(&download_dir_path.join("wine+quality.zip"), download_dir_path).unwrap();
+            download_dir_path,
+        )
+        .unwrap();
+        unzip(
+            &download_dir_path.join("wine+quality.zip"),
+            download_dir_path,
+        )
+        .unwrap();
     }
 
     // should use cached dataset
@@ -69,10 +74,13 @@ fn test_red_wine_quality_overwrite() {
     let (_features, _targets) = dataset.data().unwrap();
 
     // check that the downloaded file is correct
-    assert!(file_sha256_matches(
-        &download_dir_path.join("winequality-red.csv"),
-        "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e"
-    ).unwrap());
+    assert!(
+        file_sha256_matches(
+            &download_dir_path.join("winequality-red.csv"),
+            "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e"
+        )
+        .unwrap()
+    );
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();

@@ -1,12 +1,15 @@
-use std::fs::{remove_file, rename, File};
+use crate::{
+    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir,
+};
+use ndarray::{Array1, Array2};
+use std::fs::{File, remove_file, rename};
 use std::io::Read;
 use std::path::Path;
-use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{download_to, DatasetError, create_temp_dir, file_sha256_matches, prepare_download_dir};
 
 /// The URL for the Diabetes dataset.
-const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+const DIABETES_DATA_URL: &str =
+    "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
 
 /// The prefix for temporary files created during dataset download and parsing.
 const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
@@ -22,6 +25,7 @@ const DIABETES_NUM_FEATURES: usize = 8;
 
 /// The SHA256 hash of the Diabetes dataset file.
 const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
+const DIABETES_DATASET_NAME: &str = "diabetes";
 
 /// A struct representing the Diabetes dataset with lazy loading.
 ///
@@ -109,8 +113,7 @@ impl Diabetes {
     fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         let path = Path::new(path);
         let dst = path.join(DIABETES_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst, DIABETES_SHA256)?;
+        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, DIABETES_SHA256)?;
 
         if need_download {
             // temporary directory
@@ -122,17 +125,17 @@ impl Diabetes {
             let src = path_temp.join(DIABETES_FILENAME);
             // check if the file matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
-                return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", DIABETES_FILENAME)));
+                return Err(DatasetError::sha256_validation_failed(DIABETES_FILENAME));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+                remove_file(&dst).map_err(DatasetError::io)?;
             }
-            rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+            rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+        let mut file = File::open(dst).map_err(DatasetError::io)?;
         let mut data = String::new();
-        file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+        file.read_to_string(&mut data).map_err(DatasetError::io)?;
 
         let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
         let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
@@ -141,51 +144,53 @@ impl Diabetes {
 
         // Process lines as data (skip header)
         for line in &lines[1..] {
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
             let cols: Vec<&str> = line.split(',').collect();
             if cols.len() != DIABETES_NUM_FEATURES + 1 {
-                return Err(DatasetError::DataFormatError(
-                    format!("Expected {} columns, got {} at line {}",
-                            DIABETES_NUM_FEATURES + 1,
-                            cols.len(),
-                            line
-                    )
+                return Err(DatasetError::invalid_column_count(
+                    DIABETES_DATASET_NAME,
+                    DIABETES_NUM_FEATURES + 1,
+                    cols.len(),
+                    line,
                 ));
             }
 
             for i in 0..DIABETES_NUM_FEATURES {
-                features.push(cols[i].parse::<f64>().map_err(
-                    |e| DatasetError::DataFormatError(
-                        format!("Failed to parse Diabetes dataset features {} at line {}: {}", i, line, e)
-                    ))?);
+                let field = format!("feature[{i}]");
+                features.push(cols[i].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(DIABETES_DATASET_NAME, &field, line, e)
+                })?);
             }
 
-            labels.push(cols[8].parse::<f64>().map_err(
-                |e| DatasetError::DataFormatError(
-                    format!("Failed to parse Diabetes label at line {}: {}", line, e)
-                )
-            )?);
+            labels.push(cols[8].parse::<f64>().map_err(|e| {
+                DatasetError::parse_failed(DIABETES_DATASET_NAME, "label", line, e)
+            })?);
         }
 
         if features.len() != DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} * {} elements in features, got {}",
-                        DIABETES_SAMPLE_SIZE,
-                        DIABETES_NUM_FEATURES,
-                        features.len()
-                )
+            return Err(DatasetError::length_mismatch(
+                DIABETES_DATASET_NAME,
+                "features",
+                DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES,
+                features.len(),
             ));
         }
         if labels.len() != DIABETES_SAMPLE_SIZE {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} elements in labels, got {}", DIABETES_SAMPLE_SIZE, labels.len())
+            return Err(DatasetError::length_mismatch(
+                DIABETES_DATASET_NAME,
+                "labels",
+                DIABETES_SAMPLE_SIZE,
+                labels.len(),
             ));
         }
 
-        let features_array = Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
-            .map_err(|e| DatasetError::DataFormatError(
-                format!("Failed to create features array: {}", e)
-            ))?;
+        let features_array =
+            Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
+                .map_err(|e| {
+                    DatasetError::array_shape_error(DIABETES_DATASET_NAME, "features", e)
+                })?;
         let labels_array = Array1::from_vec(labels);
 
         Ok((features_array, labels_array))
@@ -203,7 +208,8 @@ impl Diabetes {
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, labels));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("DIABETES_DATA should be initialized after set");
         Ok(cache)

@@ -1,9 +1,11 @@
-use std::fs::{remove_file, rename, File};
+use crate::{
+    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir, unzip,
+};
+use ndarray::{Array1, Array2};
+use std::fs::{File, remove_file, rename};
 use std::io::Read;
 use std::path::Path;
-use ndarray::{Array1, Array2};
 use std::sync::OnceLock;
-use crate::{create_temp_dir, download_to, DatasetError, unzip, file_sha256_matches, prepare_download_dir};
 
 /// A static string slice containing the URL for the Wine Quality dataset.
 ///
@@ -56,10 +58,39 @@ const RED_WINE_QUALITY_SAMPLE_SIZE: usize = 1599;
 const WINE_QUALITY_NUM_FEATURES: usize = 11;
 
 /// The SHA256 hash of the white wine quality dataset.
-const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
+const WHITE_WINE_QUALITY_SHA256: &str =
+    "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
 
 /// The SHA256 hash of the red wine quality dataset.
-const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
+const RED_WINE_QUALITY_SHA256: &str =
+    "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
+
+/// Shared implementation for loading a single wine quality CSV file.
+fn load_wine_quality_data(
+    path: &str,
+    csv_filename: &str,
+    expected_sha256: &str,
+    dataset_name: &str,
+    n_samples: usize,
+) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    let path = Path::new(path);
+    let dst = path.join(csv_filename);
+    let (need_download, need_overwrite) = prepare_download_dir(path, &dst, expected_sha256)?;
+    ensure_wine_quality_csv(
+        path,
+        &dst,
+        csv_filename,
+        expected_sha256,
+        need_download,
+        need_overwrite,
+    )?;
+
+    let mut file = File::open(dst).map_err(DatasetError::io)?;
+    let mut data = String::new();
+    file.read_to_string(&mut data).map_err(DatasetError::io)?;
+
+    parse_wine_data_to_array(dataset_name, data, n_samples)
+}
 
 /// Downloads and stores a Wine Quality CSV file if needed.
 ///
@@ -113,15 +144,12 @@ fn ensure_wine_quality_csv(
     let src_file = path_temp.join(csv_filename);
 
     if !file_sha256_matches(src_file.as_path(), expected_sha256)? {
-        return Err(DatasetError::ValidationError(format!(
-            "{} SHA256 validation failed",
-            csv_filename
-        )));
+        return Err(DatasetError::sha256_validation_failed(csv_filename));
     }
     if need_overwrite {
-        remove_file(dst_file).map_err(|e| DatasetError::StdIoError(e))?;
+        remove_file(dst_file).map_err(DatasetError::io)?;
     }
-    rename(&src_file, dst_file).map_err(|e| DatasetError::StdIoError(e))?;
+    rename(&src_file, dst_file).map_err(DatasetError::io)?;
 
     Ok(())
 }
@@ -149,57 +177,67 @@ fn ensure_wine_quality_csv(
 /// - Any row has an unexpected number of columns
 /// - Any feature/target value fails to parse as `f64`
 /// - The final number of parsed values does not match the expected shape
-fn parse_wine_data_to_array(data: String, n_samples: usize) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+fn parse_wine_data_to_array(
+    dataset_name: &str,
+    data: String,
+    n_samples: usize,
+) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let lines: Vec<&str> = data.trim().lines().collect();
 
     let mut features_array = Vec::with_capacity(n_samples * WINE_QUALITY_NUM_FEATURES);
     let mut target_array = Vec::with_capacity(n_samples);
 
     for line in &lines[1..] {
-        if line.is_empty() { continue; }
+        if line.is_empty() {
+            continue;
+        }
         let cols: Vec<&str> = line.split(';').collect();
 
         if cols.len() != WINE_QUALITY_NUM_FEATURES + 1 {
-            return Err(DatasetError::DataFormatError(format!(
-                "Invalid wine quality data format: expected {} columns, found {} at line {}"
-                , WINE_QUALITY_NUM_FEATURES + 1
-                , cols.len()
-                , line
-            )))
+            return Err(DatasetError::invalid_column_count(
+                dataset_name,
+                WINE_QUALITY_NUM_FEATURES + 1,
+                cols.len(),
+                line,
+            ));
         }
 
         for i in 0..WINE_QUALITY_NUM_FEATURES {
-            features_array.push(cols[i].parse::<f64>().map_err(
-                |e| DatasetError::DataFormatError(
-                    format!("Failed to parse Wine Quality dataset features {} at line {}: {}", i, line, e)))?);
+            let field = format!("feature[{i}]");
+            features_array.push(
+                cols[i]
+                    .parse::<f64>()
+                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, line, e))?,
+            );
         }
 
-        target_array.push(cols[11].parse::<f64>().map_err(
-            |e| DatasetError::DataFormatError(
-                format!("Failed to parse Wine Quality target at line {}: {}", line, e))
-        )?);
+        target_array.push(
+            cols[11]
+                .parse::<f64>()
+                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", line, e))?,
+        );
     }
 
     if features_array.len() != n_samples * WINE_QUALITY_NUM_FEATURES {
-        return Err(DatasetError::DataFormatError(format!(
-            "Expected {} * {} elements in features, got {}", n_samples,
-            WINE_QUALITY_NUM_FEATURES,
-            features_array.len()
-        )))
+        return Err(DatasetError::length_mismatch(
+            dataset_name,
+            "features",
+            n_samples * WINE_QUALITY_NUM_FEATURES,
+            features_array.len(),
+        ));
     }
     if target_array.len() != n_samples {
-        return Err(DatasetError::DataFormatError(format!(
-            "Expected {} elements in target, got {}", n_samples, target_array.len()
-        )))
+        return Err(DatasetError::length_mismatch(
+            dataset_name,
+            "targets",
+            n_samples,
+            target_array.len(),
+        ));
     }
 
     let features_array =
         Array2::from_shape_vec((n_samples, WINE_QUALITY_NUM_FEATURES), features_array)
-            .map_err(
-                |e| DatasetError::DataFormatError(
-                    format!("Failed to create features array: {}", e)
-                )
-            )?;
+            .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
     let target_array = Array1::from_vec(target_array);
 
     Ok((features_array, target_array))
@@ -296,24 +334,13 @@ impl RedWineQuality {
     ///
     /// This function is called automatically by the accessor methods.
     fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let path = Path::new(path);
-        let dst_red = path.join(RED_WINE_QUALITY_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst_red, RED_WINE_QUALITY_SHA256)?;
-        ensure_wine_quality_csv(
+        load_wine_quality_data(
             path,
-            &dst_red,
             RED_WINE_QUALITY_FILENAME,
             RED_WINE_QUALITY_SHA256,
-            need_download,
-            need_overwrite,
-        )?;
-
-        let mut red_wine_file = File::open(dst_red).map_err(|e| DatasetError::StdIoError(e))?;
-        let mut red_wine_data = String::new();
-        red_wine_file.read_to_string(&mut red_wine_data).map_err(|e| DatasetError::StdIoError(e))?;
-
-        parse_wine_data_to_array(red_wine_data, RED_WINE_QUALITY_SAMPLE_SIZE)
+            "red_wine_quality",
+            RED_WINE_QUALITY_SAMPLE_SIZE,
+        )
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
@@ -328,7 +355,8 @@ impl RedWineQuality {
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("RED_WINE_DATA should be initialized after set");
         Ok(cache)
@@ -510,24 +538,13 @@ impl WhiteWineQuality {
     ///
     /// This function is called automatically by the accessor methods.
     fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let path = Path::new(path);
-        let dst_white = path.join(WHITE_WINE_QUALITY_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst_white, WHITE_WINE_QUALITY_SHA256)?;
-        ensure_wine_quality_csv(
+        load_wine_quality_data(
             path,
-            &dst_white,
             WHITE_WINE_QUALITY_FILENAME,
             WHITE_WINE_QUALITY_SHA256,
-            need_download,
-            need_overwrite,
-        )?;
-
-        let mut white_wine_file = File::open(dst_white).map_err(|e| DatasetError::StdIoError(e))?;
-        let mut white_wine_data = String::new();
-        white_wine_file.read_to_string(&mut white_wine_data).map_err(|e| DatasetError::StdIoError(e))?;
-
-        parse_wine_data_to_array(white_wine_data, WHITE_WINE_QUALITY_SAMPLE_SIZE)
+            "white_wine_quality",
+            WHITE_WINE_QUALITY_SAMPLE_SIZE,
+        )
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
@@ -542,7 +559,8 @@ impl WhiteWineQuality {
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("WHITE_WINE_DATA should be initialized after set");
         Ok(cache)

@@ -1,8 +1,8 @@
 use rustyml_dataset::diabetes::*;
-use std::fs::{create_dir_all, remove_dir_all, File};
+use rustyml_dataset::{download_to, file_sha256_matches};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
-use rustyml_dataset::{download_to, file_sha256_matches};
 
 #[test]
 fn test_load_diabetes() {
@@ -38,8 +38,9 @@ fn test_diabetes_no_need_download() {
     {
         download_to(
             "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv",
-            download_dir_path
-        ).unwrap();
+            download_dir_path,
+        )
+        .unwrap();
     }
 
     // should use cached Diabetes dataset
@@ -67,10 +68,13 @@ fn test_diabetes_overwrite() {
     let (_features, _labels) = dataset.data().unwrap();
 
     // check the fake file is overwritten
-    assert!(file_sha256_matches(
-        &download_dir_path.join("diabetes.csv"),
-        "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72"
-    ).unwrap());
+    assert!(
+        file_sha256_matches(
+            &download_dir_path.join("diabetes.csv"),
+            "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72"
+        )
+        .unwrap()
+    );
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();

@@ -1,10 +1,11 @@
-
+use crate::{
+    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir, unzip,
+};
 use ndarray::{Array1, Array2};
-use std::sync::OnceLock;
-use crate::{create_temp_dir, download_to, file_sha256_matches, unzip, DatasetError, prepare_download_dir};
-use std::path::Path;
-use std::fs::{remove_file, rename, File};
+use std::fs::{File, remove_file, rename};
 use std::io::Read;
+use std::path::Path;
+use std::sync::OnceLock;
 
 /// The URL for the Iris dataset.
 ///
@@ -31,6 +32,7 @@ const IRIS_NUM_FEATURES: usize = 4;
 
 /// The SHA256 hash of the Iris dataset file.
 const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
+const IRIS_DATASET_NAME: &str = "iris";
 
 /// A struct representing the Iris dataset with lazy loading.
 ///
@@ -39,8 +41,8 @@ const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a45
 ///
 /// # About Dataset
 ///
-/// The Iris dataset is a classic dataset for classification tasks. It includes three iris species 
-/// with 50 samples each as well as some properties about each flower. One flower species is 
+/// The Iris dataset is a classic dataset for classification tasks. It includes three iris species
+/// with 50 samples each as well as some properties about each flower. One flower species is
 /// linearly separable from the other two, but the other two are not linearly separable from each other.
 ///
 /// Features:
@@ -120,8 +122,7 @@ impl Iris {
     fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
         let path = Path::new(path);
         let dst = path.join(IRIS_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst, IRIS_SHA256)?;
+        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, IRIS_SHA256)?;
 
         // download and extract iris dataset if needed
         if need_download {
@@ -134,18 +135,18 @@ impl Iris {
             let src = path_temp.join(IRIS_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), IRIS_SHA256)? {
-                return Err(DatasetError::ValidationError(format!("{} SHA256 validation failed", IRIS_FILENAME)));
+                return Err(DatasetError::sha256_validation_failed(IRIS_FILENAME));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(|e| DatasetError::StdIoError(e))?;
+                remove_file(&dst).map_err(DatasetError::io)?;
             }
             // move iris.data out of the temporary directory
-            rename(src, &dst).map_err(|e| DatasetError::StdIoError(e))?;
+            rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(|e| DatasetError::StdIoError(e))?;
+        let mut file = File::open(dst).map_err(DatasetError::io)?;
         let mut data = String::new();
-        file.read_to_string(&mut data).map_err(|e| DatasetError::StdIoError(e))?;
+        file.read_to_string(&mut data).map_err(DatasetError::io)?;
 
         let mut features = Vec::with_capacity(IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES);
         let mut labels = Vec::with_capacity(IRIS_SAMPLE_SIZE);
@@ -153,23 +154,27 @@ impl Iris {
         let lines: Vec<&str> = data.trim().lines().collect();
 
         for line in &lines {
-            if line.is_empty() { continue; }
+            if line.is_empty() {
+                continue;
+            }
             let cols: Vec<&str> = line.split(',').collect();
             if cols.len() != IRIS_NUM_FEATURES + 1 {
-                return Err(DatasetError::DataFormatError(
-                    format!("Expected {} columns, got {} at line {}",
-                            IRIS_NUM_FEATURES + 1,
-                            cols.len(),
-                            line)
-                ))
+                return Err(DatasetError::invalid_column_count(
+                    IRIS_DATASET_NAME,
+                    IRIS_NUM_FEATURES + 1,
+                    cols.len(),
+                    line,
+                ));
             }
 
             // Features are columns 0-3 (4 features)
             for i in 0..IRIS_NUM_FEATURES {
-                features.push(cols[i].parse::<f64>().map_err(
-                    |e| DatasetError::DataFormatError(
-                        format!("Failed to parse Iris dataset feature {} at line {}: {}", i, line, e)
-                    ))?);
+                let field = format!("feature[{i}]");
+                features.push(
+                    cols[i].parse::<f64>().map_err(|e| {
+                        DatasetError::parse_failed(IRIS_DATASET_NAME, &field, line, e)
+                    })?,
+                );
             }
 
             // Label is column 4
@@ -177,30 +182,37 @@ impl Iris {
                 "Iris-setosa" => "setosa",
                 "Iris-versicolor" => "versicolor",
                 "Iris-virginica" => "virginica",
-                _ => return Err(DatasetError::DataFormatError(
-                    format!("Failed to parse Iris dataset label {} at line {}", cols[4], line)
-                ))
+                _ => {
+                    return Err(DatasetError::invalid_value(
+                        IRIS_DATASET_NAME,
+                        "label",
+                        cols[4],
+                        line,
+                    ));
+                }
             });
         }
 
         if features.len() != IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} * {} elements in features, got {}",
-                        IRIS_SAMPLE_SIZE,
-                        IRIS_NUM_FEATURES,
-                        features.len())
-            ))
+            return Err(DatasetError::length_mismatch(
+                IRIS_DATASET_NAME,
+                "features",
+                IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES,
+                features.len(),
+            ));
         }
         if labels.len() != IRIS_SAMPLE_SIZE {
-            return Err(DatasetError::DataFormatError(
-                format!("Expected {} elements in labels, got {}", IRIS_SAMPLE_SIZE, labels.len())
-            ))
+            return Err(DatasetError::length_mismatch(
+                IRIS_DATASET_NAME,
+                "labels",
+                IRIS_SAMPLE_SIZE,
+                labels.len(),
+            ));
         }
 
-        let features_array = Array2::from_shape_vec((IRIS_SAMPLE_SIZE, IRIS_NUM_FEATURES), features)
-            .map_err(|e| DatasetError::DataFormatError(
-                format!("Failed to create features array: {}", e)
-            ))?;
+        let features_array =
+            Array2::from_shape_vec((IRIS_SAMPLE_SIZE, IRIS_NUM_FEATURES), features)
+                .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 
         Ok((features_array, labels_array))
@@ -218,7 +230,8 @@ impl Iris {
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, labels));
 
-        let cache = self.data
+        let cache = self
+            .data
             .get()
             .expect("IRIS_DATA should be initialized after set");
         Ok(cache)

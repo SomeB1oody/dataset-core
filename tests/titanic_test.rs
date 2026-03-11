@@ -1,8 +1,8 @@
 use rustyml_dataset::titanic::*;
-use std::fs::{create_dir_all, remove_dir_all, File};
+use rustyml_dataset::{download_to, file_sha256_matches};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
-use rustyml_dataset::{download_to, file_sha256_matches};
 
 #[test]
 fn test_load_titanic() {
@@ -48,10 +48,13 @@ fn test_titanic_overwrite() {
     let (_string_features, _numeric_features, _labels) = dataset.data().unwrap();
 
     // check the fake file is overwritten
-    assert!(file_sha256_matches(
-        &download_dir_path.join("titanic.csv"),
-        "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7"
-    ).unwrap());
+    assert!(
+        file_sha256_matches(
+            &download_dir_path.join("titanic.csv"),
+            "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7"
+        )
+        .unwrap()
+    );
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
@@ -67,8 +70,9 @@ fn test_titanic_no_need_download() {
     {
         download_to(
             "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
-            download_dir_path
-        ).unwrap();
+            download_dir_path,
+        )
+        .unwrap();
     }
 
     // should use cached Titanic dataset

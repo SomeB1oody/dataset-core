@@ -1,8 +1,8 @@
 use rustyml_dataset::iris::*;
-use std::fs::{create_dir_all, remove_dir_all, File};
+use rustyml_dataset::{download_to, file_sha256_matches, unzip};
+use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
-use rustyml_dataset::{download_to, file_sha256_matches, unzip};
 
 #[test]
 fn test_load_iris() {
@@ -38,8 +38,9 @@ fn test_iris_no_need_download() {
     {
         download_to(
             "https://archive.ics.uci.edu/static/public/53/iris.zip",
-            download_dir_path
-        ).unwrap();
+            download_dir_path,
+        )
+        .unwrap();
         unzip(&download_dir_path.join("iris.zip"), download_dir_path).unwrap();
     }
 
@@ -68,10 +69,13 @@ fn test_iris_overwrite() {
     let (_features, _labels) = dataset.data().unwrap();
 
     // check the fake file is overwritten
-    assert!(file_sha256_matches(
-        &download_dir_path.join("iris.data"),
-        "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0"
-    ).unwrap());
+    assert!(
+        file_sha256_matches(
+            &download_dir_path.join("iris.data"),
+            "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0"
+        )
+        .unwrap()
+    );
 
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
