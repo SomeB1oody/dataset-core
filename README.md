@@ -8,8 +8,6 @@ A collection of classic machine learning datasets with automatic download, cachi
 
 ## Overview
 
-`rustyml-dataset` is an extension crate of [`rustyml`](https://crates.io/crates/rustyml). Before rustyml v0.12.0, the database module was built-in. Later, to prevent rustyml from becoming overly complex, it was separated into `rustyml-dataset`. It can be used independently of [`rustyml`](https://crates.io/crates/rustyml), but works best and is most convenient when used in conjunction with [`rustyml`](https://crates.io/crates/rustyml).
-
 `rustyml-dataset` provides easy access to popular machine learning datasets with built-in support for the `ndarray` crate. Datasets are automatically downloaded from their original sources on first use and cached in memory using thread-safe `OnceLock` for optimal performance, ensuring data is loaded only once and cached for subsequent calls.
 
 ## Features

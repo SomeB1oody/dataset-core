@@ -3,7 +3,7 @@ use crate::{
 };
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
-use std::io::Read;
+use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -150,40 +150,53 @@ impl BostonHousing {
             rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(DatasetError::io)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data).map_err(DatasetError::io)?;
+        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(file);
 
         let mut features =
             Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
         let mut targets = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE);
 
-        let lines: Vec<&str> = data.trim().lines().collect();
+        for result in rdr.records() {
+            let record = result.map_err(|e| {
+                DatasetError::data_format(format!(
+                    "[{}] failed to read CSV record: {}",
+                    BOSTON_HOUSING_DATASET_NAME, e
+                ))
+            })?;
 
-        for line in &lines[1..] {
-            if line.is_empty() {
-                continue;
-            }
-            let cols: Vec<&str> = line.split(',').collect();
-            if cols.len() < BOSTON_HOUSING_NUM_FEATURES + 1 {
+            if record.len() < BOSTON_HOUSING_NUM_FEATURES + 1 {
                 return Err(DatasetError::insufficient_column_count(
                     BOSTON_HOUSING_DATASET_NAME,
                     BOSTON_HOUSING_NUM_FEATURES + 1,
-                    cols.len(),
-                    line,
+                    record.len(),
+                    &format!("{:?}", record),
                 ));
             }
+
             // Features are columns 0-12 (13 features)
             for i in 0..BOSTON_HOUSING_NUM_FEATURES {
                 let field = format!("feature[{i}]");
-                features.push(cols[i].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(BOSTON_HOUSING_DATASET_NAME, &field, line, e)
+                features.push(record[i].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(
+                        BOSTON_HOUSING_DATASET_NAME,
+                        &field,
+                        &format!("{:?}", record),
+                        e,
+                    )
                 })?);
             }
 
             // Target is column 13 (MEDV)
-            targets.push(cols[13].parse::<f64>().map_err(|e| {
-                DatasetError::parse_failed(BOSTON_HOUSING_DATASET_NAME, "target", line, e)
+            targets.push(record[13].parse::<f64>().map_err(|e| {
+                DatasetError::parse_failed(
+                    BOSTON_HOUSING_DATASET_NAME,
+                    "target",
+                    &format!("{:?}", record),
+                    e,
+                )
             })?);
         }
 
@@ -208,7 +221,7 @@ impl BostonHousing {
             (BOSTON_HOUSING_SAMPLE_SIZE, BOSTON_HOUSING_NUM_FEATURES),
             features,
         )
-        .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;
+            .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;
         let targets_array = Array1::from_vec(targets);
 
         Ok((features_array, targets_array))
