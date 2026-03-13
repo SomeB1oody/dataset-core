@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-13
+### Changed
+- Refactor Diabetes dataset handling to replace manual CSV parsing with `csv` crate for improved reliability and readability
+
 ## [0.1.0] - 2026-3-12
 ### Changed
 - Update tempfile version to 3.27.0

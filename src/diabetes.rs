@@ -3,7 +3,7 @@ use crate::{
 };
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
-use std::io::Read;
+use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -133,39 +133,50 @@ impl Diabetes {
             rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(DatasetError::io)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data).map_err(DatasetError::io)?;
+        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(file);
 
         let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
         let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
 
-        let lines: Vec<&str> = data.trim().lines().collect();
+        for result in rdr.records() {
+            let record = result.map_err(|e| {
+                DatasetError::data_format(format!(
+                    "[{}] failed to read CSV record: {}",
+                    DIABETES_DATASET_NAME, e
+                ))
+            })?;
 
-        // Process lines as data (skip header)
-        for line in &lines[1..] {
-            if line.is_empty() {
-                continue;
-            }
-            let cols: Vec<&str> = line.split(',').collect();
-            if cols.len() != DIABETES_NUM_FEATURES + 1 {
-                return Err(DatasetError::invalid_column_count(
+            if record.len() < DIABETES_NUM_FEATURES + 1 {
+                return Err(DatasetError::insufficient_column_count(
                     DIABETES_DATASET_NAME,
                     DIABETES_NUM_FEATURES + 1,
-                    cols.len(),
-                    line,
+                    record.len(),
+                    &format!("{:?}", record),
                 ));
             }
 
             for i in 0..DIABETES_NUM_FEATURES {
                 let field = format!("feature[{i}]");
-                features.push(cols[i].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(DIABETES_DATASET_NAME, &field, line, e)
+                features.push(record[i].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(
+                        DIABETES_DATASET_NAME,
+                        &field,
+                        &format!("{:?}", record),
+                        e,
+                    )
                 })?);
             }
 
-            labels.push(cols[8].parse::<f64>().map_err(|e| {
-                DatasetError::parse_failed(DIABETES_DATASET_NAME, "label", line, e)
+            labels.push(record[8].parse::<f64>().map_err(|e| {
+                DatasetError::parse_failed(
+                    DIABETES_DATASET_NAME,
+                    "label",
+                    &format!("{:?}", record),
+                    e,
+                )
             })?);
         }
 
