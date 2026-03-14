@@ -3,7 +3,7 @@ use crate::{
 };
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
-use std::io::Read;
+use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -144,50 +144,55 @@ impl Iris {
             rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut file = File::open(dst).map_err(DatasetError::io)?;
-        let mut data = String::new();
-        file.read_to_string(&mut data).map_err(DatasetError::io)?;
+        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(false)
+            .from_reader(file);
 
         let mut features = Vec::with_capacity(IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES);
         let mut labels = Vec::with_capacity(IRIS_SAMPLE_SIZE);
 
-        let lines: Vec<&str> = data.trim().lines().collect();
+        for result in rdr.records() {
+            let record = result.map_err(|e| {
+                DatasetError::data_format(format!(
+                    "[{}] failed to read CSV record: {}",
+                    IRIS_DATASET_NAME, e
+                ))
+            })?;
 
-        for line in &lines {
-            if line.is_empty() {
-                continue;
-            }
-            let cols: Vec<&str> = line.split(',').collect();
-            if cols.len() != IRIS_NUM_FEATURES + 1 {
+            if record.len() != IRIS_NUM_FEATURES + 1 {
                 return Err(DatasetError::invalid_column_count(
                     IRIS_DATASET_NAME,
                     IRIS_NUM_FEATURES + 1,
-                    cols.len(),
-                    line,
+                    record.len(),
+                    &format!("{:?}", record),
                 ));
             }
 
             // Features are columns 0-3 (4 features)
             for i in 0..IRIS_NUM_FEATURES {
                 let field = format!("feature[{i}]");
-                features.push(
-                    cols[i].parse::<f64>().map_err(|e| {
-                        DatasetError::parse_failed(IRIS_DATASET_NAME, &field, line, e)
-                    })?,
-                );
+                features.push(record[i].parse::<f64>().map_err(|e| {
+                    DatasetError::parse_failed(
+                        IRIS_DATASET_NAME,
+                        &field,
+                        &format!("{:?}", record),
+                        e,
+                    )
+                })?);
             }
 
             // Label is column 4
-            labels.push(match cols[4] {
+            labels.push(match &record[4] {
                 "Iris-setosa" => "setosa",
                 "Iris-versicolor" => "versicolor",
                 "Iris-virginica" => "virginica",
-                _ => {
+                other => {
                     return Err(DatasetError::invalid_value(
                         IRIS_DATASET_NAME,
                         "label",
-                        cols[4],
-                        line,
+                        other,
+                        &format!("{:?}", record),
                     ));
                 }
             });
