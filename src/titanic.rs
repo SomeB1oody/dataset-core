@@ -1,7 +1,7 @@
 use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir};
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
-use std::io::Read;
+use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -120,44 +120,6 @@ impl Titanic {
         }
     }
 
-    /// Parses a CSV line, correctly handling quoted fields that may contain commas.
-    ///
-    /// This function splits a CSV line by commas, but treats commas inside double quotes
-    /// as part of the field content rather than field separators.
-    ///
-    /// # Parameters
-    ///
-    /// - `line` - A line from a CSV file
-    ///
-    /// # Returns
-    ///
-    /// A vector of strings, one for each field. Quoted fields have their quotes removed.
-    fn parse_csv_line(line: &str) -> Vec<String> {
-        let mut fields = Vec::new();
-        let mut current_field = String::new();
-        let mut inside_quotes = false;
-        let mut chars = line.chars().peekable();
-
-        while let Some(ch) = chars.next() {
-            match ch {
-                '"' => {
-                    inside_quotes = !inside_quotes;
-                }
-                ',' if !inside_quotes => {
-                    fields.push(current_field.clone());
-                    current_field.clear();
-                }
-                _ => {
-                    current_field.push(ch);
-                }
-            }
-        }
-        // Push the last field
-        fields.push(current_field);
-
-        fields
-    }
-
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
@@ -185,102 +147,68 @@ impl Titanic {
             rename(src, &dst).map_err(DatasetError::io)?;
         }
 
-        let mut data = String::new();
-        let mut raw_data = File::open(dst).map_err(DatasetError::io)?;
-        raw_data
-            .read_to_string(&mut data)
-            .map_err(DatasetError::io)?;
+        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let mut rdr = ReaderBuilder::new()
+            .has_headers(true)
+            .from_reader(file);
 
-        let lines: Vec<&str> = data.trim().lines().collect();
-
-        let mut string_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * 5);
-        let mut numeric_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * 6);
+        let mut string_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES);
+        let mut numeric_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES);
         let mut labels = Vec::with_capacity(TITANIC_SAMPLE_SIZE);
 
-        // Process lines as data (skip header)
-        for line in &lines[1..] {
-            if line.is_empty() {
-                continue;
-            }
-            let cols = Self::parse_csv_line(line);
-            if cols.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
+        // CSV columns: PassengerId(0), Survived(1), Pclass(2), Name(3), Sex(4), Age(5), SibSp(6), Parch(7), Ticket(8), Fare(9), Cabin(10), Embarked(11)
+
+        for result in rdr.records() {
+            let record = result.map_err(|e| {
+                DatasetError::data_format(format!(
+                    "[{}] failed to read CSV record: {}",
+                    TITANIC_DATASET_NAME, e
+                ))
+            })?;
+
+            if record.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
                 return Err(DatasetError::invalid_column_count(
                     TITANIC_DATASET_NAME,
                     TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1,
-                    cols.len(),
-                    line,
+                    record.len(),
+                    &format!("{:?}", record),
                 ));
             }
 
-            // Parse Survived (label) - index 1
-            labels.push(if cols[1].is_empty() {
-                f64::NAN
-            } else {
-                cols[1].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "survived", line, e)
-                })?
-            });
+            // Helper closure: parse a numeric field, returning NaN for empty strings
+            let parse_numeric = |index: usize, field_name: &str| -> Result<f64, DatasetError> {
+                let val = record[index].trim();
+                if val.is_empty() {
+                    Ok(f64::NAN)
+                } else {
+                    val.parse::<f64>().map_err(|e| {
+                        DatasetError::parse_failed(
+                            TITANIC_DATASET_NAME,
+                            field_name,
+                            &format!("{:?}", record),
+                            e,
+                        )
+                    })
+                }
+            };
 
-            // Parse PassengerId - index 0
-            numeric_features.push(if cols[0].is_empty() {
-                f64::NAN
-            } else {
-                cols[0].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "passenger_id", line, e)
-                })?
-            });
+            // Label: Survived (index 1)
+            labels.push(parse_numeric(1, "survived")?);
 
-            // Parse Pclass - index 2
-            numeric_features.push(if cols[2].is_empty() {
-                f64::NAN
-            } else {
-                cols[2].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "pclass", line, e)
-                })?
-            });
+            // Numeric features: PassengerId(0), Pclass(2), Age(5), SibSp(6), Parch(7), Fare(9)
+            numeric_features.push(parse_numeric(0, "passenger_id")?);
+            numeric_features.push(parse_numeric(2, "pclass")?);
+            numeric_features.push(parse_numeric(5, "age")?);
+            numeric_features.push(parse_numeric(6, "sib_sp")?);
+            numeric_features.push(parse_numeric(7, "parch")?);
+            numeric_features.push(parse_numeric(9, "fare")?);
 
-            // Parse Age - index 5
-            numeric_features.push(if cols[5].is_empty() {
-                f64::NAN
-            } else {
-                cols[5]
-                    .parse::<f64>()
-                    .map_err(|e| DatasetError::parse_failed(TITANIC_DATASET_NAME, "age", line, e))?
-            });
-
-            // Parse SibSp - index 6
-            numeric_features.push(if cols[6].is_empty() {
-                f64::NAN
-            } else {
-                cols[6].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "sib_sp", line, e)
-                })?
-            });
-
-            // Parse Parch - index 7
-            numeric_features.push(if cols[7].is_empty() {
-                f64::NAN
-            } else {
-                cols[7].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "parch", line, e)
-                })?
-            });
-
-            // Parse Fare - index 9
-            numeric_features.push(if cols[9].is_empty() {
-                f64::NAN
-            } else {
-                cols[9].parse::<f64>().map_err(|e| {
-                    DatasetError::parse_failed(TITANIC_DATASET_NAME, "fare", line, e)
-                })?
-            });
-
-            // String features: Name, Sex, Ticket, Cabin, Embarked
-            string_features.push(cols[3].clone()); // Name - index 3
-            string_features.push(cols[4].clone()); // Sex - index 4
-            string_features.push(cols[8].clone()); // Ticket - index 8
-            string_features.push(cols[10].clone()); // Cabin - index 10
-            string_features.push(cols[11].clone()); // Embarked - index 11
+            // String features: Name(3), Sex(4), Ticket(8), Cabin(10), Embarked(11)
+            string_features.push(record[3].to_string());
+            string_features.push(record[4].to_string());
+            string_features.push(record[8].to_string());
+            string_features.push(record[10].to_string());
+            string_features.push(record[11].to_string());
         }
 
         if labels.len() != TITANIC_SAMPLE_SIZE {
@@ -312,15 +240,15 @@ impl Titanic {
             (TITANIC_SAMPLE_SIZE, TITANIC_NUM_STRING_FEATURES),
             string_features,
         )
-        .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
+            .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
 
         let numeric_array = Array2::from_shape_vec(
             (TITANIC_SAMPLE_SIZE, TITANIC_NUM_NUMERIC_FEATURES),
             numeric_features,
         )
-        .map_err(|e| {
-            DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
-        })?;
+            .map_err(|e| {
+                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
+            })?;
 
         let labels_array = Array1::from_vec(labels);
 

@@ -3,7 +3,7 @@ use crate::{
 };
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
-use std::io::Read;
+use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
@@ -76,6 +76,7 @@ fn load_wine_quality_data(
     let path = Path::new(path);
     let dst = path.join(csv_filename);
     let (need_download, need_overwrite) = prepare_download_dir(path, &dst, expected_sha256)?;
+    // Downloads and stores a Wine Quality CSV file if needed
     ensure_wine_quality_csv(
         path,
         &dst,
@@ -85,41 +86,12 @@ fn load_wine_quality_data(
         need_overwrite,
     )?;
 
-    let mut file = File::open(dst).map_err(DatasetError::io)?;
-    let mut data = String::new();
-    file.read_to_string(&mut data).map_err(DatasetError::io)?;
+    let file = File::open(&dst).map_err(DatasetError::io)?;
 
-    parse_wine_data_to_array(dataset_name, data, n_samples)
+    parse_wine_data_to_array(dataset_name, file, n_samples)
 }
 
 /// Downloads and stores a Wine Quality CSV file if needed.
-///
-/// This internal helper function handles the download, extraction, and validation
-/// of a specific Wine Quality CSV file (either red or white wine data). It downloads
-/// the UCI Wine Quality zip archive, extracts the specified CSV file, validates it
-/// against the expected SHA256 hash, and moves it to the target location.
-///
-/// # Parameters
-///
-/// - `storage_dir` - Directory where the dataset files will be stored
-/// - `dst_file` - Target path where the CSV file should be placed
-/// - `csv_filename` - Name of the CSV file to extract from the zip archive
-/// - `expected_sha256` - Expected SHA256 hash for file validation
-/// - `need_download` - Whether download is needed (if false, function returns early)
-/// - `need_overwrite` - Whether to overwrite the existing file if it exists
-///
-/// # Returns
-///
-/// Returns `Ok(())` if the operation succeeds, or returns early if `need_download` is false.
-///
-/// # Errors
-///
-/// Returns `DatasetError` if:
-/// - Creating temporary directory fails
-/// - Download fails due to network issues or invalid URL
-/// - Unzipping fails or the archive is corrupted
-/// - SHA256 validation fails (file corruption or wrong data)
-/// - File I/O operations fail (removing existing file, moving extracted file)
 fn ensure_wine_quality_csv(
     storage_dir: &Path,
     dst_file: &Path,
@@ -177,44 +149,49 @@ fn ensure_wine_quality_csv(
 /// - Any row has an unexpected number of columns
 /// - Any feature/target value fails to parse as `f64`
 /// - The final number of parsed values does not match the expected shape
-fn parse_wine_data_to_array(
+fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
-    data: String,
+    reader: R,
     n_samples: usize,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let lines: Vec<&str> = data.trim().lines().collect();
+    let mut rdr = ReaderBuilder::new()
+        .delimiter(b';')
+        .has_headers(true)
+        .from_reader(reader);
 
     let mut features_array = Vec::with_capacity(n_samples * WINE_QUALITY_NUM_FEATURES);
     let mut target_array = Vec::with_capacity(n_samples);
 
-    for line in &lines[1..] {
-        if line.is_empty() {
-            continue;
-        }
-        let cols: Vec<&str> = line.split(';').collect();
+    for result in rdr.records() {
+        let record = result.map_err(|e| {
+            DatasetError::data_format(format!(
+                "[{}] failed to read CSV record: {}",
+                dataset_name, e
+            ))
+        })?;
 
-        if cols.len() != WINE_QUALITY_NUM_FEATURES + 1 {
+        if record.len() != WINE_QUALITY_NUM_FEATURES + 1 {
             return Err(DatasetError::invalid_column_count(
                 dataset_name,
                 WINE_QUALITY_NUM_FEATURES + 1,
-                cols.len(),
-                line,
+                record.len(),
+                &format!("{:?}", record),
             ));
         }
 
         for i in 0..WINE_QUALITY_NUM_FEATURES {
             let field = format!("feature[{i}]");
             features_array.push(
-                cols[i]
+                record[i]
                     .parse::<f64>()
-                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, line, e))?,
+                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, &format!("{:?}", record), e))?,
             );
         }
 
         target_array.push(
-            cols[11]
+            record[WINE_QUALITY_NUM_FEATURES]
                 .parse::<f64>()
-                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", line, e))?,
+                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", &format!("{:?}", record), e))?,
         );
     }
 
