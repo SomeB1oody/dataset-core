@@ -2,7 +2,7 @@
 name = "rustyml-dataset"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85.0"
+rust-version = "1.88.0"
 authors = ["SomeB1oody <stanyin64@gmail.com>"]
 description = "A collection of classic machine learning datasets with ndarray integration and memoization support"
 license = "MIT"

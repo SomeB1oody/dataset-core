@@ -5,6 +5,9 @@ use csv::ReaderBuilder;
 use std::path::Path;
 use std::sync::OnceLock;
 
+/// Type alias for Titanic dataset: (string features, numeric features, labels)
+type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
+
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str =
     "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
@@ -97,7 +100,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// ```
 pub struct Titanic {
     storage_path: String,
-    data: OnceLock<(Array2<String>, Array2<f64>, Array1<f64>)>,
+    data: OnceLock<TitanicData>,
 }
 
 impl Titanic {
@@ -123,9 +126,7 @@ impl Titanic {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(
-        path: &str,
-    ) -> Result<(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data_internal(path: &str) -> Result<TitanicData, DatasetError> {
         // the path the user wants dataset to be stored in
         let path = Path::new(path);
         let dst = path.join(TITANIC_FILENAME);
@@ -256,7 +257,7 @@ impl Titanic {
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
-    fn load_data(&self) -> Result<&(Array2<String>, Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data(&self) -> Result<&TitanicData, DatasetError> {
         // if already initialized
         if let Some(cache) = self.data.get() {
             return Ok(cache);

@@ -5,6 +5,11 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-17
+### Changed
+- Update rust version to 1.88.0
+- Use type alias for Titanic dataset
+
 ## [0.1.0] - 2026-3-16
 ### Changed
 - Refactor Titanic dataset handling to replace manual CSV parsing with `csv` crate for improved reliability and readability
