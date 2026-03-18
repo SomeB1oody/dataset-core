@@ -82,9 +82,19 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct Diabetes {
     storage_path: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
+}
+
+impl std::fmt::Debug for Diabetes {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Diabetes")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl Diabetes {

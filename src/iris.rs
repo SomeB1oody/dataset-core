@@ -91,9 +91,19 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct Iris {
     storage_path: String,
     data: OnceLock<(Array2<f64>, Array1<&'static str>)>,
+}
+
+impl std::fmt::Debug for Iris {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Iris")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl Iris {

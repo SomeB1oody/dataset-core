@@ -92,9 +92,19 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct BostonHousing {
     storage_path: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
+}
+
+impl std::fmt::Debug for BostonHousing {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BostonHousing")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl BostonHousing {

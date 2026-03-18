@@ -98,9 +98,19 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct Titanic {
     storage_path: String,
     data: OnceLock<TitanicData>,
+}
+
+impl std::fmt::Debug for Titanic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Titanic")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl Titanic {

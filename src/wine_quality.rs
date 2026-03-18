@@ -282,9 +282,19 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct RedWineQuality {
     storage_path: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
+}
+
+impl std::fmt::Debug for RedWineQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RedWineQuality")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl RedWineQuality {
@@ -486,9 +496,19 @@ impl RedWineQuality {
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Clone)]
 pub struct WhiteWineQuality {
     storage_path: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
+}
+
+impl std::fmt::Debug for WhiteWineQuality {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WhiteWineQuality")
+            .field("storage_path", &self.storage_path)
+            .field("data_loaded", &self.data.get().is_some())
+            .finish()
+    }
 }
 
 impl WhiteWineQuality {
