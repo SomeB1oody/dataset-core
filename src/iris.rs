@@ -145,6 +145,8 @@ impl Iris {
             let src = path_temp.join(IRIS_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), IRIS_SHA256)? {
+                // clean up temporary directory
+                drop(temp_dir);
                 return Err(DatasetError::sha256_validation_failed(IRIS_FILENAME));
             }
             if need_overwrite {

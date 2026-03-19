@@ -150,6 +150,8 @@ impl Titanic {
             // move downloaded file to final location
             let src = path_temp.join(TITANIC_FILENAME);
             if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
+                // clean up temporary directory
+                drop(temp_dir);
                 return Err(DatasetError::sha256_validation_failed(TITANIC_FILENAME));
             }
             if need_overwrite {

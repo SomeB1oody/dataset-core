@@ -135,6 +135,8 @@ impl Diabetes {
             let src = path_temp.join(DIABETES_FILENAME);
             // check if the file matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
+                // clean up temporary directory
+                drop(temp_dir);
                 return Err(DatasetError::sha256_validation_failed(DIABETES_FILENAME));
             }
             if need_overwrite {

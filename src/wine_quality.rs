@@ -116,6 +116,8 @@ fn ensure_wine_quality_csv(
     let src_file = path_temp.join(csv_filename);
 
     if !file_sha256_matches(src_file.as_path(), expected_sha256)? {
+        // clean up temporary directory
+        drop(temp_dir);
         return Err(DatasetError::sha256_validation_failed(csv_filename));
     }
     if need_overwrite {

@@ -149,6 +149,8 @@ impl BostonHousing {
                 .join(BOSTON_HOUSING_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), BOSTON_HOUSING_SHA256)? {
+                // clean up temporary directory
+                drop(temp_dir);
                 return Err(DatasetError::sha256_validation_failed(
                     BOSTON_HOUSING_FILENAME,
                 ));
