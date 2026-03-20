@@ -6,6 +6,10 @@ This change log records updates after 2026-2-13.
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
 ## [0.1.0] - 2026-3-19
+### Added
+- Add `Thread Safety` documentation to dataset modules
+
+## [0.1.0] - 2026-3-19
 ### Changed
 - Ensure temporary directory cleanup on SHA256 hash validation failure for all datasets
 

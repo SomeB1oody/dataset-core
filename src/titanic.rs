@@ -66,6 +66,11 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 ///
+/// # Thread Safety
+///
+/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
+/// The `OnceLock` ensures thread-safe lazy initialization.
+///
 /// # Fields
 ///
 /// - `storage_path` - Directory path where the dataset will be stored.

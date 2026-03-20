@@ -62,6 +62,11 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// Targets:
 /// - MEDV - Median value of owner-occupied homes in $1000's
 ///
+/// # Thread Safety
+///
+/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
+/// The `OnceLock` ensures thread-safe lazy initialization.
+///
 /// # Fields
 ///
 /// - `storage_path` - Directory path where the dataset will be stored.

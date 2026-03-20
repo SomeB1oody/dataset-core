@@ -61,6 +61,11 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// R. A. Fisher. "Iris," UCI Machine Learning Repository, \[Online\].
 /// Available: <https://doi.org/10.24432/C56C76>
 ///
+/// # Thread Safety
+///
+/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
+/// The `OnceLock` ensures thread-safe lazy initialization.
+///
 /// # Fields
 ///
 /// - `storage_path` - Directory path where the dataset will be stored.

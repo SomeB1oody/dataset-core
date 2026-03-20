@@ -254,6 +254,11 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 ///
 /// P. Cortez, A. Cerdeira, F. Almeida, T. Matos, and J. Reis. "Wine Quality," UCI Machine Learning Repository, 2009. \[Online\]. Available: <https://doi.org/10.24432/C56S3T>.
 ///
+/// # Thread Safety
+///
+/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
+/// The `OnceLock` ensures thread-safe lazy initialization.
+///
 /// # Fields
 ///
 /// - `storage_path` - Directory path where the dataset will be stored.
@@ -467,6 +472,11 @@ impl RedWineQuality {
 /// # Citation
 ///
 /// P. Cortez, A. Cerdeira, F. Almeida, T. Matos, and J. Reis. "Wine Quality," UCI Machine Learning Repository, 2009. \[Online\]. Available: <https://doi.org/10.24432/C56S3T>.
+///
+/// # Thread Safety
+///
+/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
+/// The `OnceLock` ensures thread-safe lazy initialization.
 ///
 /// # Fields
 ///
