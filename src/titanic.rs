@@ -29,6 +29,8 @@ const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
 
 /// The SHA256 hash of the Titanic dataset file.
 const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
+
+/// The name of the dataset
 const TITANIC_DATASET_NAME: &str = "titanic";
 
 /// A struct representing the Titanic dataset with lazy loading.
@@ -100,7 +102,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
 ///
-/// // clean up: remove the downloaded files
+/// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Clone)]
@@ -157,15 +159,18 @@ impl Titanic {
             if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
                 // clean up temporary directory
                 drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(TITANIC_FILENAME));
+                return Err(DatasetError::sha256_validation_failed(
+                    TITANIC_DATASET_NAME,
+                    TITANIC_FILENAME,
+                ));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(DatasetError::io)?;
+                remove_file(&dst)?;
             }
-            rename(src, &dst).map_err(DatasetError::io)?;
+            rename(src, &dst)?;
         }
 
-        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);
@@ -176,19 +181,18 @@ impl Titanic {
 
         // CSV columns: PassengerId(0), Survived(1), Pclass(2), Name(3), Sex(4), Age(5), SibSp(6), Parch(7), Ticket(8), Fare(9), Cabin(10), Embarked(11)
 
-        for result in rdr.records() {
+        for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
-                DatasetError::data_format(format!(
-                    "[{}] failed to read CSV record: {}",
-                    TITANIC_DATASET_NAME, e
-                ))
+                DatasetError::csv_read_error(TITANIC_DATASET_NAME, e)
             })?;
+            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             if record.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
                 return Err(DatasetError::invalid_column_count(
                     TITANIC_DATASET_NAME,
                     TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1,
                     record.len(),
+                    line_num,
                     &format!("{:?}", record),
                 ));
             }
@@ -203,6 +207,7 @@ impl Titanic {
                         DatasetError::parse_failed(
                             TITANIC_DATASET_NAME,
                             field_name,
+                            line_num,
                             &format!("{:?}", record),
                             e,
                         )

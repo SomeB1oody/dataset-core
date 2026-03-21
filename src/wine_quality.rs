@@ -86,7 +86,7 @@ fn load_wine_quality_data(
         need_overwrite,
     )?;
 
-    let file = File::open(&dst).map_err(DatasetError::io)?;
+    let file = File::open(&dst)?;
 
     parse_wine_data_to_array(dataset_name, file, n_samples)
 }
@@ -118,12 +118,18 @@ fn ensure_wine_quality_csv(
     if !file_sha256_matches(src_file.as_path(), expected_sha256)? {
         // clean up temporary directory
         drop(temp_dir);
-        return Err(DatasetError::sha256_validation_failed(csv_filename));
+        // Extract dataset name from csv_filename (e.g., "winequality-red.csv" -> "red_wine_quality")
+        let dataset_name = if csv_filename.contains("red") {
+            "red_wine_quality"
+        } else {
+            "white_wine_quality"
+        };
+        return Err(DatasetError::sha256_validation_failed(dataset_name, csv_filename));
     }
     if need_overwrite {
-        remove_file(dst_file).map_err(DatasetError::io)?;
+        remove_file(dst_file)?;
     }
-    rename(&src_file, dst_file).map_err(DatasetError::io)?;
+    rename(&src_file, dst_file)?;
 
     Ok(())
 }
@@ -164,19 +170,18 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     let mut features_array = Vec::with_capacity(n_samples * WINE_QUALITY_NUM_FEATURES);
     let mut target_array = Vec::with_capacity(n_samples);
 
-    for result in rdr.records() {
+    for (idx, result) in rdr.records().enumerate() {
         let record = result.map_err(|e| {
-            DatasetError::data_format(format!(
-                "[{}] failed to read CSV record: {}",
-                dataset_name, e
-            ))
+            DatasetError::csv_read_error(dataset_name, e)
         })?;
+        let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
         if record.len() != WINE_QUALITY_NUM_FEATURES + 1 {
             return Err(DatasetError::invalid_column_count(
                 dataset_name,
                 WINE_QUALITY_NUM_FEATURES + 1,
                 record.len(),
+                line_num,
                 &format!("{:?}", record),
             ));
         }
@@ -186,14 +191,14 @@ fn parse_wine_data_to_array<R: std::io::Read>(
             features_array.push(
                 record[i]
                     .parse::<f64>()
-                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, &format!("{:?}", record), e))?,
+                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, line_num, &format!("{:?}", record), e))?,
             );
         }
 
         target_array.push(
             record[WINE_QUALITY_NUM_FEATURES]
                 .parse::<f64>()
-                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", &format!("{:?}", record), e))?,
+                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", line_num, &format!("{:?}", record), e))?,
         );
     }
 
@@ -505,7 +510,7 @@ impl RedWineQuality {
 /// assert_eq!(features.shape(), &[4898, 11]);
 /// assert_eq!(targets.len(), 4898);
 ///
-/// // clean up: remove the downloaded files
+/// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Clone)]

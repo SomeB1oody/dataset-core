@@ -32,6 +32,8 @@ const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 /// The SHA256 hash of the dataset file
 const BOSTON_HOUSING_SHA256: &str =
     "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+
+/// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 
 /// A struct representing the Boston Housing dataset with lazy loading.
@@ -94,7 +96,7 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
 ///
-/// // clean up: remove the downloaded files
+/// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Clone)]
@@ -157,17 +159,18 @@ impl BostonHousing {
                 // clean up temporary directory
                 drop(temp_dir);
                 return Err(DatasetError::sha256_validation_failed(
+                    BOSTON_HOUSING_DATASET_NAME,
                     BOSTON_HOUSING_FILENAME,
                 ));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(DatasetError::io)?;
+                remove_file(&dst)?;
             }
             // move boston_housing.csv out of the temporary directory
-            rename(src, &dst).map_err(DatasetError::io)?;
+            rename(src, &dst)?;
         }
 
-        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);
@@ -176,19 +179,18 @@ impl BostonHousing {
             Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
         let mut targets = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE);
 
-        for result in rdr.records() {
+        for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
-                DatasetError::data_format(format!(
-                    "[{}] failed to read CSV record: {}",
-                    BOSTON_HOUSING_DATASET_NAME, e
-                ))
+                DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e)
             })?;
+            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if record.len() < BOSTON_HOUSING_NUM_FEATURES + 1 {
-                return Err(DatasetError::insufficient_column_count(
+            if record.len() != BOSTON_HOUSING_NUM_FEATURES + 1 {
+                return Err(DatasetError::invalid_column_count(
                     BOSTON_HOUSING_DATASET_NAME,
                     BOSTON_HOUSING_NUM_FEATURES + 1,
                     record.len(),
+                    line_num,
                     &format!("{:?}", record),
                 ));
             }
@@ -200,6 +202,7 @@ impl BostonHousing {
                     DatasetError::parse_failed(
                         BOSTON_HOUSING_DATASET_NAME,
                         &field,
+                        line_num,
                         &format!("{:?}", record),
                         e,
                     )
@@ -211,6 +214,7 @@ impl BostonHousing {
                 DatasetError::parse_failed(
                     BOSTON_HOUSING_DATASET_NAME,
                     "target",
+                    line_num,
                     &format!("{:?}", record),
                     e,
                 )

@@ -32,6 +32,8 @@ const IRIS_NUM_FEATURES: usize = 4;
 
 /// The SHA256 hash of the Iris dataset file.
 const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
+
+/// The name of the dataset
 const IRIS_DATASET_NAME: &str = "iris";
 
 /// A struct representing the Iris dataset with lazy loading.
@@ -93,7 +95,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
-/// // clean up: remove the downloaded files
+/// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Clone)]
@@ -152,16 +154,19 @@ impl Iris {
             if !file_sha256_matches(src.as_path(), IRIS_SHA256)? {
                 // clean up temporary directory
                 drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(IRIS_FILENAME));
+                return Err(DatasetError::sha256_validation_failed(
+                    IRIS_DATASET_NAME,
+                    IRIS_FILENAME,
+                ));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(DatasetError::io)?;
+                remove_file(&dst)?;
             }
             // move iris.data out of the temporary directory
-            rename(src, &dst).map_err(DatasetError::io)?;
+            rename(src, &dst)?;
         }
 
-        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(false)
             .from_reader(file);
@@ -169,19 +174,18 @@ impl Iris {
         let mut features = Vec::with_capacity(IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES);
         let mut labels = Vec::with_capacity(IRIS_SAMPLE_SIZE);
 
-        for result in rdr.records() {
+        for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
-                DatasetError::data_format(format!(
-                    "[{}] failed to read CSV record: {}",
-                    IRIS_DATASET_NAME, e
-                ))
+                DatasetError::csv_read_error(IRIS_DATASET_NAME, e)
             })?;
+            let line_num = idx + 1; // +1 for 0-indexed, no header
 
             if record.len() != IRIS_NUM_FEATURES + 1 {
                 return Err(DatasetError::invalid_column_count(
                     IRIS_DATASET_NAME,
                     IRIS_NUM_FEATURES + 1,
                     record.len(),
+                    line_num,
                     &format!("{:?}", record),
                 ));
             }
@@ -193,6 +197,7 @@ impl Iris {
                     DatasetError::parse_failed(
                         IRIS_DATASET_NAME,
                         &field,
+                        line_num,
                         &format!("{:?}", record),
                         e,
                     )
@@ -209,6 +214,7 @@ impl Iris {
                         IRIS_DATASET_NAME,
                         "label",
                         other,
+                        line_num,
                         &format!("{:?}", record),
                     ));
                 }

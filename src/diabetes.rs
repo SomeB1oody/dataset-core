@@ -25,6 +25,8 @@ const DIABETES_NUM_FEATURES: usize = 8;
 
 /// The SHA256 hash of the Diabetes dataset file.
 const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
+
+/// The name of the dataset
 const DIABETES_DATASET_NAME: &str = "diabetes";
 
 /// A struct representing the Diabetes dataset with lazy loading.
@@ -84,7 +86,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// assert_eq!(features.shape(), &[768, 8]);
 /// assert_eq!(labels.len(), 768);
 ///
-/// // clean up: remove the downloaded files
+/// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Clone)]
@@ -142,15 +144,18 @@ impl Diabetes {
             if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
                 // clean up temporary directory
                 drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(DIABETES_FILENAME));
+                return Err(DatasetError::sha256_validation_failed(
+                    DIABETES_DATASET_NAME,
+                    DIABETES_FILENAME,
+                ));
             }
             if need_overwrite {
-                remove_file(&dst).map_err(DatasetError::io)?;
+                remove_file(&dst)?;
             }
-            rename(src, &dst).map_err(DatasetError::io)?;
+            rename(src, &dst)?;
         }
 
-        let file = File::open(&dst).map_err(DatasetError::io)?;
+        let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);
@@ -158,19 +163,18 @@ impl Diabetes {
         let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
         let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
 
-        for result in rdr.records() {
+        for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
-                DatasetError::data_format(format!(
-                    "[{}] failed to read CSV record: {}",
-                    DIABETES_DATASET_NAME, e
-                ))
+                DatasetError::csv_read_error(DIABETES_DATASET_NAME, e)
             })?;
+            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if record.len() < DIABETES_NUM_FEATURES + 1 {
-                return Err(DatasetError::insufficient_column_count(
+            if record.len() != DIABETES_NUM_FEATURES + 1 {
+                return Err(DatasetError::invalid_column_count(
                     DIABETES_DATASET_NAME,
                     DIABETES_NUM_FEATURES + 1,
                     record.len(),
+                    line_num,
                     &format!("{:?}", record),
                 ));
             }
@@ -181,6 +185,7 @@ impl Diabetes {
                     DatasetError::parse_failed(
                         DIABETES_DATASET_NAME,
                         &field,
+                        line_num,
                         &format!("{:?}", record),
                         e,
                     )
@@ -191,6 +196,7 @@ impl Diabetes {
                 DatasetError::parse_failed(
                     DIABETES_DATASET_NAME,
                     "label",
+                    line_num,
                     &format!("{:?}", record),
                     e,
                 )
