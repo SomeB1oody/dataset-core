@@ -7,6 +7,10 @@ Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-d
 
 ## [0.1.0] - 2026-3-21
 ### Changed
+- Update zip crate version to 8.3.0
+
+## [0.1.0] - 2026-3-21
+### Changed
 - Refactor dataset modules to streamline error handling
 
 ## [0.1.0] - 2026-3-20
