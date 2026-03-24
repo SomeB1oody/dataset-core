@@ -17,8 +17,7 @@ const BOSTON_HOUSING_TEMP_FILE_PREFIX: &str = ".tmp-boston-housing-";
 const BOSTON_HOUSING_ZIP_FILENAME: &str = "373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
 
 /// The folder where the file is located inside after extraction
-const BOSTON_HOUSING_UNZIP_FOLDER: &str =
-    "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
+const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
 
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
@@ -30,8 +29,7 @@ const BOSTON_HOUSING_SAMPLE_SIZE: usize = 506;
 const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
 /// The SHA256 hash of the dataset file
-const BOSTON_HOUSING_SHA256: &str =
-    "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
 
 /// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
@@ -71,7 +69,7 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -101,14 +99,14 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// ```
 #[derive(Clone)]
 pub struct BostonHousing {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for BostonHousing {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("BostonHousing")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -118,18 +116,18 @@ impl BostonHousing {
     /// Create a new BostonHousing instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `BostonHousing` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         BostonHousing {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -137,21 +135,20 @@ impl BostonHousing {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let path = Path::new(path);
-        let dst = path.join(BOSTON_HOUSING_FILENAME);
-        let (need_download, need_overwrite) =
-            prepare_download_dir(path, &dst, BOSTON_HOUSING_SHA256)?;
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(BOSTON_HOUSING_FILENAME);
+        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, BOSTON_HOUSING_SHA256)?;
 
         // download and extract boston housing dataset if needed
         if need_download {
             // temporary directory to store the downloaded zip file
-            let temp_dir = create_temp_dir(path, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
-            let path_temp = temp_dir.path();
+            let temp_dir = create_temp_dir(dir, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
+            let dir_temp = temp_dir.path();
             // download and extract boston housing dataset
-            download_to(BOSTON_HOUSING_DATA_URL, path_temp)?;
-            unzip(&path_temp.join(BOSTON_HOUSING_ZIP_FILENAME), path_temp)?;
-            let src = path_temp
+            download_to(BOSTON_HOUSING_DATA_URL, dir_temp)?;
+            unzip(&dir_temp.join(BOSTON_HOUSING_ZIP_FILENAME), dir_temp)?;
+            let src = dir_temp
                 .join(BOSTON_HOUSING_UNZIP_FOLDER)
                 .join(BOSTON_HOUSING_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
@@ -255,7 +252,7 @@ impl BostonHousing {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (features, targets) = Self::load_data_internal(&self.storage_path)?;
+        let (features, targets) = Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));

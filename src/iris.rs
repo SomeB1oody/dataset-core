@@ -70,7 +70,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<&'static str>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -100,14 +100,14 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// ```
 #[derive(Clone)]
 pub struct Iris {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<(Array2<f64>, Array1<&'static str>)>,
 }
 
 impl std::fmt::Debug for Iris {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Iris")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -117,18 +117,18 @@ impl Iris {
     /// Create a new Iris instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `Iris` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         Iris {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -136,20 +136,20 @@ impl Iris {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
-        let path = Path::new(path);
-        let dst = path.join(IRIS_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, IRIS_SHA256)?;
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(IRIS_FILENAME);
+        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, IRIS_SHA256)?;
 
         // download and extract iris dataset if needed
         if need_download {
             // temporary directory to store the downloaded zip file
-            let temp_dir = create_temp_dir(path, IRIS_TEMP_FILE_PREFIX)?;
-            let path_temp = temp_dir.path();
+            let temp_dir = create_temp_dir(dir, IRIS_TEMP_FILE_PREFIX)?;
+            let dir_temp = temp_dir.path();
             // download and extract iris dataset
-            download_to(IRIS_DATA_URL, path_temp)?;
-            unzip(&path_temp.join(IRIS_ZIP_FILENAME), path_temp)?;
-            let src = path_temp.join(IRIS_FILENAME);
+            download_to(IRIS_DATA_URL, dir_temp)?;
+            unzip(&dir_temp.join(IRIS_ZIP_FILENAME), dir_temp)?;
+            let src = dir_temp.join(IRIS_FILENAME);
             // check if the file exists and matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), IRIS_SHA256)? {
                 // clean up temporary directory
@@ -253,7 +253,7 @@ impl Iris {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (features, labels) = Self::load_data_internal(&self.storage_path)?;
+        let (features, labels) = Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, labels));

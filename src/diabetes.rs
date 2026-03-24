@@ -8,8 +8,7 @@ use std::path::Path;
 use std::sync::OnceLock;
 
 /// The URL for the Diabetes dataset.
-const DIABETES_DATA_URL: &str =
-    "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
 
 /// The prefix for temporary files created during dataset download and parsing.
 const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
@@ -61,7 +60,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -91,14 +90,14 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// ```
 #[derive(Clone)]
 pub struct Diabetes {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for Diabetes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Diabetes")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -108,18 +107,18 @@ impl Diabetes {
     /// Create a new Diabetes instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `Diabetes` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         Diabetes {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -127,19 +126,19 @@ impl Diabetes {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let path = Path::new(path);
-        let dst = path.join(DIABETES_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, DIABETES_SHA256)?;
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(DIABETES_FILENAME);
+        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, DIABETES_SHA256)?;
 
         if need_download {
             // temporary directory
-            let temp_dir = create_temp_dir(path, DIABETES_TEMP_FILE_PREFIX)?;
-            let path_temp = temp_dir.path();
+            let temp_dir = create_temp_dir(dir, DIABETES_TEMP_FILE_PREFIX)?;
+            let dir_temp = temp_dir.path();
             // download file to temporary directory
-            download_to(DIABETES_DATA_URL, path_temp)?;
+            download_to(DIABETES_DATA_URL, dir_temp)?;
             // move downloaded file to final location
-            let src = path_temp.join(DIABETES_FILENAME);
+            let src = dir_temp.join(DIABETES_FILENAME);
             // check if the file matches the expected SHA256 hash
             if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
                 // clean up temporary directory
@@ -237,7 +236,7 @@ impl Diabetes {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (features, labels) = Self::load_data_internal(&self.storage_path)?;
+        let (features, labels) = Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, labels));

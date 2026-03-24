@@ -14,14 +14,14 @@
 //!
 //! # Available Datasets
 //!
-//! | Dataset              | Samples | Features | Task Type      | Source                    |
-//! |----------------------|---------|----------|----------------|---------------------------|
-//! | Iris                 | 150     | 4        | Classification | UCI ML Repository         |
-//! | Boston Housing       | 506     | 13       | Regression     | UCI ML Repository         |
-//! | Diabetes             | 768     | 8        | Classification | Kaggle                    |
-//! | Titanic              | 891     | 11       | Classification | Kaggle                    |
-//! | Wine Quality (Red)   | 1599    | 11       | Regression     | UCI ML Repository         |
-//! | Wine Quality (White) | 4898    | 11       | Regression     | UCI ML Repository         |
+//! | Dataset              | Samples | Features | Task Type      |
+//! |----------------------|---------|----------|----------------|
+//! | Iris                 | 150     | 4        | Classification |
+//! | Boston Housing       | 506     | 13       | Regression     |
+//! | Diabetes             | 768     | 8        | Classification |
+//! | Titanic              | 891     | 11       | Classification |
+//! | Wine Quality (Red)   | 1599    | 11       | Regression     |
+//! | Wine Quality (White) | 4898    | 11       | Regression     |
 //!
 //! # Quick Start
 //!

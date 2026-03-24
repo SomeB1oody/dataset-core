@@ -9,8 +9,7 @@ use std::sync::OnceLock;
 type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 
 /// The URL for the Titanic dataset.
-const TITANIC_DATA_URL: &str =
-    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
 
 /// The prefix for temporary files created during dataset download and parsing.
 const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
@@ -75,7 +74,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of `Array2<String>`, `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -107,14 +106,14 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// ```
 #[derive(Clone)]
 pub struct Titanic {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<TitanicData>,
 }
 
 impl std::fmt::Debug for Titanic {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Titanic")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -124,18 +123,18 @@ impl Titanic {
     /// Create a new Titanic instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `Titanic` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         Titanic {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -143,19 +142,19 @@ impl Titanic {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<TitanicData, DatasetError> {
-        // the path the user wants dataset to be stored in
-        let path = Path::new(path);
-        let dst = path.join(TITANIC_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(path, &dst, TITANIC_SHA256)?;
+    fn load_data_internal(dir: &str) -> Result<TitanicData, DatasetError> {
+        // the dir the user wants dataset to be stored in
+        let dir = Path::new(dir);
+        let dst = dir.join(TITANIC_FILENAME);
+        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, TITANIC_SHA256)?;
         if need_download {
             // temporary directory to store the downloaded zip file
-            let temp_dir = crate::create_temp_dir(path, TITANIC_TEMP_FILE_PREFIX)?;
-            let path_temp = temp_dir.path();
+            let temp_dir = crate::create_temp_dir(dir, TITANIC_TEMP_FILE_PREFIX)?;
+            let dir_temp = temp_dir.path();
             // download and extract titanic dataset
-            download_to(TITANIC_DATA_URL, path_temp)?;
+            download_to(TITANIC_DATA_URL, dir_temp)?;
             // move downloaded file to final location
-            let src = path_temp.join(TITANIC_FILENAME);
+            let src = dir_temp.join(TITANIC_FILENAME);
             if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
                 // clean up temporary directory
                 drop(temp_dir);
@@ -286,7 +285,7 @@ impl Titanic {
         }
         // if not, initialize then store
         let (string_features, numeric_features, labels) =
-            Self::load_data_internal(&self.storage_path)?;
+            Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((string_features, numeric_features, labels));

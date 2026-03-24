@@ -58,27 +58,25 @@ const RED_WINE_QUALITY_SAMPLE_SIZE: usize = 1599;
 const WINE_QUALITY_NUM_FEATURES: usize = 11;
 
 /// The SHA256 hash of the white wine quality dataset.
-const WHITE_WINE_QUALITY_SHA256: &str =
-    "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
+const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
 
 /// The SHA256 hash of the red wine quality dataset.
-const RED_WINE_QUALITY_SHA256: &str =
-    "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
+const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
 
 /// Shared implementation for loading a single wine quality CSV file.
 fn load_wine_quality_data(
-    path: &str,
+    dir: &str,
     csv_filename: &str,
     expected_sha256: &str,
     dataset_name: &str,
     n_samples: usize,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let path = Path::new(path);
-    let dst = path.join(csv_filename);
-    let (need_download, need_overwrite) = prepare_download_dir(path, &dst, expected_sha256)?;
+    let dir = Path::new(dir);
+    let dst = dir.join(csv_filename);
+    let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, expected_sha256)?;
     // Downloads and stores a Wine Quality CSV file if needed
     ensure_wine_quality_csv(
-        path,
+        dir,
         &dst,
         csv_filename,
         expected_sha256,
@@ -94,7 +92,7 @@ fn load_wine_quality_data(
 /// Downloads and stores a Wine Quality CSV file if needed.
 fn ensure_wine_quality_csv(
     storage_dir: &Path,
-    dst_file: &Path,
+    dst: &Path,
     csv_filename: &str,
     expected_sha256: &str,
     need_download: bool,
@@ -106,16 +104,16 @@ fn ensure_wine_quality_csv(
 
     // temporary directory to store the downloaded zip file
     let temp_dir = create_temp_dir(storage_dir, WINE_QUALITY_TEMP_FILE_PREFIX)?;
-    let path_temp = temp_dir.path();
+    let dir_temp = temp_dir.path();
 
     // download the zip file and extract it to the temporary directory
-    download_to(WINE_QUALITY_URL, path_temp)?;
-    unzip(&path_temp.join(WINE_QUALITY_ZIP_FILENAME), path_temp)?;
+    download_to(WINE_QUALITY_URL, dir_temp)?;
+    unzip(&dir_temp.join(WINE_QUALITY_ZIP_FILENAME), dir_temp)?;
 
     // move the extracted file to the original directory
-    let src_file = path_temp.join(csv_filename);
+    let src = dir_temp.join(csv_filename);
 
-    if !file_sha256_matches(src_file.as_path(), expected_sha256)? {
+    if !file_sha256_matches(src.as_path(), expected_sha256)? {
         // clean up temporary directory
         drop(temp_dir);
         // Extract dataset name from csv_filename (e.g., "winequality-red.csv" -> "red_wine_quality")
@@ -127,9 +125,9 @@ fn ensure_wine_quality_csv(
         return Err(DatasetError::sha256_validation_failed(dataset_name, csv_filename));
     }
     if need_overwrite {
-        remove_file(dst_file)?;
+        remove_file(dst)?;
     }
-    rename(&src_file, dst_file)?;
+    rename(&src, dst)?;
 
     Ok(())
 }
@@ -266,7 +264,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -296,14 +294,14 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 /// ```
 #[derive(Clone)]
 pub struct RedWineQuality {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for RedWineQuality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RedWineQuality")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -313,18 +311,18 @@ impl RedWineQuality {
     /// Create a new RedWineQuality instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `RedWineQuality` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         RedWineQuality {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -332,9 +330,9 @@ impl RedWineQuality {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         load_wine_quality_data(
-            path,
+            dir,
             RED_WINE_QUALITY_FILENAME,
             RED_WINE_QUALITY_SHA256,
             "red_wine_quality",
@@ -349,7 +347,7 @@ impl RedWineQuality {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (features, targets) = Self::load_data_internal(&self.storage_path)?;
+        let (features, targets) = Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));
@@ -485,7 +483,7 @@ impl RedWineQuality {
 ///
 /// # Fields
 ///
-/// - `storage_path` - Directory path where the dataset will be stored.
+/// - `storage_dir` - Directory where the dataset will be stored.
 /// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
 ///
 /// # Example
@@ -515,14 +513,14 @@ impl RedWineQuality {
 /// ```
 #[derive(Clone)]
 pub struct WhiteWineQuality {
-    storage_path: String,
+    storage_dir: String,
     data: OnceLock<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for WhiteWineQuality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WhiteWineQuality")
-            .field("storage_path", &self.storage_path)
+            .field("storage_dir", &self.storage_dir)
             .field("data_loaded", &self.data.get().is_some())
             .finish()
     }
@@ -532,18 +530,18 @@ impl WhiteWineQuality {
     /// Create a new WhiteWineQuality instance without loading data.
     ///
     /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage path.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_path` - Directory path where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset will be stored.
     ///
     /// # Returns
     ///
     /// - `Self` - `WhiteWineQuality` instance ready for lazy loading.
-    pub fn new(storage_path: &str) -> Self {
+    pub fn new(storage_dir: &str) -> Self {
         WhiteWineQuality {
-            storage_path: storage_path.to_string(),
+            storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
     }
@@ -551,9 +549,9 @@ impl WhiteWineQuality {
     /// Internal function to load the dataset from disk or download it.
     ///
     /// This function is called automatically by the accessor methods.
-    fn load_data_internal(path: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         load_wine_quality_data(
-            path,
+            dir,
             WHITE_WINE_QUALITY_FILENAME,
             WHITE_WINE_QUALITY_SHA256,
             "white_wine_quality",
@@ -568,7 +566,7 @@ impl WhiteWineQuality {
             return Ok(cache);
         }
         // if not, initialize then store
-        let (features, targets) = Self::load_data_internal(&self.storage_path)?;
+        let (features, targets) = Self::load_data_internal(&self.storage_dir)?;
 
         // Try to set the value. If another thread already set it, that's fine - just use the existing value
         let _ = self.data.set((features, targets));
