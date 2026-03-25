@@ -69,6 +69,12 @@ pub enum DataFormatErrorKind {
         /// Actual length
         actual: usize,
     },
+    /// The dataset is empty
+    EmptyDataset
+    {
+        /// Dataset identifier
+        dataset_name: String,
+    },
     /// Failed to construct ndarray with the given shape and data
     ArrayShapeError {
         /// Dataset identifier
@@ -137,6 +143,11 @@ impl std::fmt::Display for DataFormatErrorKind {
                     dataset_name, field_name, expected, actual
                 )
             }
+            
+            DataFormatErrorKind::EmptyDataset { dataset_name } => {
+                write!(f, "[{}] is empty", dataset_name)
+            }
+            
             DataFormatErrorKind::ArrayShapeError {
                 dataset_name,
                 array_name,

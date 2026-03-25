@@ -16,10 +16,7 @@ const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";
 
-/// The number of samples in the Diabetes dataset.
-const DIABETES_SAMPLE_SIZE: usize = 768;
-
-/// The number of features in the Diabetes dataset.
+/// The expected number of features in the Diabetes dataset.
 const DIABETES_NUM_FEATURES: usize = 8;
 
 /// The SHA256 hash of the Diabetes dataset file.
@@ -159,8 +156,8 @@ impl Diabetes {
             .has_headers(true)
             .from_reader(file);
 
-        let mut features = Vec::with_capacity(DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES);
-        let mut labels = Vec::with_capacity(DIABETES_SAMPLE_SIZE);
+        let mut features = Vec::new();
+        let mut labels = Vec::new();
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -202,25 +199,19 @@ impl Diabetes {
             })?);
         }
 
-        if features.len() != DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES {
+        // Verify the dataset is not empty
+        let n_samples = labels.len();
+        if n_samples == 0 {
             return Err(DatasetError::length_mismatch(
                 DIABETES_DATASET_NAME,
-                "features",
-                DIABETES_SAMPLE_SIZE * DIABETES_NUM_FEATURES,
-                features.len(),
-            ));
-        }
-        if labels.len() != DIABETES_SAMPLE_SIZE {
-            return Err(DatasetError::length_mismatch(
-                DIABETES_DATASET_NAME,
-                "labels",
-                DIABETES_SAMPLE_SIZE,
-                labels.len(),
+                "samples",
+                1, // At least 1 expected
+                0,
             ));
         }
 
         let features_array =
-            Array2::from_shape_vec((DIABETES_SAMPLE_SIZE, DIABETES_NUM_FEATURES), features)
+            Array2::from_shape_vec((n_samples, DIABETES_NUM_FEATURES), features)
                 .map_err(|e| {
                     DatasetError::array_shape_error(DIABETES_DATASET_NAME, "features", e)
                 })?;

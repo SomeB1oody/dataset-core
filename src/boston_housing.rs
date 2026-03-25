@@ -22,10 +22,7 @@ const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
 
-/// The number of samples in the dataset
-const BOSTON_HOUSING_SAMPLE_SIZE: usize = 506;
-
-/// The number of features in the dataset
+/// The expected number of features in the dataset
 const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
 /// The SHA256 hash of the dataset file
@@ -172,9 +169,8 @@ impl BostonHousing {
             .has_headers(true)
             .from_reader(file);
 
-        let mut features =
-            Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES);
-        let mut targets = Vec::with_capacity(BOSTON_HOUSING_SAMPLE_SIZE);
+        let mut features = Vec::new();
+        let mut targets = Vec::new();
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -218,25 +214,19 @@ impl BostonHousing {
             })?);
         }
 
-        if features.len() != BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES {
+        // Verify the dataset is not empty
+        let n_samples = targets.len();
+        if n_samples == 0 {
             return Err(DatasetError::length_mismatch(
                 BOSTON_HOUSING_DATASET_NAME,
-                "features",
-                BOSTON_HOUSING_SAMPLE_SIZE * BOSTON_HOUSING_NUM_FEATURES,
-                features.len(),
-            ));
-        }
-        if targets.len() != BOSTON_HOUSING_SAMPLE_SIZE {
-            return Err(DatasetError::length_mismatch(
-                BOSTON_HOUSING_DATASET_NAME,
-                "targets",
-                BOSTON_HOUSING_SAMPLE_SIZE,
-                targets.len(),
+                "samples",
+                1, // At least 1 expected
+                0,
             ));
         }
 
         let features_array = Array2::from_shape_vec(
-            (BOSTON_HOUSING_SAMPLE_SIZE, BOSTON_HOUSING_NUM_FEATURES),
+            (n_samples, BOSTON_HOUSING_NUM_FEATURES),
             features,
         )
             .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;

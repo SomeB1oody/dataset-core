@@ -17,13 +17,10 @@ const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
 /// The name of the Titanic dataset file.
 const TITANIC_FILENAME: &str = "titanic.csv";
 
-/// The number of samples in the Titanic dataset.
-const TITANIC_SAMPLE_SIZE: usize = 891;
-
-/// The number of string features in the Titanic dataset.
+/// The expected number of string features in the Titanic dataset.
 const TITANIC_NUM_STRING_FEATURES: usize = 5;
 
-/// The number of numeric features in the Titanic dataset.
+/// The expected number of numeric features in the Titanic dataset.
 const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
 
 /// The SHA256 hash of the Titanic dataset file.
@@ -174,9 +171,9 @@ impl Titanic {
             .has_headers(true)
             .from_reader(file);
 
-        let mut string_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES);
-        let mut numeric_features = Vec::with_capacity(TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES);
-        let mut labels = Vec::with_capacity(TITANIC_SAMPLE_SIZE);
+        let mut string_features = Vec::new();
+        let mut numeric_features = Vec::new();
+        let mut labels = Vec::new();
 
         // CSV columns: PassengerId(0), Survived(1), Pclass(2), Name(3), Sex(4), Age(5), SibSp(6), Parch(7), Ticket(8), Fare(9), Cabin(10), Embarked(11)
 
@@ -233,39 +230,25 @@ impl Titanic {
             string_features.push(record[11].to_string());
         }
 
-        if labels.len() != TITANIC_SAMPLE_SIZE {
+        // Verify the dataset is not empty
+        let n_samples = labels.len();
+        if n_samples == 0 {
             return Err(DatasetError::length_mismatch(
                 TITANIC_DATASET_NAME,
-                "labels",
-                TITANIC_SAMPLE_SIZE,
-                labels.len(),
-            ));
-        }
-        if numeric_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES {
-            return Err(DatasetError::length_mismatch(
-                TITANIC_DATASET_NAME,
-                "numeric_features",
-                TITANIC_SAMPLE_SIZE * TITANIC_NUM_NUMERIC_FEATURES,
-                numeric_features.len(),
-            ));
-        }
-        if string_features.len() != TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES {
-            return Err(DatasetError::length_mismatch(
-                TITANIC_DATASET_NAME,
-                "string_features",
-                TITANIC_SAMPLE_SIZE * TITANIC_NUM_STRING_FEATURES,
-                string_features.len(),
+                "samples",
+                1, // At least 1 expected
+                0,
             ));
         }
 
         let string_array = Array2::from_shape_vec(
-            (TITANIC_SAMPLE_SIZE, TITANIC_NUM_STRING_FEATURES),
+            (n_samples, TITANIC_NUM_STRING_FEATURES),
             string_features,
         )
             .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
 
         let numeric_array = Array2::from_shape_vec(
-            (TITANIC_SAMPLE_SIZE, TITANIC_NUM_NUMERIC_FEATURES),
+            (n_samples, TITANIC_NUM_NUMERIC_FEATURES),
             numeric_features,
         )
             .map_err(|e| {

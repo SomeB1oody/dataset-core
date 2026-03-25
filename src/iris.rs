@@ -24,10 +24,7 @@ const IRIS_ZIP_FILENAME: &str = "iris.zip";
 /// The name of the file in the zip after extraction.
 const IRIS_FILENAME: &str = "iris.data";
 
-/// The number of samples in the Iris dataset.
-const IRIS_SAMPLE_SIZE: usize = 150;
-
-/// The number of features in the Iris dataset.
+/// The expected number of features in the Iris dataset.
 const IRIS_NUM_FEATURES: usize = 4;
 
 /// The SHA256 hash of the Iris dataset file.
@@ -171,8 +168,8 @@ impl Iris {
             .has_headers(false)
             .from_reader(file);
 
-        let mut features = Vec::with_capacity(IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES);
-        let mut labels = Vec::with_capacity(IRIS_SAMPLE_SIZE);
+        let mut features = Vec::new();
+        let mut labels = Vec::new();
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -220,26 +217,20 @@ impl Iris {
                 }
             });
         }
-
-        if features.len() != IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES {
+        
+        // Verify the dataset is not empty
+        let n_samples = labels.len();
+        if n_samples == 0 {
             return Err(DatasetError::length_mismatch(
                 IRIS_DATASET_NAME,
-                "features",
-                IRIS_SAMPLE_SIZE * IRIS_NUM_FEATURES,
-                features.len(),
-            ));
-        }
-        if labels.len() != IRIS_SAMPLE_SIZE {
-            return Err(DatasetError::length_mismatch(
-                IRIS_DATASET_NAME,
-                "labels",
-                IRIS_SAMPLE_SIZE,
-                labels.len(),
+                "samples",
+                1, // At least 1 expected
+                0,
             ));
         }
 
         let features_array =
-            Array2::from_shape_vec((IRIS_SAMPLE_SIZE, IRIS_NUM_FEATURES), features)
+            Array2::from_shape_vec((n_samples, IRIS_NUM_FEATURES), features)
                 .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 

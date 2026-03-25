@@ -48,13 +48,7 @@ const RED_WINE_QUALITY_FILENAME: &str = "winequality-red.csv";
 /// The white wine file of the CSV files inside the zip archive.
 const WHITE_WINE_QUALITY_FILENAME: &str = "winequality-white.csv";
 
-/// The number of samples in white wine quality datasets.
-const WHITE_WINE_QUALITY_SAMPLE_SIZE: usize = 4898;
-
-/// The number of samples in red wine quality datasets.
-const RED_WINE_QUALITY_SAMPLE_SIZE: usize = 1599;
-
-/// The number of features in the Wine Quality datasets.
+/// The expected number of features in the Wine Quality datasets.
 const WINE_QUALITY_NUM_FEATURES: usize = 11;
 
 /// The SHA256 hash of the white wine quality dataset.
@@ -69,7 +63,6 @@ fn load_wine_quality_data(
     csv_filename: &str,
     expected_sha256: &str,
     dataset_name: &str,
-    n_samples: usize,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let dir = Path::new(dir);
     let dst = dir.join(csv_filename);
@@ -86,7 +79,7 @@ fn load_wine_quality_data(
 
     let file = File::open(&dst)?;
 
-    parse_wine_data_to_array(dataset_name, file, n_samples)
+    parse_wine_data_to_array(dataset_name, file)
 }
 
 /// Downloads and stores a Wine Quality CSV file if needed.
@@ -141,8 +134,8 @@ fn ensure_wine_quality_csv(
 ///
 /// # Parameters
 ///
-/// - `data` - Full CSV file contents as a string.
-/// - `n_samples` - Expected number of samples (rows excluding the header).
+/// - `dataset_name` - Name of the dataset for error messages.
+/// - `reader` - CSV file reader.
 ///
 /// # Returns
 ///
@@ -151,22 +144,21 @@ fn ensure_wine_quality_csv(
 ///
 /// # Errors
 ///
-/// Returns `DatasetError::DataFormatError` if:
+/// Returns `DatasetError` if:
 /// - Any row has an unexpected number of columns
 /// - Any feature/target value fails to parse as `f64`
 /// - The final number of parsed values does not match the expected shape
 fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
     reader: R,
-    n_samples: usize,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
     let mut rdr = ReaderBuilder::new()
         .delimiter(b';')
         .has_headers(true)
         .from_reader(reader);
 
-    let mut features_array = Vec::with_capacity(n_samples * WINE_QUALITY_NUM_FEATURES);
-    let mut target_array = Vec::with_capacity(n_samples);
+    let mut features_array = Vec::new();
+    let mut target_array = Vec::new();
 
     for (idx, result) in rdr.records().enumerate() {
         let record = result.map_err(|e| {
@@ -200,20 +192,14 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         );
     }
 
-    if features_array.len() != n_samples * WINE_QUALITY_NUM_FEATURES {
+    // Verify the dataset is not empty
+    let n_samples = target_array.len();
+    if n_samples == 0 {
         return Err(DatasetError::length_mismatch(
             dataset_name,
-            "features",
-            n_samples * WINE_QUALITY_NUM_FEATURES,
-            features_array.len(),
-        ));
-    }
-    if target_array.len() != n_samples {
-        return Err(DatasetError::length_mismatch(
-            dataset_name,
-            "targets",
-            n_samples,
-            target_array.len(),
+            "samples",
+            1, // At least 1 expected
+            0,
         ));
     }
 
@@ -336,7 +322,6 @@ impl RedWineQuality {
             RED_WINE_QUALITY_FILENAME,
             RED_WINE_QUALITY_SHA256,
             "red_wine_quality",
-            RED_WINE_QUALITY_SAMPLE_SIZE,
         )
     }
 
@@ -555,7 +540,6 @@ impl WhiteWineQuality {
             WHITE_WINE_QUALITY_FILENAME,
             WHITE_WINE_QUALITY_SHA256,
             "white_wine_quality",
-            WHITE_WINE_QUALITY_SAMPLE_SIZE,
         )
     }
 
