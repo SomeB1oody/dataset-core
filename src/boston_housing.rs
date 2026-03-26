@@ -217,12 +217,7 @@ impl BostonHousing {
         // Verify the dataset is not empty
         let n_samples = targets.len();
         if n_samples == 0 {
-            return Err(DatasetError::length_mismatch(
-                BOSTON_HOUSING_DATASET_NAME,
-                "samples",
-                1, // At least 1 expected
-                0,
-            ));
+            return Err(DatasetError::empty_dataset(BOSTON_HOUSING_DATASET_NAME));
         }
 
         let features_array = Array2::from_shape_vec(

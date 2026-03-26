@@ -202,12 +202,7 @@ impl Diabetes {
         // Verify the dataset is not empty
         let n_samples = labels.len();
         if n_samples == 0 {
-            return Err(DatasetError::length_mismatch(
-                DIABETES_DATASET_NAME,
-                "samples",
-                1, // At least 1 expected
-                0,
-            ));
+            return Err(DatasetError::empty_dataset(DIABETES_DATASET_NAME));
         }
 
         let features_array =

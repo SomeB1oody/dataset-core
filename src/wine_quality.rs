@@ -195,12 +195,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     // Verify the dataset is not empty
     let n_samples = target_array.len();
     if n_samples == 0 {
-        return Err(DatasetError::length_mismatch(
-            dataset_name,
-            "samples",
-            1, // At least 1 expected
-            0,
-        ));
+        return Err(DatasetError::empty_dataset(dataset_name));
     }
 
     let features_array =

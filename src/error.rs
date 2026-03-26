@@ -373,4 +373,21 @@ impl DatasetError {
             }
         )
     }
+
+    /// Creates an empty dataset error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError::DataFormatError(DataFormatErrorKind::EmptyDataset)` - A variant of `DatasetError` indicating the dataset is empty.
+    pub fn empty_dataset(dataset_name: &str) -> Self {
+        Self::DataFormatError(
+            DataFormatErrorKind::EmptyDataset {
+                dataset_name: dataset_name.to_string(),
+            }
+        )
+    }
 }
