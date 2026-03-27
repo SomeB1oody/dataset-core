@@ -16,8 +16,6 @@ const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";
 
-/// The expected number of features in the Diabetes dataset.
-const DIABETES_NUM_FEATURES: usize = 8;
 
 /// The SHA256 hash of the Diabetes dataset file.
 const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
@@ -158,6 +156,7 @@ impl Diabetes {
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
+        let mut num_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -165,17 +164,32 @@ impl Diabetes {
             })?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if record.len() != DIABETES_NUM_FEATURES + 1 {
+            // Infer number of features from the first row
+            if num_features.is_none() {
+                if record.len() < 2 {
+                    return Err(DatasetError::invalid_column_count(
+                        DIABETES_DATASET_NAME,
+                        2,
+                        record.len(),
+                        line_num,
+                        &format!("{:?}", record),
+                    ));
+                }
+                num_features = Some(record.len() - 1);
+            }
+
+            let n_features = num_features.unwrap();
+            if record.len() != n_features + 1 {
                 return Err(DatasetError::invalid_column_count(
                     DIABETES_DATASET_NAME,
-                    DIABETES_NUM_FEATURES + 1,
+                    n_features + 1,
                     record.len(),
                     line_num,
                     &format!("{:?}", record),
                 ));
             }
 
-            for i in 0..DIABETES_NUM_FEATURES {
+            for i in 0..n_features {
                 let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
                     DatasetError::parse_failed(
@@ -188,7 +202,7 @@ impl Diabetes {
                 })?);
             }
 
-            labels.push(record[8].parse::<f64>().map_err(|e| {
+            labels.push(record[n_features].parse::<f64>().map_err(|e| {
                 DatasetError::parse_failed(
                     DIABETES_DATASET_NAME,
                     "label",
@@ -205,8 +219,9 @@ impl Diabetes {
             return Err(DatasetError::empty_dataset(DIABETES_DATASET_NAME));
         }
 
+        let n_features = num_features.unwrap();
         let features_array =
-            Array2::from_shape_vec((n_samples, DIABETES_NUM_FEATURES), features)
+            Array2::from_shape_vec((n_samples, n_features), features)
                 .map_err(|e| {
                     DatasetError::array_shape_error(DIABETES_DATASET_NAME, "features", e)
                 })?;

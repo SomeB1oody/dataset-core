@@ -22,8 +22,6 @@ const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
 
-/// The expected number of features in the dataset
-const BOSTON_HOUSING_NUM_FEATURES: usize = 13;
 
 /// The SHA256 hash of the dataset file
 const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
@@ -171,6 +169,7 @@ impl BostonHousing {
 
         let mut features = Vec::new();
         let mut targets = Vec::new();
+        let mut num_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -178,18 +177,33 @@ impl BostonHousing {
             })?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if record.len() != BOSTON_HOUSING_NUM_FEATURES + 1 {
+            // Infer number of features from the first row
+            if num_features.is_none() {
+                if record.len() < 2 {
+                    return Err(DatasetError::invalid_column_count(
+                        BOSTON_HOUSING_DATASET_NAME,
+                        2,
+                        record.len(),
+                        line_num,
+                        &format!("{:?}", record),
+                    ));
+                }
+                num_features = Some(record.len() - 1);
+            }
+
+            let n_features = num_features.unwrap();
+            if record.len() != n_features + 1 {
                 return Err(DatasetError::invalid_column_count(
                     BOSTON_HOUSING_DATASET_NAME,
-                    BOSTON_HOUSING_NUM_FEATURES + 1,
+                    n_features + 1,
                     record.len(),
                     line_num,
                     &format!("{:?}", record),
                 ));
             }
 
-            // Features are columns 0-12 (13 features)
-            for i in 0..BOSTON_HOUSING_NUM_FEATURES {
+            // Features are all columns except the last one
+            for i in 0..n_features {
                 let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
                     DatasetError::parse_failed(
@@ -202,8 +216,8 @@ impl BostonHousing {
                 })?);
             }
 
-            // Target is column 13 (MEDV)
-            targets.push(record[13].parse::<f64>().map_err(|e| {
+            // Target is the last column
+            targets.push(record[n_features].parse::<f64>().map_err(|e| {
                 DatasetError::parse_failed(
                     BOSTON_HOUSING_DATASET_NAME,
                     "target",
@@ -220,8 +234,9 @@ impl BostonHousing {
             return Err(DatasetError::empty_dataset(BOSTON_HOUSING_DATASET_NAME));
         }
 
+        let n_features = num_features.unwrap();
         let features_array = Array2::from_shape_vec(
-            (n_samples, BOSTON_HOUSING_NUM_FEATURES),
+            (n_samples, n_features),
             features,
         )
             .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;

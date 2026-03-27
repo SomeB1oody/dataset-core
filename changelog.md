@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-27
+### Changed
+- Remove hardcoded feature counts from dataset modules and infer dynamically
+
 ## [0.1.0] - 2026-3-26
 ### Changed
 - Refactor dataset error handling to use `empty_dataset` helper for improved clarity

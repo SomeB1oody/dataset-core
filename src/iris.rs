@@ -24,8 +24,6 @@ const IRIS_ZIP_FILENAME: &str = "iris.zip";
 /// The name of the file in the zip after extraction.
 const IRIS_FILENAME: &str = "iris.data";
 
-/// The expected number of features in the Iris dataset.
-const IRIS_NUM_FEATURES: usize = 4;
 
 /// The SHA256 hash of the Iris dataset file.
 const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
@@ -170,6 +168,7 @@ impl Iris {
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
+        let mut num_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -177,18 +176,33 @@ impl Iris {
             })?;
             let line_num = idx + 1; // +1 for 0-indexed, no header
 
-            if record.len() != IRIS_NUM_FEATURES + 1 {
+            // Infer number of features from the first row
+            if num_features.is_none() {
+                if record.len() < 2 {
+                    return Err(DatasetError::invalid_column_count(
+                        IRIS_DATASET_NAME,
+                        2,
+                        record.len(),
+                        line_num,
+                        &format!("{:?}", record),
+                    ));
+                }
+                num_features = Some(record.len() - 1);
+            }
+
+            let n_features = num_features.unwrap();
+            if record.len() != n_features + 1 {
                 return Err(DatasetError::invalid_column_count(
                     IRIS_DATASET_NAME,
-                    IRIS_NUM_FEATURES + 1,
+                    n_features + 1,
                     record.len(),
                     line_num,
                     &format!("{:?}", record),
                 ));
             }
 
-            // Features are columns 0-3 (4 features)
-            for i in 0..IRIS_NUM_FEATURES {
+            // Features are all columns except the last one
+            for i in 0..n_features {
                 let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
                     DatasetError::parse_failed(
@@ -201,8 +215,8 @@ impl Iris {
                 })?);
             }
 
-            // Label is column 4
-            labels.push(match &record[4] {
+            // Label is the last column
+            labels.push(match &record[n_features] {
                 "Iris-setosa" => "setosa",
                 "Iris-versicolor" => "versicolor",
                 "Iris-virginica" => "virginica",
@@ -217,15 +231,16 @@ impl Iris {
                 }
             });
         }
-        
+
         // Verify the dataset is not empty
         let n_samples = labels.len();
         if n_samples == 0 {
             return Err(DatasetError::empty_dataset(IRIS_DATASET_NAME));
         }
 
+        let n_features = num_features.unwrap();
         let features_array =
-            Array2::from_shape_vec((n_samples, IRIS_NUM_FEATURES), features)
+            Array2::from_shape_vec((n_samples, n_features), features)
                 .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 

@@ -48,8 +48,6 @@ const RED_WINE_QUALITY_FILENAME: &str = "winequality-red.csv";
 /// The white wine file of the CSV files inside the zip archive.
 const WHITE_WINE_QUALITY_FILENAME: &str = "winequality-white.csv";
 
-/// The expected number of features in the Wine Quality datasets.
-const WINE_QUALITY_NUM_FEATURES: usize = 11;
 
 /// The SHA256 hash of the white wine quality dataset.
 const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
@@ -159,6 +157,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 
     let mut features_array = Vec::new();
     let mut target_array = Vec::new();
+    let mut num_features: Option<usize> = None;
 
     for (idx, result) in rdr.records().enumerate() {
         let record = result.map_err(|e| {
@@ -166,17 +165,32 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         })?;
         let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-        if record.len() != WINE_QUALITY_NUM_FEATURES + 1 {
+        // Infer number of features from the first row
+        if num_features.is_none() {
+            if record.len() < 2 {
+                return Err(DatasetError::invalid_column_count(
+                    dataset_name,
+                    2,
+                    record.len(),
+                    line_num,
+                    &format!("{:?}", record),
+                ));
+            }
+            num_features = Some(record.len() - 1);
+        }
+
+        let n_features = num_features.unwrap();
+        if record.len() != n_features + 1 {
             return Err(DatasetError::invalid_column_count(
                 dataset_name,
-                WINE_QUALITY_NUM_FEATURES + 1,
+                n_features + 1,
                 record.len(),
                 line_num,
                 &format!("{:?}", record),
             ));
         }
 
-        for i in 0..WINE_QUALITY_NUM_FEATURES {
+        for i in 0..n_features {
             let field = format!("feature[{i}]");
             features_array.push(
                 record[i]
@@ -186,7 +200,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         }
 
         target_array.push(
-            record[WINE_QUALITY_NUM_FEATURES]
+            record[n_features]
                 .parse::<f64>()
                 .map_err(|e| DatasetError::parse_failed(dataset_name, "target", line_num, &format!("{:?}", record), e))?,
         );
@@ -198,8 +212,9 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         return Err(DatasetError::empty_dataset(dataset_name));
     }
 
+    let n_features = num_features.unwrap();
     let features_array =
-        Array2::from_shape_vec((n_samples, WINE_QUALITY_NUM_FEATURES), features_array)
+        Array2::from_shape_vec((n_samples, n_features), features_array)
             .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
     let target_array = Array1::from_vec(target_array);
 

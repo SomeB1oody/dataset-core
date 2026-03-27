@@ -17,11 +17,6 @@ const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
 /// The name of the Titanic dataset file.
 const TITANIC_FILENAME: &str = "titanic.csv";
 
-/// The expected number of string features in the Titanic dataset.
-const TITANIC_NUM_STRING_FEATURES: usize = 5;
-
-/// The expected number of numeric features in the Titanic dataset.
-const TITANIC_NUM_NUMERIC_FEATURES: usize = 6;
 
 /// The SHA256 hash of the Titanic dataset file.
 const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
@@ -176,6 +171,15 @@ impl Titanic {
         let mut labels = Vec::new();
 
         // CSV columns: PassengerId(0), Survived(1), Pclass(2), Name(3), Sex(4), Age(5), SibSp(6), Parch(7), Ticket(8), Fare(9), Cabin(10), Embarked(11)
+        // Numeric indices: [0, 2, 5, 6, 7, 9]
+        // String indices: [3, 4, 8, 10, 11]
+        // Label index: 1
+        let numeric_indices = vec![0, 2, 5, 6, 7, 9];
+        let string_indices = vec![3, 4, 8, 10, 11];
+        let label_index = 1;
+
+        let mut num_string_features: Option<usize> = None;
+        let mut num_numeric_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -183,14 +187,19 @@ impl Titanic {
             })?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if record.len() != TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1 {
-                return Err(DatasetError::invalid_column_count(
-                    TITANIC_DATASET_NAME,
-                    TITANIC_NUM_STRING_FEATURES + TITANIC_NUM_NUMERIC_FEATURES + 1,
-                    record.len(),
-                    line_num,
-                    &format!("{:?}", record),
-                ));
+            // Infer number of features from the first row
+            if num_string_features.is_none() {
+                if record.len() < 12 {
+                    return Err(DatasetError::invalid_column_count(
+                        TITANIC_DATASET_NAME,
+                        12,
+                        record.len(),
+                        line_num,
+                        &format!("{:?}", record),
+                    ));
+                }
+                num_string_features = Some(string_indices.len());
+                num_numeric_features = Some(numeric_indices.len());
             }
 
             // Helper closure: parse a numeric field, returning NaN for empty strings
@@ -212,22 +221,26 @@ impl Titanic {
             };
 
             // Label: Survived (index 1)
-            labels.push(parse_numeric(1, "survived")?);
+            labels.push(parse_numeric(label_index, "survived")?);
 
             // Numeric features: PassengerId(0), Pclass(2), Age(5), SibSp(6), Parch(7), Fare(9)
-            numeric_features.push(parse_numeric(0, "passenger_id")?);
-            numeric_features.push(parse_numeric(2, "pclass")?);
-            numeric_features.push(parse_numeric(5, "age")?);
-            numeric_features.push(parse_numeric(6, "sib_sp")?);
-            numeric_features.push(parse_numeric(7, "parch")?);
-            numeric_features.push(parse_numeric(9, "fare")?);
+            for (i, &col_idx) in numeric_indices.iter().enumerate() {
+                let field_name = match i {
+                    0 => "passenger_id",
+                    1 => "pclass",
+                    2 => "age",
+                    3 => "sib_sp",
+                    4 => "parch",
+                    5 => "fare",
+                    _ => "numeric_feature",
+                };
+                numeric_features.push(parse_numeric(col_idx, field_name)?);
+            }
 
             // String features: Name(3), Sex(4), Ticket(8), Cabin(10), Embarked(11)
-            string_features.push(record[3].to_string());
-            string_features.push(record[4].to_string());
-            string_features.push(record[8].to_string());
-            string_features.push(record[10].to_string());
-            string_features.push(record[11].to_string());
+            for &col_idx in string_indices.iter() {
+                string_features.push(record[col_idx].to_string());
+            }
         }
 
         // Verify the dataset is not empty
@@ -236,14 +249,17 @@ impl Titanic {
             return Err(DatasetError::empty_dataset(TITANIC_DATASET_NAME));
         }
 
+        let n_string_features = num_string_features.unwrap();
+        let n_numeric_features = num_numeric_features.unwrap();
+
         let string_array = Array2::from_shape_vec(
-            (n_samples, TITANIC_NUM_STRING_FEATURES),
+            (n_samples, n_string_features),
             string_features,
         )
             .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
 
         let numeric_array = Array2::from_shape_vec(
-            (n_samples, TITANIC_NUM_NUMERIC_FEATURES),
+            (n_samples, n_numeric_features),
             numeric_features,
         )
             .map_err(|e| {
