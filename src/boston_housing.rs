@@ -127,10 +127,11 @@ impl BostonHousing {
         }
     }
 
-    /// Internal function to load the dataset from disk or download it.
+    /// Downloads the Boston Housing dataset if needed.
     ///
-    /// This function is called automatically by the accessor methods.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    /// This function handles downloading and extracting the dataset file,
+    /// performing SHA256 validation to ensure data integrity.
+    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
         let dir = Path::new(dir);
         let dst = dir.join(BOSTON_HOUSING_FILENAME);
         let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, BOSTON_HOUSING_SHA256)?;
@@ -161,6 +162,17 @@ impl BostonHousing {
             // move boston_housing.csv out of the temporary directory
             rename(src, &dst)?;
         }
+
+        Ok(())
+    }
+
+    /// Parses the Boston Housing dataset from the CSV file.
+    ///
+    /// This function reads and parses the dataset file, converting it into
+    /// feature and target arrays.
+    fn parse_dataset(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(BOSTON_HOUSING_FILENAME);
 
         let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
@@ -243,6 +255,15 @@ impl BostonHousing {
         let targets_array = Array1::from_vec(targets);
 
         Ok((features_array, targets_array))
+    }
+
+    /// Internal function to load the dataset from disk or download it.
+    ///
+    /// This function is called automatically by the accessor methods.
+    /// It first downloads the dataset if needed, then parses it.
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        Self::download_dataset(dir)?;
+        Self::parse_dataset(dir)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.

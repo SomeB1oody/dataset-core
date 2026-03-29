@@ -131,11 +131,11 @@ impl Titanic {
         }
     }
 
-    /// Internal function to load the dataset from disk or download it.
+    /// Downloads the Titanic dataset if needed.
     ///
-    /// This function is called automatically by the accessor methods.
-    fn load_data_internal(dir: &str) -> Result<TitanicData, DatasetError> {
-        // the dir the user wants dataset to be stored in
+    /// This function handles downloading the dataset file,
+    /// performing SHA256 validation to ensure data integrity.
+    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
         let dir = Path::new(dir);
         let dst = dir.join(TITANIC_FILENAME);
         let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, TITANIC_SHA256)?;
@@ -160,6 +160,17 @@ impl Titanic {
             }
             rename(src, &dst)?;
         }
+
+        Ok(())
+    }
+
+    /// Parses the Titanic dataset from the CSV file.
+    ///
+    /// This function reads and parses the dataset file, converting it into
+    /// string features, numeric features, and label arrays.
+    fn parse_dataset(dir: &str) -> Result<TitanicData, DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(TITANIC_FILENAME);
 
         let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
@@ -269,6 +280,15 @@ impl Titanic {
         let labels_array = Array1::from_vec(labels);
 
         Ok((string_array, numeric_array, labels_array))
+    }
+
+    /// Internal function to load the dataset from disk or download it.
+    ///
+    /// This function is called automatically by the accessor methods.
+    /// It first downloads the dataset if needed, then parses it.
+    fn load_data_internal(dir: &str) -> Result<TitanicData, DatasetError> {
+        Self::download_dataset(dir)?;
+        Self::parse_dataset(dir)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.

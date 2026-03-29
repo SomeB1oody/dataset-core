@@ -128,10 +128,11 @@ impl Iris {
         }
     }
 
-    /// Internal function to load the dataset from disk or download it.
+    /// Downloads the Iris dataset if needed.
     ///
-    /// This function is called automatically by the accessor methods.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    /// This function handles downloading and extracting the dataset file,
+    /// performing SHA256 validation to ensure data integrity.
+    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
         let dir = Path::new(dir);
         let dst = dir.join(IRIS_FILENAME);
         let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, IRIS_SHA256)?;
@@ -160,6 +161,17 @@ impl Iris {
             // move iris.data out of the temporary directory
             rename(src, &dst)?;
         }
+
+        Ok(())
+    }
+
+    /// Parses the Iris dataset from the CSV file.
+    ///
+    /// This function reads and parses the dataset file, converting it into
+    /// feature and label arrays.
+    fn parse_dataset(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+        let dir = Path::new(dir);
+        let dst = dir.join(IRIS_FILENAME);
 
         let file = File::open(&dst)?;
         let mut rdr = ReaderBuilder::new()
@@ -245,6 +257,15 @@ impl Iris {
         let labels_array = Array1::from_vec(labels);
 
         Ok((features_array, labels_array))
+    }
+
+    /// Internal function to load the dataset from disk or download it.
+    ///
+    /// This function is called automatically by the accessor methods.
+    /// It first downloads the dataset if needed, then parses it.
+    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+        Self::download_dataset(dir)?;
+        Self::parse_dataset(dir)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
