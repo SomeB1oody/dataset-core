@@ -4,7 +4,7 @@ use crate::{
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
 use csv::ReaderBuilder;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// The URL for the Diabetes dataset.
@@ -122,7 +122,11 @@ impl Diabetes {
     ///
     /// This function handles downloading the dataset file,
     /// performing SHA256 validation to ensure data integrity.
-    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
+    ///
+    /// # Returns
+    ///
+    /// - `PathBuf` - Path to the downloaded dataset file
+    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
         let dir = Path::new(dir);
         let dst = dir.join(DIABETES_FILENAME);
         let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, DIABETES_SHA256)?;
@@ -150,18 +154,19 @@ impl Diabetes {
             rename(src, &dst)?;
         }
 
-        Ok(())
+        Ok(dst)
     }
 
     /// Parses the Diabetes dataset from the CSV file.
     ///
     /// This function reads and parses the dataset file, converting it into
     /// feature and label arrays.
-    fn parse_dataset(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let dir = Path::new(dir);
-        let dst = dir.join(DIABETES_FILENAME);
-
-        let file = File::open(&dst)?;
+    ///
+    /// # Parameters
+    ///
+    /// - `file_path` - Path to the dataset file
+    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
             .from_reader(file);
@@ -247,8 +252,8 @@ impl Diabetes {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        Self::download_dataset(dir)?;
-        Self::parse_dataset(dir)
+        let file_path = Self::download_dataset(dir)?;
+        Self::parse_dataset(file_path)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.

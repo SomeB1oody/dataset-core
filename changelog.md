@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-3-29
+### Changed
+- Refactor dataset modules to return `PathBuf` from `download_dataset` and accept it in `parse_dataset` for improved API clarity
+
 ## [0.1.0] - 2026-3-28
 ### Changed
 - Refactor dataset modules to separate downloading and parsing logic for improved clarity and maintainability

@@ -4,7 +4,7 @@ use crate::{
 use ndarray::{Array1, Array2};
 use std::fs::{File, remove_file, rename};
 use csv::ReaderBuilder;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// A static string slice containing the URL for the Wine Quality dataset.
@@ -59,11 +59,15 @@ const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e
 ///
 /// This function handles downloading and extracting the dataset file,
 /// performing SHA256 validation to ensure data integrity.
+///
+/// # Returns
+///
+/// - `PathBuf` - Path to the downloaded dataset file
 fn download_wine_quality_dataset(
     dir: &str,
     csv_filename: &str,
     expected_sha256: &str,
-) -> Result<(), DatasetError> {
+) -> Result<PathBuf, DatasetError> {
     let dir = Path::new(dir);
     let dst = dir.join(csv_filename);
     let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, expected_sha256)?;
@@ -75,21 +79,24 @@ fn download_wine_quality_dataset(
         expected_sha256,
         need_download,
         need_overwrite,
-    )
+    )?;
+    Ok(dst)
 }
 
 /// Parses a wine quality dataset from the CSV file.
 ///
 /// This function reads and parses the dataset file, converting it into
 /// feature and target arrays.
+///
+/// # Parameters
+///
+/// - `file_path` - Path to the dataset file
+/// - `dataset_name` - Name of the dataset for error messages
 fn parse_wine_quality_dataset(
-    dir: &str,
-    csv_filename: &str,
+    file_path: PathBuf,
     dataset_name: &str,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let dir = Path::new(dir);
-    let dst = dir.join(csv_filename);
-    let file = File::open(&dst)?;
+    let file = File::open(&file_path)?;
     parse_wine_data_to_array(dataset_name, file)
 }
 
@@ -340,7 +347,11 @@ impl RedWineQuality {
     ///
     /// This function handles downloading and extracting the dataset file,
     /// performing SHA256 validation to ensure data integrity.
-    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
+    ///
+    /// # Returns
+    ///
+    /// - `PathBuf` - Path to the downloaded dataset file
+    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
         download_wine_quality_dataset(dir, RED_WINE_QUALITY_FILENAME, RED_WINE_QUALITY_SHA256)
     }
 
@@ -348,8 +359,12 @@ impl RedWineQuality {
     ///
     /// This function reads and parses the dataset file, converting it into
     /// feature and target arrays.
-    fn parse_dataset(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        parse_wine_quality_dataset(dir, RED_WINE_QUALITY_FILENAME, "red_wine_quality")
+    ///
+    /// # Parameters
+    ///
+    /// - `file_path` - Path to the dataset file
+    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        parse_wine_quality_dataset(file_path, "red_wine_quality")
     }
 
     /// Internal function to load the dataset from disk or download it.
@@ -357,8 +372,8 @@ impl RedWineQuality {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        Self::download_dataset(dir)?;
-        Self::parse_dataset(dir)
+        let file_path = Self::download_dataset(dir)?;
+        Self::parse_dataset(file_path)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
@@ -571,7 +586,11 @@ impl WhiteWineQuality {
     ///
     /// This function handles downloading and extracting the dataset file,
     /// performing SHA256 validation to ensure data integrity.
-    fn download_dataset(dir: &str) -> Result<(), DatasetError> {
+    ///
+    /// # Returns
+    ///
+    /// - `PathBuf` - Path to the downloaded dataset file
+    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
         download_wine_quality_dataset(dir, WHITE_WINE_QUALITY_FILENAME, WHITE_WINE_QUALITY_SHA256)
     }
 
@@ -579,8 +598,12 @@ impl WhiteWineQuality {
     ///
     /// This function reads and parses the dataset file, converting it into
     /// feature and target arrays.
-    fn parse_dataset(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        parse_wine_quality_dataset(dir, WHITE_WINE_QUALITY_FILENAME, "white_wine_quality")
+    ///
+    /// # Parameters
+    ///
+    /// - `file_path` - Path to the dataset file
+    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        parse_wine_quality_dataset(file_path, "white_wine_quality")
     }
 
     /// Internal function to load the dataset from disk or download it.
@@ -588,8 +611,8 @@ impl WhiteWineQuality {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        Self::download_dataset(dir)?;
-        Self::parse_dataset(dir)
+        let file_path = Self::download_dataset(dir)?;
+        Self::parse_dataset(file_path)
     }
 
     /// Internal helper to ensure data is loaded and return a reference.
