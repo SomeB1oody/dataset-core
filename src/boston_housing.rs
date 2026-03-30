@@ -1,10 +1,8 @@
-use crate::{
-    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir, unzip,
-};
+use crate::{DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
-use std::fs::{File, remove_file, rename};
+use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// The URL for the Boston Housing dataset.
@@ -21,7 +19,6 @@ const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a
 
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
-
 
 /// The SHA256 hash of the dataset file
 const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
@@ -127,49 +124,6 @@ impl BostonHousing {
         }
     }
 
-    /// Downloads the Boston Housing dataset if needed.
-    ///
-    /// This function handles downloading and extracting the dataset file,
-    /// performing SHA256 validation to ensure data integrity.
-    ///
-    /// # Returns
-    ///
-    /// - `PathBuf` - Path to the downloaded dataset file
-    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
-        let dir = Path::new(dir);
-        let dst = dir.join(BOSTON_HOUSING_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, BOSTON_HOUSING_SHA256)?;
-
-        // download and extract boston housing dataset if needed
-        if need_download {
-            // temporary directory to store the downloaded zip file
-            let temp_dir = create_temp_dir(dir, BOSTON_HOUSING_TEMP_FILE_PREFIX)?;
-            let dir_temp = temp_dir.path();
-            // download and extract boston housing dataset
-            download_to(BOSTON_HOUSING_DATA_URL, dir_temp)?;
-            unzip(&dir_temp.join(BOSTON_HOUSING_ZIP_FILENAME), dir_temp)?;
-            let src = dir_temp
-                .join(BOSTON_HOUSING_UNZIP_FOLDER)
-                .join(BOSTON_HOUSING_FILENAME);
-            // check if the file exists and matches the expected SHA256 hash
-            if !file_sha256_matches(src.as_path(), BOSTON_HOUSING_SHA256)? {
-                // clean up temporary directory
-                drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(
-                    BOSTON_HOUSING_DATASET_NAME,
-                    BOSTON_HOUSING_FILENAME,
-                ));
-            }
-            if need_overwrite {
-                remove_file(&dst)?;
-            }
-            // move boston_housing.csv out of the temporary directory
-            rename(src, &dst)?;
-        }
-
-        Ok(dst)
-    }
-
     /// Parses the Boston Housing dataset from the CSV file.
     ///
     /// This function reads and parses the dataset file, converting it into
@@ -267,7 +221,22 @@ impl BostonHousing {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let file_path = Self::download_dataset(dir)?;
+        let file_path = download_dataset_with(
+            dir,
+            BOSTON_HOUSING_FILENAME,
+            BOSTON_HOUSING_DATASET_NAME,
+            BOSTON_HOUSING_TEMP_FILE_PREFIX,
+            BOSTON_HOUSING_SHA256,
+            |temp_path| {
+                // Download and extract the dataset
+                download_to(BOSTON_HOUSING_DATA_URL, temp_path)?;
+                unzip(&temp_path.join(BOSTON_HOUSING_ZIP_FILENAME), temp_path)?;
+                // Return the path to the extracted dataset file
+                Ok(temp_path
+                    .join(BOSTON_HOUSING_UNZIP_FOLDER)
+                    .join(BOSTON_HOUSING_FILENAME))
+            },
+        )?;
         Self::parse_dataset(file_path)
     }
 

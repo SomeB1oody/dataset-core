@@ -1,10 +1,8 @@
-use crate::{
-    DatasetError, create_temp_dir, download_to, file_sha256_matches, prepare_download_dir,
-};
+use crate::{DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
-use std::fs::{File, remove_file, rename};
+use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// The URL for the Diabetes dataset.
@@ -15,7 +13,6 @@ const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
 
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";
-
 
 /// The SHA256 hash of the Diabetes dataset file.
 const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
@@ -118,45 +115,6 @@ impl Diabetes {
         }
     }
 
-    /// Downloads the Diabetes dataset if needed.
-    ///
-    /// This function handles downloading the dataset file,
-    /// performing SHA256 validation to ensure data integrity.
-    ///
-    /// # Returns
-    ///
-    /// - `PathBuf` - Path to the downloaded dataset file
-    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
-        let dir = Path::new(dir);
-        let dst = dir.join(DIABETES_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, DIABETES_SHA256)?;
-
-        if need_download {
-            // temporary directory
-            let temp_dir = create_temp_dir(dir, DIABETES_TEMP_FILE_PREFIX)?;
-            let dir_temp = temp_dir.path();
-            // download file to temporary directory
-            download_to(DIABETES_DATA_URL, dir_temp)?;
-            // move downloaded file to final location
-            let src = dir_temp.join(DIABETES_FILENAME);
-            // check if the file matches the expected SHA256 hash
-            if !file_sha256_matches(src.as_path(), DIABETES_SHA256)? {
-                // clean up temporary directory
-                drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(
-                    DIABETES_DATASET_NAME,
-                    DIABETES_FILENAME,
-                ));
-            }
-            if need_overwrite {
-                remove_file(&dst)?;
-            }
-            rename(src, &dst)?;
-        }
-
-        Ok(dst)
-    }
-
     /// Parses the Diabetes dataset from the CSV file.
     ///
     /// This function reads and parses the dataset file, converting it into
@@ -252,7 +210,19 @@ impl Diabetes {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let file_path = Self::download_dataset(dir)?;
+        let file_path = download_dataset_with(
+            dir,
+            DIABETES_FILENAME,
+            DIABETES_DATASET_NAME,
+            DIABETES_TEMP_FILE_PREFIX,
+            DIABETES_SHA256,
+            |temp_path| {
+                // Download the dataset file
+                download_to(DIABETES_DATA_URL, temp_path)?;
+                // Return the path to the downloaded file
+                Ok(temp_path.join(DIABETES_FILENAME))
+            },
+        )?;
         Self::parse_dataset(file_path)
     }
 

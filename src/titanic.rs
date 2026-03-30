@@ -1,8 +1,8 @@
-use crate::{DatasetError, download_to, file_sha256_matches, prepare_download_dir};
+use crate::{DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
-use std::fs::{File, remove_file, rename};
+use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::OnceLock;
 
 /// Type alias for Titanic dataset: (string features, numeric features, labels)
@@ -16,7 +16,6 @@ const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
 
 /// The name of the Titanic dataset file.
 const TITANIC_FILENAME: &str = "titanic.csv";
-
 
 /// The SHA256 hash of the Titanic dataset file.
 const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
@@ -129,43 +128,6 @@ impl Titanic {
             storage_dir: storage_dir.to_string(),
             data: OnceLock::new(),
         }
-    }
-
-    /// Downloads the Titanic dataset if needed.
-    ///
-    /// This function handles downloading the dataset file,
-    /// performing SHA256 validation to ensure data integrity.
-    ///
-    /// # Returns
-    ///
-    /// - `PathBuf` - Path to the downloaded dataset file
-    fn download_dataset(dir: &str) -> Result<PathBuf, DatasetError> {
-        let dir = Path::new(dir);
-        let dst = dir.join(TITANIC_FILENAME);
-        let (need_download, need_overwrite) = prepare_download_dir(dir, &dst, TITANIC_SHA256)?;
-        if need_download {
-            // temporary directory to store the downloaded zip file
-            let temp_dir = crate::create_temp_dir(dir, TITANIC_TEMP_FILE_PREFIX)?;
-            let dir_temp = temp_dir.path();
-            // download and extract titanic dataset
-            download_to(TITANIC_DATA_URL, dir_temp)?;
-            // move downloaded file to final location
-            let src = dir_temp.join(TITANIC_FILENAME);
-            if !file_sha256_matches(src.as_path(), TITANIC_SHA256)? {
-                // clean up temporary directory
-                drop(temp_dir);
-                return Err(DatasetError::sha256_validation_failed(
-                    TITANIC_DATASET_NAME,
-                    TITANIC_FILENAME,
-                ));
-            }
-            if need_overwrite {
-                remove_file(&dst)?;
-            }
-            rename(src, &dst)?;
-        }
-
-        Ok(dst)
     }
 
     /// Parses the Titanic dataset from the CSV file.
@@ -292,7 +254,19 @@ impl Titanic {
     /// This function is called automatically by the accessor methods.
     /// It first downloads the dataset if needed, then parses it.
     fn load_data_internal(dir: &str) -> Result<TitanicData, DatasetError> {
-        let file_path = Self::download_dataset(dir)?;
+        let file_path = download_dataset_with(
+            dir,
+            TITANIC_FILENAME,
+            TITANIC_DATASET_NAME,
+            TITANIC_TEMP_FILE_PREFIX,
+            TITANIC_SHA256,
+            |temp_path| {
+                // Download the dataset file
+                download_to(TITANIC_DATA_URL, temp_path)?;
+                // Return the path to the downloaded file
+                Ok(temp_path.join(TITANIC_FILENAME))
+            },
+        )?;
         Self::parse_dataset(file_path)
     }
 

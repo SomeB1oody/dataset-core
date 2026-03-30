@@ -74,7 +74,7 @@ use downloader::downloader::Builder;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 use zip::result::ZipError;
 pub use error::{DatasetError, DataFormatErrorKind};
@@ -233,6 +233,143 @@ pub fn prepare_download_dir(
     }
 
     Ok((need_download, need_overwrite))
+}
+
+/// Generic dataset download framework that handles common download workflow.
+///
+/// This function manages the complete dataset acquisition workflow: checking if download
+/// is needed, creating a temporary directory, delegating file preparation to a user-provided
+/// closure, validating the file with SHA256, and moving it to the final destination.
+///
+/// # Parameters
+///
+/// - `dir` - Target storage directory path
+/// - `filename` - Final dataset filename (will be stored as `dir/filename`)
+/// - `dataset_name` - Dataset name for error messages
+/// - `temp_prefix` - Prefix for the temporary directory name
+/// - `expected_sha256` - Expected SHA256 hash of the dataset file
+/// - `prepare_file` - Closure that prepares the dataset file in the temporary directory
+///   - **Input**: `temp_dir: &Path` - Path to the temporary directory
+///   - **Output**: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file
+///   - **Responsibility**: This closure can perform any operations needed to obtain the
+///     dataset file, such as downloading (you can use [`download_to`] provided in this crate), extracting archives
+///     (you can use [`unzip`] provided in this crate), or locating files within extracted folders. The returned
+///     `PathBuf` must point to the final dataset file ready for validation.
+///   - Note: The file you provide will be moved to the final destination (`dir/filename`), not copied.
+///
+/// # Returns
+///
+/// - `PathBuf` - Path to the final dataset file (`dir/filename`)
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when directory creation, file operations, or
+///   hash verification fails
+/// - `DatasetError::Sha256ValidationFailed` - Returned when the prepared file's SHA256
+///   hash does not match `expected_sha256`
+/// - Any error returned by the `prepare_file` closure
+///
+/// # Example
+/// ```rust
+/// // Implement the downloading process for iris dataset
+///
+/// /// The URL for the Iris dataset.
+/// ///
+/// /// # Citation
+/// ///
+/// /// R. A. Fisher. "Iris," UCI Machine Learning Repository, \[Online\].
+/// /// Available: <https://doi.org/10.24432/C56C76>
+/// const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+///
+/// /// The prefix for temporary files created during dataset download and extraction.
+/// const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";
+///
+/// /// The name of the zip file downloaded.
+/// const IRIS_ZIP_FILENAME: &str = "iris.zip";
+///
+/// /// The name of the file in the zip after extraction.
+/// const IRIS_FILENAME: &str = "iris.data";
+///
+/// /// The SHA256 hash of the Iris dataset file.
+/// const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
+///
+/// /// The name of the dataset
+/// const IRIS_DATASET_NAME: &str = "iris";
+///
+/// use rustyml_dataset::download_dataset_with;
+/// use rustyml_dataset::download_to;
+/// use rustyml_dataset::unzip;
+///
+/// fn main() {
+///     let dir = "./somewhere";
+///
+///     let file_path = download_dataset_with(
+///             // Target storage directory path
+///             dir,
+///             // Final dataset filename (will be stored as `dir/filename`)
+///             IRIS_FILENAME,
+///             // Dataset name for error messages
+///             IRIS_DATASET_NAME,
+///             // Prefix for the temporary directory name
+///             IRIS_TEMP_FILE_PREFIX,
+///             // Expected SHA256 hash of the dataset file
+///             IRIS_SHA256,
+///             // Closure that prepares the dataset file in the temporary directory
+///             |temp_path| {
+///                 // Download and extract the dataset
+///                 download_to(IRIS_DATA_URL, temp_path)?;
+///                 unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
+///                 // Return the path to the extracted dataset file
+///                 Ok(temp_path.join(IRIS_FILENAME))
+///             },
+///         ).unwrap();
+///
+///     // `file_path` is now the path to the downloaded and extracted Iris dataset file
+///     // it can be used to give the path of the dataset or parse data
+///
+///     // cleanup (dispensable)
+///     std::fs::remove_dir_all(dir).unwrap();
+/// }
+/// ```
+pub fn download_dataset_with<F>(
+    dir: &str,
+    filename: &str,
+    dataset_name: &str,
+    temp_prefix: &str,
+    expected_sha256: &str,
+    prepare_file: F,
+) -> Result<PathBuf, DatasetError>
+where
+    F: FnOnce(&Path) -> Result<PathBuf, DatasetError>,
+{
+    let dir_path = Path::new(dir);
+    let dst = dir_path.join(filename);
+    let (need_download, need_overwrite) = prepare_download_dir(dir_path, &dst, expected_sha256)?;
+
+    if need_download {
+        let temp_dir = create_temp_dir(dir_path, temp_prefix)?;
+        let temp_path = temp_dir.path();
+
+        // Call user closure: prepare the dataset file in temporary directory
+        let src = prepare_file(temp_path)?;
+
+        // Validate SHA256 hash
+        if !file_sha256_matches(&src, expected_sha256)? {
+            drop(temp_dir); // Clean up temporary directory
+            return Err(DatasetError::sha256_validation_failed(
+                dataset_name,
+                filename,
+            ));
+        }
+
+        // Move file to final destination
+        if need_overwrite {
+            std::fs::remove_file(&dst)?;
+        }
+        std::fs::rename(&src, &dst)?;
+    }
+
+    Ok(dst)
 }
 
 /// Error handling module.
