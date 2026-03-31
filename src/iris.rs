@@ -230,7 +230,7 @@ impl Iris {
             IRIS_FILENAME,
             IRIS_DATASET_NAME,
             IRIS_TEMP_FILE_PREFIX,
-            IRIS_SHA256,
+            Some(IRIS_SHA256),
             |temp_path| {
                 // Download and extract the dataset
                 download_to(IRIS_DATA_URL, temp_path)?;

@@ -279,7 +279,7 @@ impl RedWineQuality {
             RED_WINE_QUALITY_FILENAME,
             "red_wine_quality",
             WINE_QUALITY_TEMP_FILE_PREFIX,
-            RED_WINE_QUALITY_SHA256,
+            Some(RED_WINE_QUALITY_SHA256),
             |temp_path| {
                 // Download and extract the wine quality dataset archive
                 download_to(WINE_QUALITY_URL, temp_path)?;
@@ -507,7 +507,7 @@ impl WhiteWineQuality {
             WHITE_WINE_QUALITY_FILENAME,
             "white_wine_quality",
             WINE_QUALITY_TEMP_FILE_PREFIX,
-            WHITE_WINE_QUALITY_SHA256,
+            Some(WHITE_WINE_QUALITY_SHA256),
             |temp_path| {
                 // Download and extract the wine quality dataset archive
                 download_to(WINE_QUALITY_URL, temp_path)?;

@@ -215,7 +215,7 @@ impl Diabetes {
             DIABETES_FILENAME,
             DIABETES_DATASET_NAME,
             DIABETES_TEMP_FILE_PREFIX,
-            DIABETES_SHA256,
+            Some(DIABETES_SHA256),
             |temp_path| {
                 // Download the dataset file
                 download_to(DIABETES_DATA_URL, temp_path)?;

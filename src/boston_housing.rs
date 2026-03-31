@@ -226,7 +226,7 @@ impl BostonHousing {
             BOSTON_HOUSING_FILENAME,
             BOSTON_HOUSING_DATASET_NAME,
             BOSTON_HOUSING_TEMP_FILE_PREFIX,
-            BOSTON_HOUSING_SHA256,
+            Some(BOSTON_HOUSING_SHA256),
             |temp_path| {
                 // Download and extract the dataset
                 download_to(BOSTON_HOUSING_DATA_URL, temp_path)?;

@@ -195,13 +195,15 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 /// Prepare a dataset download directory and determine if download/overwrite is needed.
 ///
 /// This helper ensures the target directory exists and checks whether the destination
-/// file already matches the expected SHA256 hash.
+/// file already matches the expected SHA256 hash. If `expected_sha256` is `None`,
+/// the file is accepted if it exists without validation.
 ///
 /// # Parameters
 ///
 /// - `path` - Directory path where the dataset will be stored.
 /// - `dst` - Destination file path for the dataset.
-/// - `expected_sha256` - Expected SHA256 hash for the dataset file.
+/// - `expected_sha256` - Optional expected SHA256 hash for the dataset file. If `None`,
+///   any existing file at `dst` is accepted without validation.
 ///
 /// # Returns
 ///
@@ -215,7 +217,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 pub fn prepare_download_dir(
     path: &Path,
     dst: &Path,
-    expected_sha256: &str,
+    expected_sha256: Option<&str>,
 ) -> Result<(bool, bool), DatasetError> {
     let mut need_download = true;
     let mut need_overwrite = false;
@@ -225,10 +227,16 @@ pub fn prepare_download_dir(
     }
 
     if dst.exists() {
-        if file_sha256_matches(dst, expected_sha256)? {
-            need_download = false;
+        if let Some(hash) = expected_sha256 {
+            // SHA256 validation enabled
+            if file_sha256_matches(dst, hash)? {
+                need_download = false;
+            } else {
+                need_overwrite = true;
+            }
         } else {
-            need_overwrite = true;
+            // No SHA256 validation: accept existing file
+            need_download = false;
         }
     }
 
@@ -239,7 +247,7 @@ pub fn prepare_download_dir(
 ///
 /// This function manages the complete dataset acquisition workflow: checking if download
 /// is needed, creating a temporary directory, delegating file preparation to a user-provided
-/// closure, validating the file with SHA256, and moving it to the final destination.
+/// closure, optionally validating the file with SHA256, and moving it to the final destination.
 ///
 /// # Parameters
 ///
@@ -247,7 +255,9 @@ pub fn prepare_download_dir(
 /// - `filename` - Final dataset filename (will be stored as `dir/filename`)
 /// - `dataset_name` - Dataset name for error messages
 /// - `temp_prefix` - Prefix for the temporary directory name
-/// - `expected_sha256` - Expected SHA256 hash of the dataset file
+/// - `expected_sha256` - Optional expected SHA256 hash of the dataset file. If `None`,
+///   any existing file at the destination is accepted without validation, and newly
+///   prepared files skip SHA256 verification.
 /// - `prepare_file` - Closure that prepares the dataset file in the temporary directory
 ///   - **Input**: `temp_dir: &Path` - Path to the temporary directory
 ///   - **Output**: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file
@@ -265,8 +275,8 @@ pub fn prepare_download_dir(
 ///
 /// - `DatasetError::IoError` - Returned when directory creation, file operations, or
 ///   hash verification fails
-/// - `DatasetError::Sha256ValidationFailed` - Returned when the prepared file's SHA256
-///   hash does not match `expected_sha256`
+/// - `DatasetError::Sha256ValidationFailed` - Returned when `expected_sha256` is provided
+///   and the prepared file's SHA256 hash does not match it
 /// - Any error returned by the `prepare_file` closure
 ///
 /// # Example
@@ -313,7 +323,7 @@ pub fn prepare_download_dir(
 ///             // Prefix for the temporary directory name
 ///             IRIS_TEMP_FILE_PREFIX,
 ///             // Expected SHA256 hash of the dataset file
-///             IRIS_SHA256,
+///             Some(IRIS_SHA256),
 ///             // Closure that prepares the dataset file in the temporary directory
 ///             |temp_path| {
 ///                 // Download and extract the dataset
@@ -336,7 +346,7 @@ pub fn download_dataset_with<F>(
     filename: &str,
     dataset_name: &str,
     temp_prefix: &str,
-    expected_sha256: &str,
+    expected_sha256: Option<&str>,
     prepare_file: F,
 ) -> Result<PathBuf, DatasetError>
 where
@@ -353,13 +363,15 @@ where
         // Call user closure: prepare the dataset file in temporary directory
         let src = prepare_file(temp_path)?;
 
-        // Validate SHA256 hash
-        if !file_sha256_matches(&src, expected_sha256)? {
-            drop(temp_dir); // Clean up temporary directory
-            return Err(DatasetError::sha256_validation_failed(
-                dataset_name,
-                filename,
-            ));
+        // Validate SHA256 hash if provided
+        if let Some(hash) = expected_sha256 {
+            if !file_sha256_matches(&src, hash)? {
+                drop(temp_dir); // Clean up temporary directory
+                return Err(DatasetError::sha256_validation_failed(
+                    dataset_name,
+                    filename,
+                ));
+            }
         }
 
         // Move file to final destination

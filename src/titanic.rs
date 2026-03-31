@@ -259,7 +259,7 @@ impl Titanic {
             TITANIC_FILENAME,
             TITANIC_DATASET_NAME,
             TITANIC_TEMP_FILE_PREFIX,
-            TITANIC_SHA256,
+            Some(TITANIC_SHA256),
             |temp_path| {
                 // Download the dataset file
                 download_to(TITANIC_DATA_URL, temp_path)?;
