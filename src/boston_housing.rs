@@ -8,9 +8,6 @@ use std::sync::OnceLock;
 /// The URL for the Boston Housing dataset.
 const BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
 
-/// The prefix for temporary files used during dataset download and extraction
-const BOSTON_HOUSING_TEMP_FILE_PREFIX: &str = ".tmp-boston-housing-";
-
 /// The downloaded zip file name
 const BOSTON_HOUSING_ZIP_FILENAME: &str = "373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
 
@@ -225,7 +222,6 @@ impl BostonHousing {
             dir,
             BOSTON_HOUSING_FILENAME,
             BOSTON_HOUSING_DATASET_NAME,
-            BOSTON_HOUSING_TEMP_FILE_PREFIX,
             Some(BOSTON_HOUSING_SHA256),
             |temp_path| {
                 // Download and extract the dataset

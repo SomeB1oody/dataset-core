@@ -5,13 +5,11 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
-## [0.1.0] - 2026-3-31
-### Changed
-- Make `expected_sha256` optional across dataset modules for flexibility in validation logic
-
 ## [0.1.0] - 2026-3-30
 ### Changed
 - Refactor dataset modules to use `download_dataset_with` for streamlined and reusable download workflows
+- Make `expected_sha256` optional across dataset modules for flexibility in validation logic
+- Remove the specified prefix for temporary directory creation
 
 ## [0.1.0] - 2026-3-29
 ### Changed

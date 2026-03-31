@@ -34,9 +34,6 @@ use std::sync::OnceLock;
 /// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
 const WINE_QUALITY_URL: &str = "https://archive.ics.uci.edu/static/public/186/wine+quality.zip";
 
-/// The prefix for temporary files created during dataset download and extraction.
-const WINE_QUALITY_TEMP_FILE_PREFIX: &str = ".tmp-wine-quality-";
-
 /// The filename of the zip archive containing the Wine Quality datasets.
 const WINE_QUALITY_ZIP_FILENAME: &str = "wine+quality.zip";
 
@@ -278,7 +275,6 @@ impl RedWineQuality {
             dir,
             RED_WINE_QUALITY_FILENAME,
             "red_wine_quality",
-            WINE_QUALITY_TEMP_FILE_PREFIX,
             Some(RED_WINE_QUALITY_SHA256),
             |temp_path| {
                 // Download and extract the wine quality dataset archive
@@ -506,7 +502,6 @@ impl WhiteWineQuality {
             dir,
             WHITE_WINE_QUALITY_FILENAME,
             "white_wine_quality",
-            WINE_QUALITY_TEMP_FILE_PREFIX,
             Some(WHITE_WINE_QUALITY_SHA256),
             |temp_path| {
                 // Download and extract the wine quality dataset archive

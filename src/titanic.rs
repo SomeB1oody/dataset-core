@@ -11,9 +11,6 @@ type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
 
-/// The prefix for temporary files created during dataset download and parsing.
-const TITANIC_TEMP_FILE_PREFIX: &str = ".tmp-titanic-";
-
 /// The name of the Titanic dataset file.
 const TITANIC_FILENAME: &str = "titanic.csv";
 
@@ -258,7 +255,6 @@ impl Titanic {
             dir,
             TITANIC_FILENAME,
             TITANIC_DATASET_NAME,
-            TITANIC_TEMP_FILE_PREFIX,
             Some(TITANIC_SHA256),
             |temp_path| {
                 // Download the dataset file

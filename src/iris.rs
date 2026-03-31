@@ -13,9 +13,6 @@ use std::sync::OnceLock;
 /// Available: <https://doi.org/10.24432/C56C76>
 const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
 
-/// The prefix for temporary files created during dataset download and extraction.
-const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";
-
 /// The name of the zip file downloaded.
 const IRIS_ZIP_FILENAME: &str = "iris.zip";
 
@@ -229,7 +226,6 @@ impl Iris {
             dir,
             IRIS_FILENAME,
             IRIS_DATASET_NAME,
-            IRIS_TEMP_FILE_PREFIX,
             Some(IRIS_SHA256),
             |temp_path| {
                 // Download and extract the dataset

@@ -8,9 +8,6 @@ use std::sync::OnceLock;
 /// The URL for the Diabetes dataset.
 const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
 
-/// The prefix for temporary files created during dataset download and parsing.
-const DIABETES_TEMP_FILE_PREFIX: &str = ".tmp-diabetes-";
-
 /// A static string slice containing the name of the Diabetes dataset file.
 const DIABETES_FILENAME: &str = "diabetes.csv";
 
@@ -214,7 +211,6 @@ impl Diabetes {
             dir,
             DIABETES_FILENAME,
             DIABETES_DATASET_NAME,
-            DIABETES_TEMP_FILE_PREFIX,
             Some(DIABETES_SHA256),
             |temp_path| {
                 // Download the dataset file

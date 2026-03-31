@@ -139,17 +139,12 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// # Parameters
 ///
 /// - `tempdir_in` - The parent directory in which the temporary directory will be created.
-/// - `temp_dir_name` - Prefix used for the temporary directory name.
 ///
 /// # Errors
 ///
 /// - `DatasetError` - Returned if the temporary directory cannot be created.
-pub fn create_temp_dir(
-    tempdir_in: &Path,
-    temp_dir_name: &str,
-) -> Result<tempfile::TempDir, DatasetError> {
+pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new()
-        .prefix(temp_dir_name)
         .tempdir_in(tempdir_in)?;
 
     Ok(temp_dir)
@@ -254,7 +249,6 @@ pub fn prepare_download_dir(
 /// - `dir` - Target storage directory path
 /// - `filename` - Final dataset filename (will be stored as `dir/filename`)
 /// - `dataset_name` - Dataset name for error messages
-/// - `temp_prefix` - Prefix for the temporary directory name
 /// - `expected_sha256` - Optional expected SHA256 hash of the dataset file. If `None`,
 ///   any existing file at the destination is accepted without validation, and newly
 ///   prepared files skip SHA256 verification.
@@ -291,9 +285,6 @@ pub fn prepare_download_dir(
 /// /// Available: <https://doi.org/10.24432/C56C76>
 /// const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
 ///
-/// /// The prefix for temporary files created during dataset download and extraction.
-/// const IRIS_TEMP_FILE_PREFIX: &str = ".tmp-iris-";
-///
 /// /// The name of the zip file downloaded.
 /// const IRIS_ZIP_FILENAME: &str = "iris.zip";
 ///
@@ -320,8 +311,6 @@ pub fn prepare_download_dir(
 ///             IRIS_FILENAME,
 ///             // Dataset name for error messages
 ///             IRIS_DATASET_NAME,
-///             // Prefix for the temporary directory name
-///             IRIS_TEMP_FILE_PREFIX,
 ///             // Expected SHA256 hash of the dataset file
 ///             Some(IRIS_SHA256),
 ///             // Closure that prepares the dataset file in the temporary directory
@@ -345,7 +334,6 @@ pub fn download_dataset_with<F>(
     dir: &str,
     filename: &str,
     dataset_name: &str,
-    temp_prefix: &str,
     expected_sha256: Option<&str>,
     prepare_file: F,
 ) -> Result<PathBuf, DatasetError>
@@ -357,7 +345,7 @@ where
     let (need_download, need_overwrite) = prepare_download_dir(dir_path, &dst, expected_sha256)?;
 
     if need_download {
-        let temp_dir = create_temp_dir(dir_path, temp_prefix)?;
+        let temp_dir = create_temp_dir(dir_path)?;
         let temp_path = temp_dir.path();
 
         // Call user closure: prepare the dataset file in temporary directory
