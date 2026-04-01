@@ -183,7 +183,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
     }
 
     let digest = hasher.finalize();
-    let actual_hex = format!("{:x}", digest);
+    let actual_hex = digest.iter().map(|b| format!("{:02x}", b)).collect::<String>();
     Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
 }
 

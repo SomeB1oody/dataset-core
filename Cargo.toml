@@ -13,9 +13,9 @@ categories = ["science::machine_learning"]
 [dependencies]
 ndarray = "0.17.2"
 downloader = "0.2.8"
-zip = "8.3.1"
+zip = "8.4.0"
 tempfile = "3.27.0"
-sha2 = "0.10.9"
+sha2 = "0.11.0"
 csv = "1.4.0"
 
 [profile.dev]
