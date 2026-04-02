@@ -2,7 +2,6 @@ use crate::{Dataset, DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::PathBuf;
 
 /// Type alias for Titanic dataset: (string features, numeric features, labels)
 type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
@@ -86,17 +85,9 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct Titanic {
     dataset: Dataset<TitanicData>,
-}
-
-impl std::fmt::Debug for Titanic {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Titanic")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl Titanic {
@@ -118,8 +109,21 @@ impl Titanic {
         }
     }
 
-    /// Parses the Titanic dataset from the CSV file.
-    fn parse_dataset(file_path: PathBuf) -> Result<TitanicData, DatasetError> {
+    /// Download and parse the Titanic dataset.
+    fn load_data(dir: &str) -> Result<TitanicData, DatasetError> {
+        // Download and unzip the dataset
+        let file_path = download_dataset_with(
+            dir,
+            TITANIC_FILENAME,
+            TITANIC_DATASET_NAME,
+            Some(TITANIC_SHA256),
+            |temp_path| {
+                download_to(TITANIC_DATA_URL, temp_path)?;
+                Ok(temp_path.join(TITANIC_FILENAME))
+            },
+        )?;
+
+        // Parse the file
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
@@ -227,21 +231,6 @@ impl Titanic {
         Ok((string_array, numeric_array, labels_array))
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<TitanicData, DatasetError> {
-        let file_path = download_dataset_with(
-            dir,
-            TITANIC_FILENAME,
-            TITANIC_DATASET_NAME,
-            Some(TITANIC_SHA256),
-            |temp_path| {
-                download_to(TITANIC_DATA_URL, temp_path)?;
-                Ok(temp_path.join(TITANIC_FILENAME))
-            },
-        )?;
-        Self::parse_dataset(file_path)
-    }
-
     /// Get a reference to both string and numeric feature matrices.
     ///
     /// This method triggers lazy loading on first call. Subsequent calls return
@@ -276,7 +265,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 
@@ -297,7 +286,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.2)
+        Ok(&self.dataset.load(Self::load_data)?.2)
     }
 
     /// Get string features, numeric features and labels as references.
@@ -330,7 +319,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn data(&self) -> Result<(&Array2<String>, &Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1, &data.2))
     }
 }

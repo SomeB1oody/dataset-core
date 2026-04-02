@@ -2,7 +2,6 @@ use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::PathBuf;
 
 /// The URL for the Boston Housing dataset.
 const BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
@@ -80,17 +79,9 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct BostonHousing {
     dataset: Dataset<(Array2<f64>, Array1<f64>)>,
-}
-
-impl std::fmt::Debug for BostonHousing {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BostonHousing")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl BostonHousing {
@@ -112,15 +103,24 @@ impl BostonHousing {
         }
     }
 
-    /// Parses the Boston Housing dataset from the CSV file.
-    ///
-    /// This function reads and parses the dataset file, converting it into
-    /// feature and target arrays.
-    ///
-    /// # Parameters
-    ///
-    /// - `file_path` - Path to the dataset file
-    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    /// Download and parse the Boston Housing dataset.
+    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        // Download and unzip the dataset
+        let file_path = download_dataset_with(
+            dir,
+            BOSTON_HOUSING_FILENAME,
+            BOSTON_HOUSING_DATASET_NAME,
+            Some(BOSTON_HOUSING_SHA256),
+            |temp_path| {
+                download_to(BOSTON_HOUSING_DATA_URL, temp_path)?;
+                unzip(&temp_path.join(BOSTON_HOUSING_ZIP_FILENAME), temp_path)?;
+                Ok(temp_path
+                    .join(BOSTON_HOUSING_UNZIP_FOLDER)
+                    .join(BOSTON_HOUSING_FILENAME))
+            },
+        )?;
+        
+        // Parse the file
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
@@ -204,24 +204,6 @@ impl BostonHousing {
         Ok((features_array, targets_array))
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let file_path = download_dataset_with(
-            dir,
-            BOSTON_HOUSING_FILENAME,
-            BOSTON_HOUSING_DATASET_NAME,
-            Some(BOSTON_HOUSING_SHA256),
-            |temp_path| {
-                download_to(BOSTON_HOUSING_DATA_URL, temp_path)?;
-                unzip(&temp_path.join(BOSTON_HOUSING_ZIP_FILENAME), temp_path)?;
-                Ok(temp_path
-                    .join(BOSTON_HOUSING_UNZIP_FOLDER)
-                    .join(BOSTON_HOUSING_FILENAME))
-            },
-        )?;
-        Self::parse_dataset(file_path)
-    }
-
     /// Get a reference to the feature matrix.
     ///
     /// This method triggers lazy loading on first call. Subsequent calls return
@@ -252,7 +234,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.0)
+        Ok(&self.dataset.load(Self::load_data)?.0)
     }
 
     /// Get a reference to the target vector.
@@ -272,7 +254,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.1)
+        Ok(&self.dataset.load(Self::load_data)?.1)
     }
 
     /// Get both features and targets as references.
@@ -306,7 +288,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 }

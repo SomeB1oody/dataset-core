@@ -2,7 +2,6 @@ use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::PathBuf;
 
 /// A static string slice containing the URL for the Wine Quality dataset.
 ///
@@ -47,23 +46,6 @@ const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87
 
 /// The SHA256 hash of the red wine quality dataset.
 const RED_WINE_QUALITY_SHA256: &str = "4a402cf041b025d4566d954c3b9ba8635a3a8a01e039005d97d6a710278cf05e";
-
-/// Parses a wine quality dataset from the CSV file.
-///
-/// This function reads and parses the dataset file, converting it into
-/// feature and target arrays.
-///
-/// # Parameters
-///
-/// - `file_path` - Path to the dataset file
-/// - `dataset_name` - Name of the dataset for error messages
-fn parse_wine_quality_dataset(
-    file_path: PathBuf,
-    dataset_name: &str,
-) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-    let file = File::open(&file_path)?;
-    parse_wine_data_to_array(dataset_name, file)
-}
 
 /// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
 ///
@@ -223,17 +205,9 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct RedWineQuality {
     dataset: Dataset<(Array2<f64>, Array1<f64>)>,
-}
-
-impl std::fmt::Debug for RedWineQuality {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RedWineQuality")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl RedWineQuality {
@@ -255,8 +229,9 @@ impl RedWineQuality {
         }
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    /// Download and parse the Red Wine Quality dataset.
+    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        // Download and unzip the dataset
         let file_path = download_dataset_with(
             dir,
             RED_WINE_QUALITY_FILENAME,
@@ -268,7 +243,10 @@ impl RedWineQuality {
                 Ok(temp_path.join(RED_WINE_QUALITY_FILENAME))
             },
         )?;
-        parse_wine_quality_dataset(file_path, "red_wine_quality")
+
+        // Parse the file
+        let file = File::open(&file_path)?;
+        parse_wine_data_to_array("red_wine_quality", file)
     }
 
     /// Get a reference to the feature matrix.
@@ -299,7 +277,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.0)
+        Ok(&self.dataset.load(Self::load_data)?.0)
     }
 
     /// Get a reference to the target vector.
@@ -319,7 +297,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.1)
+        Ok(&self.dataset.load(Self::load_data)?.1)
     }
 
     /// Get both features and targets as references.
@@ -351,7 +329,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 }
@@ -418,17 +396,9 @@ impl RedWineQuality {
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct WhiteWineQuality {
     dataset: Dataset<(Array2<f64>, Array1<f64>)>,
-}
-
-impl std::fmt::Debug for WhiteWineQuality {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WhiteWineQuality")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl WhiteWineQuality {
@@ -450,8 +420,9 @@ impl WhiteWineQuality {
         }
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    /// Download and parse the White Wine Quality dataset.
+    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        // Download and unzip the dataset
         let file_path = download_dataset_with(
             dir,
             WHITE_WINE_QUALITY_FILENAME,
@@ -463,7 +434,10 @@ impl WhiteWineQuality {
                 Ok(temp_path.join(WHITE_WINE_QUALITY_FILENAME))
             },
         )?;
-        parse_wine_quality_dataset(file_path, "white_wine_quality")
+
+        // Parse the file
+        let file = File::open(&file_path)?;
+        parse_wine_data_to_array("white_wine_quality", file)
     }
 
     /// Get a reference to the feature matrix.
@@ -494,7 +468,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.0)
+        Ok(&self.dataset.load(Self::load_data)?.0)
     }
 
     /// Get a reference to the target vector.
@@ -514,7 +488,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.1)
+        Ok(&self.dataset.load(Self::load_data)?.1)
     }
 
     /// Get both features and targets as references.
@@ -546,7 +520,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 }

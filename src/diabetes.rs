@@ -2,7 +2,6 @@ use crate::{Dataset, DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::PathBuf;
 
 /// The URL for the Diabetes dataset.
 const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
@@ -71,17 +70,9 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct Diabetes {
     dataset: Dataset<(Array2<f64>, Array1<f64>)>,
-}
-
-impl std::fmt::Debug for Diabetes {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Diabetes")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl Diabetes {
@@ -103,8 +94,21 @@ impl Diabetes {
         }
     }
 
-    /// Parses the Diabetes dataset from the CSV file.
-    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    /// Download and parse the Diabetes dataset.
+    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        // Download and unzip the dataset
+        let file_path = download_dataset_with(
+            dir,
+            DIABETES_FILENAME,
+            DIABETES_DATASET_NAME,
+            Some(DIABETES_SHA256),
+            |temp_path| {
+                download_to(DIABETES_DATA_URL, temp_path)?;
+                Ok(temp_path.join(DIABETES_FILENAME))
+            },
+        )?;
+
+        // Parse the file
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(true)
@@ -184,21 +188,6 @@ impl Diabetes {
         Ok((features_array, labels_array))
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        let file_path = download_dataset_with(
-            dir,
-            DIABETES_FILENAME,
-            DIABETES_DATASET_NAME,
-            Some(DIABETES_SHA256),
-            |temp_path| {
-                download_to(DIABETES_DATA_URL, temp_path)?;
-                Ok(temp_path.join(DIABETES_FILENAME))
-            },
-        )?;
-        Self::parse_dataset(file_path)
-    }
-
     /// Get a reference to the feature matrix.
     ///
     /// This method triggers lazy loading on first call. Subsequent calls return
@@ -224,7 +213,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.0)
+        Ok(&self.dataset.load(Self::load_data)?.0)
     }
 
     /// Get a reference to the label vector.
@@ -244,7 +233,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples)
     pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.1)
+        Ok(&self.dataset.load(Self::load_data)?.1)
     }
 
     /// Get both features and labels as references.
@@ -273,7 +262,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 }

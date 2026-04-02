@@ -2,7 +2,6 @@ use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
-use std::path::PathBuf;
 
 /// The URL for the Iris dataset.
 ///
@@ -81,17 +80,9 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
+#[derive(Debug)]
 pub struct Iris {
     dataset: Dataset<(Array2<f64>, Array1<&'static str>)>,
-}
-
-impl std::fmt::Debug for Iris {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Iris")
-            .field("storage_dir", &self.dataset.storage_dir())
-            .field("data_loaded", &self.dataset.is_loaded())
-            .finish()
-    }
 }
 
 impl Iris {
@@ -113,8 +104,22 @@ impl Iris {
         }
     }
 
-    /// Parses the Iris dataset from the CSV file.
-    fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    /// Download and parse the Iris dataset.
+    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+        // Download and unzip the dataset
+        let file_path = download_dataset_with(
+            dir,
+            IRIS_FILENAME,
+            IRIS_DATASET_NAME,
+            Some(IRIS_SHA256),
+            |temp_path| {
+                download_to(IRIS_DATA_URL, temp_path)?;
+                unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
+                Ok(temp_path.join(IRIS_FILENAME))
+            },
+        )?;
+
+        // Parse the file
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .has_headers(false)
@@ -197,22 +202,6 @@ impl Iris {
         Ok((features_array, labels_array))
     }
 
-    /// Download and parse the dataset from the storage directory.
-    fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
-        let file_path = download_dataset_with(
-            dir,
-            IRIS_FILENAME,
-            IRIS_DATASET_NAME,
-            Some(IRIS_SHA256),
-            |temp_path| {
-                download_to(IRIS_DATA_URL, temp_path)?;
-                unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
-                Ok(temp_path.join(IRIS_FILENAME))
-            },
-        )?;
-        Self::parse_dataset(file_path)
-    }
-
     /// Get a reference to the feature matrix.
     ///
     /// This method triggers lazy loading on first call. Subsequent calls return
@@ -234,7 +223,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.0)
+        Ok(&self.dataset.load(Self::load_data)?.0)
     }
 
     /// Get a reference to the labels vector.
@@ -254,7 +243,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data_internal)?.1)
+        Ok(&self.dataset.load(Self::load_data)?.1)
     }
 
     /// Get both features and labels as references.
@@ -279,7 +268,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
-        let data = self.dataset.load(Self::load_data_internal)?;
+        let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
     }
 }

@@ -92,9 +92,9 @@ pub use error::{DatasetError, DataFormatErrorKind};
 ///
 /// # Type Parameter
 ///
-/// - `T` - The type of the parsed dataset. Can be any type that implements
-///   `Send + Sync + 'static`, such as `(Array2<f64>, Array1<f64>)`, a custom struct,
-///   or any other data representation.
+/// - `T` - The type of the parsed dataset. Can be any type, such as
+///   `(Array2<f64>, Array1<f64>)`, a custom struct, or any other data representation.
+///   `T` must implement `Send + Sync` for `Dataset<T>` to be shared across threads.
 ///
 /// # Thread Safety
 ///
@@ -105,70 +105,86 @@ pub use error::{DatasetError, DataFormatErrorKind};
 /// # Example
 ///
 /// ```rust
-/// use rustyml_dataset::{Dataset, DatasetError, download_dataset_with, download_to};
+/// use rustyml_dataset::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 ///
 /// // Step 1: Define constants for your dataset.
-/// const MY_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
-/// const MY_FILENAME: &str = "diabetes.csv";
-/// const MY_DATASET_NAME: &str = "my_diabetes";
-/// const MY_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
+/// //
+/// // These describe where to download the file, its expected filename after
+/// // extraction, an identifier for error messages, and an optional SHA256 hash
+/// // for integrity validation (optional).
+/// const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+/// const IRIS_ZIP_FILENAME: &str = "iris.zip";
+/// const IRIS_FILENAME: &str = "iris.data";
+/// const IRIS_DATASET_NAME: &str = "iris";
+/// const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
 ///
 /// // Step 2: Write a loader function that downloads and parses the dataset.
 /// //
 /// // The loader receives the storage directory path as `&str`. It should:
-/// //   1. Download the file (using `download_dataset_with` or other helpers).
+/// //   1. Download the file (using `download_dataset_with` and other helpers).
 /// //   2. Parse the file into your desired output type `T`.
 /// //   3. Return `Ok(T)` on success.
-/// fn my_loader(dir: &str) -> Result<Vec<Vec<f64>>, DatasetError> {
-///     // Use `download_dataset_with` to handle download, SHA256 validation, and caching.
+/// //
+/// // Here we parse the Iris CSV into a simple `Vec<Vec<String>>` where each
+/// // inner Vec holds the fields of one row. You can return any type you want.
+/// // In fact, this example only performed simple data processing (using String as the element type, without converting it into a numeric type).
+/// // This crate also provides a complete implementation of the Iris dataset, and you can refer to that implementation.
+/// fn my_loader(dir: &str) -> Result<Vec<Vec<String>>, DatasetError> {
+///     // Use `download_dataset_with` to handle download, SHA256 validation,
+///     // and file caching. The closure receives a temporary directory, and you
+///     // return the path to the prepared file.
 ///     let file_path = download_dataset_with(
 ///         dir,
-///         MY_FILENAME,
-///         MY_DATASET_NAME,
-///         Some(MY_SHA256),
+///         IRIS_FILENAME,
+///         IRIS_DATASET_NAME,
+///         Some(IRIS_SHA256),
 ///         |temp_path| {
-///             download_to(MY_DATA_URL, temp_path)?;
-///             Ok(temp_path.join(MY_FILENAME))
+///             // Download the zip archive into the temporary directory.
+///             download_to(IRIS_DATA_URL, temp_path)?;
+///             // Extract the archive so we can access the CSV inside.
+///             unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
+///             // Return the path to the extracted dataset file.
+///             Ok(temp_path.join(IRIS_FILENAME))
 ///         },
 ///     )?;
 ///
-///     // Parse the CSV into Vec<Vec<f64>> (simplified example).
+///     // Parse the CSV into Vec<Vec<String>>.
 ///     let file = std::fs::File::open(&file_path)?;
-///     let mut rdr = csv::ReaderBuilder::new().has_headers(true).from_reader(file);
+///     let mut rdr = csv::ReaderBuilder::new()
+///         .has_headers(false)
+///         .from_reader(file);
 ///     let mut rows = Vec::new();
 ///     for result in rdr.records() {
-///         let record = result.map_err(|e| DatasetError::csv_read_error(MY_DATASET_NAME, e))?;
-///         let row: Vec<f64> = record.iter()
-///             .map(|field| field.parse::<f64>().unwrap_or(f64::NAN))
-///             .collect();
+///         let record = result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
+///         let row: Vec<String> = record.iter().map(|field| field.to_string()).collect();
 ///         rows.push(row);
 ///     }
 ///     Ok(rows)
 /// }
 ///
-/// // Step 3: Create a `Dataset` instance and load the data.
-/// let dataset: Dataset<Vec<Vec<f64>>> = Dataset::new("./my_data");
+/// // Step 3: Create a `Dataset` instance and load the data
+/// let dataset: Dataset<Vec<Vec<String>>> = Dataset::new("./my_iris_data");
 ///
-/// // The first call to `load` triggers the download and parse.
+/// // The first call to `load` triggers the download and parse
 /// let data = dataset.load(my_loader).unwrap();
-/// assert_eq!(data.len(), 768); // 768 rows in the diabetes dataset
+/// assert_eq!(data.len(), 150); // 150 samples in the Iris dataset
 ///
-/// // Subsequent calls return the cached reference instantly.
+/// // Subsequent calls return the cached reference instantly
 /// let data_again = dataset.load(my_loader).unwrap();
-/// assert!(std::ptr::eq(data, data_again)); // same reference
+/// assert!(std::ptr::eq(data, data_again)); // same reference, no re-download
 ///
-/// // Check whether data has been loaded.
+/// // Check whether data has been loaded
 /// assert!(dataset.is_loaded());
 ///
-/// // Clean up.
-/// std::fs::remove_dir_all("./my_data").unwrap();
+/// // Clean up (Dispensable)
+/// std::fs::remove_dir_all("./my_iris_data").unwrap();
 /// ```
-pub struct Dataset<T: Send + Sync + 'static> {
+pub struct Dataset<T> {
     storage_dir: String,
     data: OnceLock<T>,
 }
 
-impl<T: Send + Sync + 'static> Dataset<T> {
+impl<T> Dataset<T> {
     /// Create a new `Dataset` instance without loading any data.
     ///
     /// This is a lightweight operation that only stores the storage directory path.
@@ -241,7 +257,7 @@ impl<T: Send + Sync + 'static> Dataset<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> std::fmt::Debug for Dataset<T> {
+impl<T> std::fmt::Debug for Dataset<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Dataset")
             .field("storage_dir", &self.storage_dir)
