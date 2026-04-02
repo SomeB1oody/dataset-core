@@ -1,9 +1,8 @@
-use crate::{DatasetError, download_dataset_with, download_to, unzip};
+use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 /// The URL for the Iris dataset.
 ///
@@ -55,12 +54,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// # Thread Safety
 ///
 /// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The `OnceLock` ensures thread-safe lazy initialization.
-///
-/// # Fields
-///
-/// - `storage_dir` - Directory where the dataset will be stored.
-/// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<&'static str>`. (`OnceLock` is used to ensure thread-safety)
+/// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
 /// ```rust
@@ -87,17 +81,15 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct Iris {
-    storage_dir: String,
-    data: OnceLock<(Array2<f64>, Array1<&'static str>)>,
+    dataset: Dataset<(Array2<f64>, Array1<&'static str>)>,
 }
 
 impl std::fmt::Debug for Iris {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Iris")
-            .field("storage_dir", &self.storage_dir)
-            .field("data_loaded", &self.data.get().is_some())
+            .field("storage_dir", &self.dataset.storage_dir())
+            .field("data_loaded", &self.dataset.is_loaded())
             .finish()
     }
 }
@@ -117,19 +109,11 @@ impl Iris {
     /// - `Self` - `Iris` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Iris {
-            storage_dir: storage_dir.to_string(),
-            data: OnceLock::new(),
+            dataset: Dataset::new(storage_dir),
         }
     }
 
     /// Parses the Iris dataset from the CSV file.
-    ///
-    /// This function reads and parses the dataset file, converting it into
-    /// feature and label arrays.
-    ///
-    /// # Parameters
-    ///
-    /// - `file_path` - Path to the dataset file
     fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
@@ -146,7 +130,6 @@ impl Iris {
             })?;
             let line_num = idx + 1; // +1 for 0-indexed, no header
 
-            // Infer number of features from the first row
             if num_features.is_none() {
                 if record.len() < 2 {
                     return Err(DatasetError::invalid_column_count(
@@ -171,7 +154,6 @@ impl Iris {
                 ));
             }
 
-            // Features are all columns except the last one
             for i in 0..n_features {
                 let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
@@ -185,7 +167,6 @@ impl Iris {
                 })?);
             }
 
-            // Label is the last column
             labels.push(match &record[n_features] {
                 "Iris-setosa" => "setosa",
                 "Iris-versicolor" => "versicolor",
@@ -202,7 +183,6 @@ impl Iris {
             });
         }
 
-        // Verify the dataset is not empty
         let n_samples = labels.len();
         if n_samples == 0 {
             return Err(DatasetError::empty_dataset(IRIS_DATASET_NAME));
@@ -217,10 +197,7 @@ impl Iris {
         Ok((features_array, labels_array))
     }
 
-    /// Internal function to load the dataset from disk or download it.
-    ///
-    /// This function is called automatically by the accessor methods.
-    /// It first downloads the dataset if needed, then parses it.
+    /// Download and parse the dataset from the storage directory.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
         let file_path = download_dataset_with(
             dir,
@@ -228,33 +205,12 @@ impl Iris {
             IRIS_DATASET_NAME,
             Some(IRIS_SHA256),
             |temp_path| {
-                // Download and extract the dataset
                 download_to(IRIS_DATA_URL, temp_path)?;
                 unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
-                // Return the path to the extracted dataset file
                 Ok(temp_path.join(IRIS_FILENAME))
             },
         )?;
         Self::parse_dataset(file_path)
-    }
-
-    /// Internal helper to ensure data is loaded and return a reference.
-    fn load_data(&self) -> Result<&(Array2<f64>, Array1<&'static str>), DatasetError> {
-        // if already initialized
-        if let Some(cache) = self.data.get() {
-            return Ok(cache);
-        }
-        // if not, initialize then store
-        let (features, labels) = Self::load_data_internal(&self.storage_dir)?;
-
-        // Try to set the value. If another thread already set it, that's fine - just use the existing value
-        let _ = self.data.set((features, labels));
-
-        let cache = self
-            .data
-            .get()
-            .expect("IRIS_DATA should be initialized after set");
-        Ok(cache)
     }
 
     /// Get a reference to the feature matrix.
@@ -278,7 +234,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.load_data()?.0)
+        Ok(&self.dataset.load(Self::load_data_internal)?.0)
     }
 
     /// Get a reference to the labels vector.
@@ -298,7 +254,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.load_data()?.1)
+        Ok(&self.dataset.load(Self::load_data_internal)?.1)
     }
 
     /// Get both features and labels as references.
@@ -323,7 +279,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
-        let data = self.load_data()?;
+        let data = self.dataset.load(Self::load_data_internal)?;
         Ok((&data.0, &data.1))
     }
 }

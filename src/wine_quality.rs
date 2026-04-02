@@ -1,9 +1,8 @@
-use crate::{DatasetError, download_dataset_with, download_to, unzip};
+use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 /// A static string slice containing the URL for the Wine Quality dataset.
 ///
@@ -108,7 +107,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         })?;
         let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-        // Infer number of features from the first row
         if num_features.is_none() {
             if record.len() < 2 {
                 return Err(DatasetError::invalid_column_count(
@@ -149,7 +147,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         );
     }
 
-    // Verify the dataset is not empty
     let n_samples = target_array.len();
     if n_samples == 0 {
         return Err(DatasetError::empty_dataset(dataset_name));
@@ -199,12 +196,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 /// # Thread Safety
 ///
 /// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The `OnceLock` ensures thread-safe lazy initialization.
-///
-/// # Fields
-///
-/// - `storage_dir` - Directory where the dataset will be stored.
-/// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
+/// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
 /// ```rust
@@ -231,17 +223,15 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 /// // clean up: remove the downloaded files
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct RedWineQuality {
-    storage_dir: String,
-    data: OnceLock<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for RedWineQuality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RedWineQuality")
-            .field("storage_dir", &self.storage_dir)
-            .field("data_loaded", &self.data.get().is_some())
+            .field("storage_dir", &self.dataset.storage_dir())
+            .field("data_loaded", &self.dataset.is_loaded())
             .finish()
     }
 }
@@ -261,15 +251,11 @@ impl RedWineQuality {
     /// - `Self` - `RedWineQuality` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         RedWineQuality {
-            storage_dir: storage_dir.to_string(),
-            data: OnceLock::new(),
+            dataset: Dataset::new(storage_dir),
         }
     }
 
-    /// Internal function to load the dataset from disk or download it.
-    ///
-    /// This function is called automatically by the accessor methods.
-    /// It first downloads the dataset if needed, then parses it.
+    /// Download and parse the dataset from the storage directory.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         let file_path = download_dataset_with(
             dir,
@@ -277,33 +263,12 @@ impl RedWineQuality {
             "red_wine_quality",
             Some(RED_WINE_QUALITY_SHA256),
             |temp_path| {
-                // Download and extract the wine quality dataset archive
                 download_to(WINE_QUALITY_URL, temp_path)?;
                 unzip(&temp_path.join(WINE_QUALITY_ZIP_FILENAME), temp_path)?;
-                // Return the path to the specific CSV file
                 Ok(temp_path.join(RED_WINE_QUALITY_FILENAME))
             },
         )?;
         parse_wine_quality_dataset(file_path, "red_wine_quality")
-    }
-
-    /// Internal helper to ensure data is loaded and return a reference.
-    fn load_data(&self) -> Result<&(Array2<f64>, Array1<f64>), DatasetError> {
-        // if already initialized
-        if let Some(cache) = self.data.get() {
-            return Ok(cache);
-        }
-        // if not, initialize then store
-        let (features, targets) = Self::load_data_internal(&self.storage_dir)?;
-
-        // Try to set the value. If another thread already set it, that's fine - just use the existing value
-        let _ = self.data.set((features, targets));
-
-        let cache = self
-            .data
-            .get()
-            .expect("RED_WINE_DATA should be initialized after set");
-        Ok(cache)
     }
 
     /// Get a reference to the feature matrix.
@@ -334,7 +299,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.load_data()?.0)
+        Ok(&self.dataset.load(Self::load_data_internal)?.0)
     }
 
     /// Get a reference to the target vector.
@@ -354,7 +319,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.load_data()?.1)
+        Ok(&self.dataset.load(Self::load_data_internal)?.1)
     }
 
     /// Get both features and targets as references.
@@ -386,7 +351,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.load_data()?;
+        let data = self.dataset.load(Self::load_data_internal)?;
         Ok((&data.0, &data.1))
     }
 }
@@ -426,12 +391,7 @@ impl RedWineQuality {
 /// # Thread Safety
 ///
 /// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The `OnceLock` ensures thread-safe lazy initialization.
-///
-/// # Fields
-///
-/// - `storage_dir` - Directory where the dataset will be stored.
-/// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
+/// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
 /// ```rust
@@ -458,17 +418,15 @@ impl RedWineQuality {
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct WhiteWineQuality {
-    storage_dir: String,
-    data: OnceLock<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for WhiteWineQuality {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WhiteWineQuality")
-            .field("storage_dir", &self.storage_dir)
-            .field("data_loaded", &self.data.get().is_some())
+            .field("storage_dir", &self.dataset.storage_dir())
+            .field("data_loaded", &self.dataset.is_loaded())
             .finish()
     }
 }
@@ -488,15 +446,11 @@ impl WhiteWineQuality {
     /// - `Self` - `WhiteWineQuality` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         WhiteWineQuality {
-            storage_dir: storage_dir.to_string(),
-            data: OnceLock::new(),
+            dataset: Dataset::new(storage_dir),
         }
     }
 
-    /// Internal function to load the dataset from disk or download it.
-    ///
-    /// This function is called automatically by the accessor methods.
-    /// It first downloads the dataset if needed, then parses it.
+    /// Download and parse the dataset from the storage directory.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         let file_path = download_dataset_with(
             dir,
@@ -504,33 +458,12 @@ impl WhiteWineQuality {
             "white_wine_quality",
             Some(WHITE_WINE_QUALITY_SHA256),
             |temp_path| {
-                // Download and extract the wine quality dataset archive
                 download_to(WINE_QUALITY_URL, temp_path)?;
                 unzip(&temp_path.join(WINE_QUALITY_ZIP_FILENAME), temp_path)?;
-                // Return the path to the specific CSV file
                 Ok(temp_path.join(WHITE_WINE_QUALITY_FILENAME))
             },
         )?;
         parse_wine_quality_dataset(file_path, "white_wine_quality")
-    }
-
-    /// Internal helper to ensure data is loaded and return a reference.
-    fn load_data(&self) -> Result<&(Array2<f64>, Array1<f64>), DatasetError> {
-        // if already initialized
-        if let Some(cache) = self.data.get() {
-            return Ok(cache);
-        }
-        // if not, initialize then store
-        let (features, targets) = Self::load_data_internal(&self.storage_dir)?;
-
-        // Try to set the value. If another thread already set it, that's fine - just use the existing value
-        let _ = self.data.set((features, targets));
-
-        let cache = self
-            .data
-            .get()
-            .expect("WHITE_WINE_DATA should be initialized after set");
-        Ok(cache)
     }
 
     /// Get a reference to the feature matrix.
@@ -561,7 +494,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.load_data()?.0)
+        Ok(&self.dataset.load(Self::load_data_internal)?.0)
     }
 
     /// Get a reference to the target vector.
@@ -581,7 +514,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.load_data()?.1)
+        Ok(&self.dataset.load(Self::load_data_internal)?.1)
     }
 
     /// Get both features and targets as references.
@@ -613,7 +546,7 @@ impl WhiteWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.load_data()?;
+        let data = self.dataset.load(Self::load_data_internal)?;
         Ok((&data.0, &data.1))
     }
 }

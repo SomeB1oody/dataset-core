@@ -1,9 +1,8 @@
-use crate::{DatasetError, download_dataset_with, download_to};
+use crate::{Dataset, DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 /// The URL for the Diabetes dataset.
 const DIABETES_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
@@ -45,12 +44,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// # Thread Safety
 ///
 /// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The `OnceLock` ensures thread-safe lazy initialization.
-///
-/// # Fields
-///
-/// - `storage_dir` - Directory where the dataset will be stored.
-/// - `data` - Cached data as a tuple of references to `Array2<f64>` and `Array1<f64>`. (`OnceLock` is used to ensure thread-safety)
+/// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
 /// ```rust
@@ -77,17 +71,15 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// // clean up: remove the downloaded files (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-#[derive(Clone)]
 pub struct Diabetes {
-    storage_dir: String,
-    data: OnceLock<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
 }
 
 impl std::fmt::Debug for Diabetes {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Diabetes")
-            .field("storage_dir", &self.storage_dir)
-            .field("data_loaded", &self.data.get().is_some())
+            .field("storage_dir", &self.dataset.storage_dir())
+            .field("data_loaded", &self.dataset.is_loaded())
             .finish()
     }
 }
@@ -107,19 +99,11 @@ impl Diabetes {
     /// - `Self` - `Diabetes` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Diabetes {
-            storage_dir: storage_dir.to_string(),
-            data: OnceLock::new(),
+            dataset: Dataset::new(storage_dir),
         }
     }
 
     /// Parses the Diabetes dataset from the CSV file.
-    ///
-    /// This function reads and parses the dataset file, converting it into
-    /// feature and label arrays.
-    ///
-    /// # Parameters
-    ///
-    /// - `file_path` - Path to the dataset file
     fn parse_dataset(file_path: PathBuf) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
@@ -136,7 +120,6 @@ impl Diabetes {
             })?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            // Infer number of features from the first row
             if num_features.is_none() {
                 if record.len() < 2 {
                     return Err(DatasetError::invalid_column_count(
@@ -185,7 +168,6 @@ impl Diabetes {
             })?);
         }
 
-        // Verify the dataset is not empty
         let n_samples = labels.len();
         if n_samples == 0 {
             return Err(DatasetError::empty_dataset(DIABETES_DATASET_NAME));
@@ -202,10 +184,7 @@ impl Diabetes {
         Ok((features_array, labels_array))
     }
 
-    /// Internal function to load the dataset from disk or download it.
-    ///
-    /// This function is called automatically by the accessor methods.
-    /// It first downloads the dataset if needed, then parses it.
+    /// Download and parse the dataset from the storage directory.
     fn load_data_internal(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
         let file_path = download_dataset_with(
             dir,
@@ -213,32 +192,11 @@ impl Diabetes {
             DIABETES_DATASET_NAME,
             Some(DIABETES_SHA256),
             |temp_path| {
-                // Download the dataset file
                 download_to(DIABETES_DATA_URL, temp_path)?;
-                // Return the path to the downloaded file
                 Ok(temp_path.join(DIABETES_FILENAME))
             },
         )?;
         Self::parse_dataset(file_path)
-    }
-
-    /// Internal helper to ensure data is loaded and return a reference.
-    fn load_data(&self) -> Result<&(Array2<f64>, Array1<f64>), DatasetError> {
-        // if already initialized
-        if let Some(cache) = self.data.get() {
-            return Ok(cache);
-        }
-        // if not, initialize then store
-        let (features, labels) = Self::load_data_internal(&self.storage_dir)?;
-
-        // Try to set the value. If another thread already set it, that's fine - just use the existing value
-        let _ = self.data.set((features, labels));
-
-        let cache = self
-            .data
-            .get()
-            .expect("DIABETES_DATA should be initialized after set");
-        Ok(cache)
     }
 
     /// Get a reference to the feature matrix.
@@ -266,7 +224,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.load_data()?.0)
+        Ok(&self.dataset.load(Self::load_data_internal)?.0)
     }
 
     /// Get a reference to the label vector.
@@ -286,7 +244,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples)
     pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.load_data()?.1)
+        Ok(&self.dataset.load(Self::load_data_internal)?.1)
     }
 
     /// Get both features and labels as references.
@@ -315,7 +273,7 @@ impl Diabetes {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.load_data()?;
+        let data = self.dataset.load(Self::load_data_internal)?;
         Ok((&data.0, &data.1))
     }
 }

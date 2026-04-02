@@ -75,9 +75,180 @@ use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use zip::ZipArchive;
 use zip::result::ZipError;
 pub use error::{DatasetError, DataFormatErrorKind};
+
+/// A generic, thread-safe dataset container with lazy loading and in-memory caching.
+///
+/// `Dataset<T>` is a thin caching wrapper that holds a `storage_dir` (the directory
+/// where dataset files are stored on disk) and a lazily-initialized value of type `T`.
+/// The actual downloading and parsing logic is provided by the caller through a loader
+/// closure passed to [`Dataset::load`].
+///
+/// This struct is designed to be the building block for both the built-in datasets
+/// shipped with this crate and any custom datasets defined by external users.
+///
+/// # Type Parameter
+///
+/// - `T` - The type of the parsed dataset. Can be any type that implements
+///   `Send + Sync + 'static`, such as `(Array2<f64>, Array1<f64>)`, a custom struct,
+///   or any other data representation.
+///
+/// # Thread Safety
+///
+/// `Dataset<T>` is `Send + Sync` when `T` is `Send + Sync`. The internal `OnceLock`
+/// ensures that the loader closure runs at most once, even when multiple threads call
+/// [`Dataset::load`] concurrently.
+///
+/// # Example
+///
+/// ```rust
+/// use rustyml_dataset::{Dataset, DatasetError, download_dataset_with, download_to};
+///
+/// // Step 1: Define constants for your dataset.
+/// const MY_DATA_URL: &str = "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv";
+/// const MY_FILENAME: &str = "diabetes.csv";
+/// const MY_DATASET_NAME: &str = "my_diabetes";
+/// const MY_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba2a3e35416257a72";
+///
+/// // Step 2: Write a loader function that downloads and parses the dataset.
+/// //
+/// // The loader receives the storage directory path as `&str`. It should:
+/// //   1. Download the file (using `download_dataset_with` or other helpers).
+/// //   2. Parse the file into your desired output type `T`.
+/// //   3. Return `Ok(T)` on success.
+/// fn my_loader(dir: &str) -> Result<Vec<Vec<f64>>, DatasetError> {
+///     // Use `download_dataset_with` to handle download, SHA256 validation, and caching.
+///     let file_path = download_dataset_with(
+///         dir,
+///         MY_FILENAME,
+///         MY_DATASET_NAME,
+///         Some(MY_SHA256),
+///         |temp_path| {
+///             download_to(MY_DATA_URL, temp_path)?;
+///             Ok(temp_path.join(MY_FILENAME))
+///         },
+///     )?;
+///
+///     // Parse the CSV into Vec<Vec<f64>> (simplified example).
+///     let file = std::fs::File::open(&file_path)?;
+///     let mut rdr = csv::ReaderBuilder::new().has_headers(true).from_reader(file);
+///     let mut rows = Vec::new();
+///     for result in rdr.records() {
+///         let record = result.map_err(|e| DatasetError::csv_read_error(MY_DATASET_NAME, e))?;
+///         let row: Vec<f64> = record.iter()
+///             .map(|field| field.parse::<f64>().unwrap_or(f64::NAN))
+///             .collect();
+///         rows.push(row);
+///     }
+///     Ok(rows)
+/// }
+///
+/// // Step 3: Create a `Dataset` instance and load the data.
+/// let dataset: Dataset<Vec<Vec<f64>>> = Dataset::new("./my_data");
+///
+/// // The first call to `load` triggers the download and parse.
+/// let data = dataset.load(my_loader).unwrap();
+/// assert_eq!(data.len(), 768); // 768 rows in the diabetes dataset
+///
+/// // Subsequent calls return the cached reference instantly.
+/// let data_again = dataset.load(my_loader).unwrap();
+/// assert!(std::ptr::eq(data, data_again)); // same reference
+///
+/// // Check whether data has been loaded.
+/// assert!(dataset.is_loaded());
+///
+/// // Clean up.
+/// std::fs::remove_dir_all("./my_data").unwrap();
+/// ```
+pub struct Dataset<T: Send + Sync + 'static> {
+    storage_dir: String,
+    data: OnceLock<T>,
+}
+
+impl<T: Send + Sync + 'static> Dataset<T> {
+    /// Create a new `Dataset` instance without loading any data.
+    ///
+    /// This is a lightweight operation that only stores the storage directory path.
+    /// No I/O or network requests are performed until [`Dataset::load`] is called.
+    ///
+    /// # Parameters
+    ///
+    /// - `storage_dir` - Directory where dataset files will be stored. The directory
+    ///   will be created automatically when the loader runs if it does not exist.
+    ///
+    /// # Returns
+    ///
+    /// A new `Dataset<T>` instance ready for lazy loading.
+    pub fn new(storage_dir: &str) -> Self {
+        Dataset {
+            storage_dir: storage_dir.to_string(),
+            data: OnceLock::new(),
+        }
+    }
+
+    /// Load the dataset, executing the loader on first call and caching the result.
+    ///
+    /// On the first call, the `loader` closure is invoked with the storage directory
+    /// path. The returned value is cached internally. All subsequent calls — from any
+    /// thread — return a reference to the cached value without running the loader again.
+    ///
+    /// # Parameters
+    ///
+    /// - `loader` - A closure or function that takes the storage directory path (`&str`)
+    ///   and returns `Result<T, DatasetError>`. This is where you perform downloading,
+    ///   file I/O, and parsing. The loader is only called once; if the data is already
+    ///   cached, it is ignored.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(&T)` - A reference to the cached dataset.
+    ///
+    /// # Errors
+    ///
+    /// Returns any `DatasetError` produced by the `loader` closure on first invocation.
+    /// Once data is successfully loaded and cached, this method never returns an error.
+    pub fn load(&self, loader: impl FnOnce(&str) -> Result<T, DatasetError>) -> Result<&T, DatasetError> {
+        if let Some(data) = self.data.get() {
+            return Ok(data);
+        }
+
+        let value = loader(&self.storage_dir)?;
+        let _ = self.data.set(value);
+
+        Ok(self.data.get().expect("data should be set after successful load"))
+    }
+
+    /// Check whether the dataset has been loaded into memory.
+    ///
+    /// # Returns
+    ///
+    /// `true` if [`Dataset::load`] has been called successfully at least once,
+    /// `false` otherwise.
+    pub fn is_loaded(&self) -> bool {
+        self.data.get().is_some()
+    }
+
+    /// Get the storage directory path.
+    ///
+    /// # Returns
+    ///
+    /// The storage directory path as a string slice.
+    pub fn storage_dir(&self) -> &str {
+        &self.storage_dir
+    }
+}
+
+impl<T: Send + Sync + 'static> std::fmt::Debug for Dataset<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Dataset")
+            .field("storage_dir", &self.storage_dir)
+            .field("data_loaded", &self.is_loaded())
+            .finish()
+    }
+}
 
 /// Download a remote file into the given directory.
 ///
