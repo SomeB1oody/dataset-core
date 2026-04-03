@@ -160,8 +160,8 @@ impl Iris {
             }
 
             for i in 0..n_features {
-                let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
+                    let field = format!("feature[{i}]");
                     DatasetError::parse_failed(
                         IRIS_DATASET_NAME,
                         &field,

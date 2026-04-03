@@ -8,6 +8,7 @@ Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-d
 ## [0.1.0] - 2026-4-3
 ### Changed
 - Update `zip` to v8.5.0
+- Put String initialization of `field` in error handling
 
 ## [0.1.0] - 2026-4-2
 ### Changed

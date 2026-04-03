@@ -163,8 +163,8 @@ impl BostonHousing {
 
             // Features are all columns except the last one
             for i in 0..n_features {
-                let field = format!("feature[{i}]");
                 features.push(record[i].parse::<f64>().map_err(|e| {
+                    let field = format!("feature[{i}]");
                     DatasetError::parse_failed(
                         BOSTON_HOUSING_DATASET_NAME,
                         &field,
