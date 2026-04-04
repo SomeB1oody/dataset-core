@@ -280,6 +280,25 @@ impl<T> std::fmt::Debug for Dataset<T> {
 /// # Errors
 ///
 /// - `DatasetError` - Returned when the downloader cannot be built or when the download fails.
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::download_to;
+/// use std::path::Path;
+///
+/// let download_dir = "./download_example";
+/// std::fs::create_dir_all(download_dir).unwrap();
+///
+/// // Download a file from the internet
+/// let url = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+/// download_to(url, Path::new(download_dir)).unwrap();
+///
+/// // The file will be saved with the name from the URL (iris.zip)
+/// assert!(Path::new(download_dir).join("iris.zip").exists());
+///
+/// // Clean up (dispensable)
+/// std::fs::remove_dir_all(download_dir).unwrap();
+/// ```
 pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
     let data = Download::new(url);
 
@@ -309,6 +328,29 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
 /// # Errors
 ///
 /// - `DatasetError` - Returned when opening the zip file fails or when extraction fails.
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::{download_to, unzip};
+/// use std::path::Path;
+///
+/// let work_dir = "./unzip_example";
+/// std::fs::create_dir_all(work_dir).unwrap();
+///
+/// // First download a zip file
+/// let url = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+/// download_to(url, Path::new(work_dir)).unwrap();
+///
+/// // Extract the zip archive
+/// let zip_path = Path::new(work_dir).join("iris.zip");
+/// unzip(&zip_path, Path::new(work_dir)).unwrap();
+///
+/// // The extracted files are now in the work directory
+/// assert!(Path::new(work_dir).join("iris.data").exists());
+///
+/// // Clean up (dispensable)
+/// std::fs::remove_dir_all(work_dir).unwrap();
+/// ```
 pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     let file = File::open(file_path).map_err(|e| DatasetError::from(ZipError::Io(e)))?;
 
@@ -330,6 +372,30 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// # Errors
 ///
 /// - `DatasetError` - Returned if the temporary directory cannot be created.
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::create_temp_dir;
+/// use std::path::Path;
+///
+/// let parent_dir = "./temp_dir_example";
+/// std::fs::create_dir_all(parent_dir).unwrap();
+///
+/// // Create a temporary directory
+/// let temp_dir = create_temp_dir(Path::new(parent_dir)).unwrap();
+/// let temp_path = temp_dir.path();
+///
+/// // Use the temporary directory for intermediate operations
+/// let temp_file = temp_path.join("temp_file.txt");
+/// std::fs::write(&temp_file, "temporary content").unwrap();
+/// assert!(temp_file.exists());
+///
+/// // The temporary directory is automatically removed when `temp_dir` is dropped
+/// drop(temp_dir);
+///
+/// // Clean up parent directory
+/// std::fs::remove_dir_all(parent_dir).unwrap();
+/// ```
 pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new()
         .tempdir_in(tempdir_in)?;
@@ -355,6 +421,39 @@ pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetEr
 /// # Errors
 ///
 /// - `DatasetError::IoError` - Returned when file I/O operations fail (opening file, reading data).
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::file_sha256_matches;
+/// use std::path::Path;
+/// use std::io::Write;
+///
+/// let test_dir = "./sha256_example";
+/// std::fs::create_dir_all(test_dir).unwrap();
+///
+/// // Create a test file with known content
+/// let file_path = Path::new(test_dir).join("test.txt");
+/// let mut file = std::fs::File::create(&file_path).unwrap();
+/// file.write_all(b"hello world").unwrap();
+/// drop(file);
+///
+/// // SHA256 of "hello world" is:
+/// // b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
+/// let expected_hash = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+///
+/// // Verify the hash matches
+/// assert!(file_sha256_matches(&file_path, expected_hash).unwrap());
+///
+/// // Case-insensitive comparison also works
+/// let upper_hash = "B94D27B9934D3E08A52E52D7DA7DABFAC484EFE37A5380EE9088F7ACE2EFCDE9";
+/// assert!(file_sha256_matches(&file_path, upper_hash).unwrap());
+///
+/// // Wrong hash returns false
+/// assert!(!file_sha256_matches(&file_path, "0000000000000000000000000000000000000000000000000000000000000000").unwrap());
+///
+/// // Clean up (dispensable)
+/// std::fs::remove_dir_all(test_dir).unwrap();
+/// ```
 pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
     let mut file = File::open(path)?;
 
@@ -396,6 +495,53 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///
 /// - `DatasetError::IoError` - Returned when creating the directory fails or when
 ///   file I/O operations fail during hash verification.
+///
+/// # Example
+/// ```rust
+/// use rustyml_dataset::prepare_download_dir;
+/// use std::path::Path;
+/// use std::io::Write;
+///
+/// let test_dir = "./prepare_download_example";
+/// let dir_path = Path::new(test_dir);
+/// let file_path = dir_path.join("data.txt");
+///
+/// // Case 1: Directory doesn't exist yet
+/// let (need_download, need_overwrite) = prepare_download_dir(
+///     dir_path,
+///     &file_path,
+///     None,
+/// ).unwrap();
+/// assert!(need_download);    // File doesn't exist, need to download
+/// assert!(!need_overwrite);  // Nothing to overwrite
+///
+/// // Case 2: File exists with correct hash
+/// let mut file = std::fs::File::create(&file_path).unwrap();
+/// file.write_all(b"hello world").unwrap();
+/// drop(file);
+///
+/// let correct_hash = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+/// let (need_download, need_overwrite) = prepare_download_dir(
+///     dir_path,
+///     &file_path,
+///     Some(correct_hash),
+/// ).unwrap();
+/// assert!(!need_download);   // File exists with correct hash
+/// assert!(!need_overwrite);
+///
+/// // Case 3: File exists but hash doesn't match
+/// let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
+/// let (need_download, need_overwrite) = prepare_download_dir(
+///     dir_path,
+///     &file_path,
+///     Some(wrong_hash),
+/// ).unwrap();
+/// assert!(need_download);    // Hash mismatch, need to download
+/// assert!(need_overwrite);   // Existing file needs to be replaced
+///
+/// // Clean up (dispensable)
+/// std::fs::remove_dir_all(test_dir).unwrap();
+/// ```
 pub fn prepare_download_dir(
     path: &Path,
     dst: &Path,
