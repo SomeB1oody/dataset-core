@@ -1,5 +1,5 @@
-use rustyml_dataset::boston_housing::*;
-use rustyml_dataset::{download_to, file_sha256_matches, unzip};
+use rustyml_dataset::datasets::boston_housing::*;
+use rustyml_dataset::utils::{download_to, file_sha256_matches, unzip};
 use std::fs::File;
 use std::fs::{create_dir_all, remove_dir_all, rename};
 use std::io::Write;

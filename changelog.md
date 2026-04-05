@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-4-5
+### Changed
+- Move dataset implementations to `datasets` module, and separate utility functions into `utils` module
+
 ## [0.1.0] - 2026-4-4
 ### Changed
 - Add usage examples to dataset utility functions
