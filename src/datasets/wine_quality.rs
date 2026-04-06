@@ -182,7 +182,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::wine_quality::RedWineQuality;
+/// use rustyml_dataset::datasets::wine_quality::RedWineQuality;
 ///
 /// let download_dir = "./red_wine"; // the code will create the directory if it doesn't exist
 ///
@@ -373,7 +373,7 @@ impl RedWineQuality {
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::wine_quality::WhiteWineQuality;
+/// use rustyml_dataset::datasets::wine_quality::WhiteWineQuality;
 ///
 /// let download_dir = "./white_wine"; // the code will create the directory if it doesn't exist
 ///

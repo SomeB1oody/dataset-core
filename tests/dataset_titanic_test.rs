@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::Path;
 
 #[test]
+// Verifies that the Titanic dataset loads with the correct shapes for string/numeric features and labels.
 fn test_load_titanic() {
     let download_dir = "./test_load_titanic"; // the code will create the directory if it doesn't exist
 
@@ -32,6 +33,7 @@ fn test_load_titanic() {
 }
 
 #[test]
+// Verifies that a corrupt or fake Titanic data file is detected and overwritten with the real dataset.
 fn test_titanic_overwrite() {
     let download_dir = "./test_titanic_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -61,6 +63,7 @@ fn test_titanic_overwrite() {
 }
 
 #[test]
+// Verifies that Titanic loading uses a pre-downloaded cached file without re-downloading.
 fn test_titanic_no_need_download() {
     let download_dir = "./test_titanic_no_need_download";
     let download_dir_path = Path::new(download_dir);

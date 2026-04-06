@@ -26,7 +26,7 @@
 //! # Quick Start
 //!
 //! ```rust
-//! use rustyml_dataset::iris::Iris;
+//! use rustyml_dataset::datasets::iris::Iris;
 //!
 //! let download_dir = "./data"; // the code will create the directory if it doesn't exist
 //!
@@ -71,7 +71,7 @@
 
 use std::sync::OnceLock;
 pub use error::{DatasetError, DataFormatErrorKind};
-pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, prepare_download_dir, download_dataset_with};
+pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, download_dataset_with};
 
 /// A generic, thread-safe dataset container with lazy loading and in-memory caching.
 ///

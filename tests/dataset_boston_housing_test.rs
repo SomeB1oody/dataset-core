@@ -6,6 +6,7 @@ use std::io::Write;
 use std::path::Path;
 
 #[test]
+// Verifies that the Boston Housing dataset loads with the correct feature shape and target count.
 fn test_load_boston_housing() {
     let download_dir = "./test_load_boston_housing"; // the code will create the directory if it doesn't exist
 
@@ -30,6 +31,7 @@ fn test_load_boston_housing() {
 }
 
 #[test]
+// Verifies that Boston Housing loading uses a pre-downloaded cached file without re-downloading.
 fn test_boston_housing_no_need_download() {
     let download_dir = "./test_boston_housing_no_need_download";
     let download_dir_path = Path::new(download_dir);
@@ -66,6 +68,7 @@ fn test_boston_housing_no_need_download() {
 }
 
 #[test]
+// Verifies that a corrupt or fake Boston Housing data file is detected and overwritten with the real dataset.
 fn test_boston_housing_overwrite() {
     let download_dir = "./test_boston_housing_overwrite";
     let download_dir_path = Path::new(download_dir);

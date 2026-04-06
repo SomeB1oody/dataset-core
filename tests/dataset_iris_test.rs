@@ -5,6 +5,7 @@ use std::io::Write;
 use std::path::Path;
 
 #[test]
+// Verifies that the Iris dataset loads with the correct feature shape and label count.
 fn test_load_iris() {
     let download_dir = "./test_load_iris"; // the code will create the directory if it doesn't exist
 
@@ -29,6 +30,7 @@ fn test_load_iris() {
 }
 
 #[test]
+// Verifies that Iris loading uses a pre-downloaded cached file without re-downloading.
 fn test_iris_no_need_download() {
     let download_dir = "./test_load_iris_no_need_download";
     let download_dir_path = Path::new(download_dir);
@@ -53,6 +55,7 @@ fn test_iris_no_need_download() {
 }
 
 #[test]
+// Verifies that a corrupt or fake Iris data file is detected and overwritten with the real dataset.
 fn test_iris_overwrite() {
     let download_dir = "./test_load_iris_overwrite";
     let download_dir_path = Path::new(download_dir);

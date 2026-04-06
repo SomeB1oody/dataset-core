@@ -239,7 +239,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///   file I/O operations fail during hash verification.
 ///
 /// # Example
-/// ```rust
+/// ```rust, ignore
 /// use rustyml_dataset::prepare_download_dir;
 /// use std::path::Path;
 /// use std::io::Write;
@@ -284,7 +284,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 /// // Clean up (dispensable)
 /// std::fs::remove_dir_all(test_dir).unwrap();
 /// ```
-pub fn prepare_download_dir(
+fn prepare_download_dir(
     path: &Path,
     dst: &Path,
     expected_sha256: Option<&str>,
@@ -322,19 +322,22 @@ pub fn prepare_download_dir(
 /// # Parameters
 ///
 /// - `dir` - Target storage directory path
-/// - `filename` - Final dataset filename (will be stored as `dir/filename`)
-/// - `dataset_name` - Dataset name for error messages
+/// - `filename` - Final dataset filename (will be stored as `dir/filename`).
+///    Please give the filename with the extension (e.g., "iris.csv").
+/// - `dataset_name` - Dataset name for error messages (e.g., "iris").
 /// - `expected_sha256` - Optional expected SHA256 hash of the dataset file. If `None`,
 ///   any existing file at the destination is accepted without validation, and newly
 ///   prepared files skip SHA256 verification.
 /// - `prepare_file` - Closure that prepares the dataset file in the temporary directory
-///   - **Input**: `temp_dir: &Path` - Path to the temporary directory
-///   - **Output**: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file
-///   - **Responsibility**: This closure can perform any operations needed to obtain the
+///   - Input: `temp_dir: &Path` - Path to the temporary directory.
+///     It is recommended to execute file operations within this directory, as it will be cleaned up
+///     automatically when the closure returns. But it is not required.
+///     (Please note that the file will be moved to the final destination, not copied)
+///   - Output: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file (will be moved to `dir/filename`).
+///   - Responsibility: This closure can perform any operations needed to get the
 ///     dataset file, such as downloading (you can use [`download_to`] provided in this crate), extracting archives
 ///     (you can use [`unzip`] provided in this crate), or locating files within extracted folders. The returned
 ///     `PathBuf` must point to the final dataset file ready for validation.
-///   - Note: The file you provide will be moved to the final destination (`dir/filename`), not copied.
 ///
 /// # Returns
 ///
