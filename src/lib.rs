@@ -25,7 +25,7 @@
 //!
 //! # Quick Start
 //!
-//! ```rust
+//! ```rust, ignore
 //! use rustyml_dataset::datasets::iris::Iris;
 //!
 //! let download_dir = "./data"; // the code will create the directory if it doesn't exist
@@ -70,7 +70,9 @@
 //! when you need to modify the data.
 
 use std::sync::OnceLock;
+#[cfg(feature = "utils")]
 pub use error::{DatasetError, DataFormatErrorKind};
+#[cfg(feature = "utils")]
 pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, download_dataset_with};
 
 /// A generic, thread-safe dataset container with lazy loading and in-memory caching.
@@ -98,79 +100,28 @@ pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, downlo
 /// # Example
 ///
 /// ```rust
-/// use rustyml_dataset::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
+/// use rustyml_dataset::Dataset;
 ///
-/// // Step 1: Define constants for your dataset.
-/// //
-/// // These describe where to download the file, its expected filename after
-/// // extraction, an identifier for error messages, and an optional SHA256 hash
-/// // for integrity validation (optional).
-/// const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
-/// const IRIS_ZIP_FILENAME: &str = "iris.zip";
-/// const IRIS_FILENAME: &str = "iris.data";
-/// const IRIS_DATASET_NAME: &str = "iris";
-/// const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
-///
-/// // Step 2: Write a loader function that downloads and parses the dataset.
-/// //
-/// // The loader receives the storage directory path as `&str`. It should:
-/// //   1. Download the file (using `download_dataset_with` and other helpers).
-/// //   2. Parse the file into your desired output type `T`.
-/// //   3. Return `Ok(T)` on success.
-/// //
-/// // Here we parse the Iris CSV into a simple `Vec<Vec<String>>` where each
-/// // inner Vec holds the fields of one row. You can return any type you want.
-/// // In fact, this example only performed simple data processing (using String as the element type, without converting it into a numeric type).
-/// // This crate also provides a complete implementation of the Iris dataset, and you can refer to that implementation.
-/// fn my_loader(dir: &str) -> Result<Vec<Vec<String>>, DatasetError> {
-///     // Use `download_dataset_with` to handle download, SHA256 validation,
-///     // and file caching. The closure receives a temporary directory, and you
-///     // return the path to the prepared file.
-///     let file_path = download_dataset_with(
-///         dir,
-///         IRIS_FILENAME,
-///         IRIS_DATASET_NAME,
-///         Some(IRIS_SHA256),
-///         |temp_path| {
-///             // Download the zip archive into the temporary directory.
-///             download_to(IRIS_DATA_URL, temp_path)?;
-///             // Extract the archive so we can access the CSV inside.
-///             unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
-///             // Return the path to the extracted dataset file.
-///             Ok(temp_path.join(IRIS_FILENAME))
-///         },
-///     )?;
-///
-///     // Parse the CSV into Vec<Vec<String>>.
-///     let file = std::fs::File::open(&file_path)?;
-///     let mut rdr = csv::ReaderBuilder::new()
-///         .has_headers(false)
-///         .from_reader(file);
-///     let mut rows = Vec::new();
-///     for result in rdr.records() {
-///         let record = result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
-///         let row: Vec<String> = record.iter().map(|field| field.to_string()).collect();
-///         rows.push(row);
-///     }
-///     Ok(rows)
+/// // Define a simple loader that reads a value from the storage directory path.
+/// // The loader can return any error type you choose.
+/// fn my_loader(dir: &str) -> Result<Vec<String>, std::io::Error> {
+///     // In a real use case, you would download/read files from `dir`.
+///     // Here we just demonstrate the caching behavior.
+///     Ok(vec!["hello".to_string(), "world".to_string()])
 /// }
 ///
-/// // Step 3: Create a `Dataset` instance and load the data
-/// let dataset: Dataset<Vec<Vec<String>>> = Dataset::new("./my_iris_data");
+/// let dataset: Dataset<Vec<String>> = Dataset::new("./my_data");
 ///
-/// // The first call to `load` triggers the download and parse
+/// // The first call to `load` triggers the loader
 /// let data = dataset.load(my_loader).unwrap();
-/// assert_eq!(data.len(), 150); // 150 samples in the Iris dataset
+/// assert_eq!(data.len(), 2);
 ///
 /// // Subsequent calls return the cached reference instantly
 /// let data_again = dataset.load(my_loader).unwrap();
-/// assert!(std::ptr::eq(data, data_again)); // same reference, no re-download
+/// assert!(std::ptr::eq(data, data_again)); // same reference, no re-load
 ///
 /// // Check whether data has been loaded
 /// assert!(dataset.is_loaded());
-///
-/// // Clean up (Dispensable)
-/// std::fs::remove_dir_all("./my_iris_data").unwrap();
 /// ```
 pub struct Dataset<T> {
     storage_dir: String,
@@ -207,7 +158,7 @@ impl<T> Dataset<T> {
     /// # Parameters
     ///
     /// - `loader` - A closure or function that takes the storage directory path (`&str`)
-    ///   and returns `Result<T, DatasetError>`. This is where you perform downloading,
+    ///   and returns `Result<T, E>`. This is where you perform downloading,
     ///   file I/O, and parsing. The loader is only called once; if the data is already
     ///   cached, it is ignored.
     ///
@@ -217,9 +168,9 @@ impl<T> Dataset<T> {
     ///
     /// # Errors
     ///
-    /// Returns any `DatasetError` produced by the `loader` closure on first invocation.
+    /// Returns any error produced by the `loader` closure on first invocation.
     /// Once data is successfully loaded and cached, this method never returns an error.
-    pub fn load(&self, loader: impl FnOnce(&str) -> Result<T, DatasetError>) -> Result<&T, DatasetError> {
+    pub fn load<E>(&self, loader: impl FnOnce(&str) -> Result<T, E>) -> Result<&T, E> {
         if let Some(data) = self.data.get() {
             return Ok(data);
         }
@@ -264,12 +215,14 @@ impl<T> std::fmt::Debug for Dataset<T> {
 /// Provides structured error types for dataset loading operations including
 /// download failures, validation errors, I/O errors, and detailed data format
 /// errors with line numbers and contextual information for debugging.
+#[cfg(feature = "utils")]
 pub mod error;
 
 /// Utility functions for dataset authors.
 ///
 /// Provides helpers for downloading files, extracting archives, verifying
 /// SHA256 hashes, and managing the dataset acquisition workflow.
+#[cfg(feature = "utils")]
 pub mod utils;
 
 /// Built-in dataset implementations.
@@ -277,4 +230,5 @@ pub mod utils;
 /// Contains ready-to-use loaders for common machine learning datasets.
 /// Each submodule also serves as an example of how to wrap [`Dataset<T>`]
 /// to implement a custom dataset loader.
+#[cfg(feature = "datasets")]
 pub mod datasets;

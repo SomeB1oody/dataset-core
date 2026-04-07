@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
 
+## [0.1.0] - 2026-4-7
+### Changed
+- Add feature gating for `utils` and `datasets`, update examples and tests, and modularize optional dependencies
+
 ## [0.1.0] - 2026-4-6
 ### Changed
 - rename all dataset test files to `dataset_*_test.rs`

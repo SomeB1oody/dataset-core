@@ -4,19 +4,23 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88.0"
 authors = ["SomeB1oody <stanyin64@gmail.com>"]
-description = "A collection of classic machine learning datasets with ndarray integration and memoization support"
+description = ""
 license = "MIT"
 readme = "README.md"
-keywords = ["machine_learning", "ML", "neural_network", "AI", "dataset"]
-categories = ["science::machine_learning"]
+keywords = ["machine_learning", "ai", "dataset"]
+categories = ["science"]
+
+[features]
+utils = ["dep:downloader", "dep:zip", "dep:tempfile", "dep:sha2"]
+datasets = ["utils", "dep:ndarray", "dep:csv"]
 
 [dependencies]
-ndarray = "0.17.2"
-downloader = "0.2.8"
-zip = "8.5.0"
-tempfile = "3.27.0"
-sha2 = "0.11.0"
-csv = "1.4.0"
+ndarray = { version = "0.17.2", optional = true }
+downloader = { version = "0.2.8", optional = true }
+zip = { version = "8.5.0", optional = true }
+tempfile = { version = "3.27.0", optional = true }
+sha2 = { version = "0.11.0", optional = true }
+csv = { version = "1.4.0", optional = true }
 
 [profile.dev]
 opt-level = 0
