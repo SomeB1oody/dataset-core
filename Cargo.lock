@@ -212,6 +212,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "dataset-core"
+version = "0.1.0"
+dependencies = [
+ "csv",
+ "downloader",
+ "ndarray",
+ "sha2 0.11.0",
+ "tempfile",
+ "zip",
+]
+
+[[package]]
 name = "deflate64"
 version = "0.1.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1196,18 +1208,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b39cdef0fa800fc44525c84ccb54a029961a8215f9619753635a9c0d2538d46d"
 
 [[package]]
-name = "rustyml-dataset"
-version = "0.1.0"
-dependencies = [
- "csv",
- "downloader",
- "ndarray",
- "sha2 0.11.0",
- "tempfile",
- "zip",
-]
-
-[[package]]
 name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2057,9 +2057,9 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "8.5.0"
+version = "8.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2726508a48f38dceb22b35ecbbd2430efe34ff05c62bd3285f965d7911b33464"
+checksum = "dcab981e19633ebcf0b001ddd37dd802996098bc1864f90b7c5d970ce76c1d59"
 dependencies = [
  "aes",
  "bzip2",

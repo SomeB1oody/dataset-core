@@ -1,14 +1,14 @@
 [package]
-name = "rustyml-dataset"
+name = "dataset-core"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.88.0"
 authors = ["SomeB1oody <stanyin64@gmail.com>"]
-description = ""
+description = "A generic, thread-safe dataset container with lazy loading and caching, plus optional utilities and built-in dataset loaders"
 license = "MIT"
 readme = "README.md"
-keywords = ["machine_learning", "ai", "dataset"]
-categories = ["science"]
+keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
+categories = ["caching", "data-structures", "science"]
 
 [features]
 utils = ["dep:downloader", "dep:zip", "dep:tempfile", "dep:sha2"]
@@ -17,7 +17,7 @@ datasets = ["utils", "dep:ndarray", "dep:csv"]
 [dependencies]
 ndarray = { version = "0.17.2", optional = true }
 downloader = { version = "0.2.8", optional = true }
-zip = { version = "8.5.0", optional = true }
+zip = { version = "8.5.1", optional = true }
 tempfile = { version = "3.27.0", optional = true }
 sha2 = { version = "0.11.0", optional = true }
 csv = { version = "1.4.0", optional = true }

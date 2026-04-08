@@ -56,7 +56,7 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::datasets::boston_housing::BostonHousing;
+/// use dataset_core::datasets::boston_housing::BostonHousing;
 ///
 /// let download_dir = "./boston_housing"; // the code will create the directory if it doesn't exist
 ///

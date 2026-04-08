@@ -1,18 +1,49 @@
-//! A collection of classic machine learning datasets with automatic download and caching for Rust.
+//! A generic, thread-safe dataset container with lazy loading and caching.
 //!
-//! `rustyml-dataset` provides easy access to popular machine learning datasets with built-in
-//! support for the `ndarray` crate. Datasets are automatically downloaded from their original
-//! sources on first use and cached in memory using thread-safe `OnceLock` for optimal performance.
+//! `dataset-core` provides [`Dataset<T>`], a lightweight wrapper that pairs a storage
+//! directory with a lazily-initialized value of any type `T`. The actual downloading
+//! and parsing logic is supplied by the caller through a loader closure, making
+//! `Dataset<T>` suitable for any data source — local files, remote URLs, databases,
+//! or in-memory generation.
 //!
-//! # Features
+//! On top of this core type, the crate offers **optional** feature-gated modules:
 //!
-//! - **Automatic downloading**: Datasets are fetched from original sources on demand
-//! - **Thread-safe memoization**: Uses `OnceLock` for lazy initialization and caching
-//! - **ndarray integration**: All data returned as `ndarray` types (`Array1`, `Array2`)
-//! - **Struct-based API**: Each dataset is a struct with lazy-loading accessor methods
-//! - **Local storage**: Downloaded datasets are stored locally for offline access
+//! - **`utils`** — helper functions for downloading files, extracting archives,
+//!   verifying SHA-256 hashes, and managing temporary directories.
+//! - **`datasets`** — ready-to-use loaders for classic ML datasets (Iris, Boston
+//!   Housing, Diabetes, Titanic, Wine Quality). These also serve as reference
+//!   implementations showing how to wrap `Dataset<T>` for a concrete use case.
 //!
-//! # Available Datasets
+//! # Feature Flags
+//!
+//! | Feature    | What it enables                                                  |
+//! |------------|------------------------------------------------------------------|
+//! | `utils`    | [`download_to`], [`unzip`], [`create_temp_dir`], [`file_sha256_matches`], [`download_dataset_with`], and the [`error`] module |
+//! | `datasets` | All built-in dataset loaders (implies `utils`)                   |
+//!
+//! With no features enabled, only `Dataset<T>` is available — only depend on `std::sync::OnceLock`.
+//!
+//! # Quick Start — `Dataset<T>`
+//!
+//! ```rust
+//! use dataset_core::Dataset;
+//!
+//! fn my_loader(dir: &str) -> Result<Vec<String>, std::io::Error> {
+//!     // In a real use case you would read/download files from `dir`.
+//!     Ok(vec!["hello".to_string(), "world".to_string()])
+//! }
+//!
+//! let ds: Dataset<Vec<String>> = Dataset::new("./my_data");
+//!
+//! // First call runs the loader; subsequent calls return the cached reference.
+//! let data = ds.load(my_loader).unwrap();
+//! assert_eq!(data.len(), 2);
+//!
+//! let data_again = ds.load(my_loader).unwrap();
+//! assert!(std::ptr::eq(data, data_again)); // same reference, no reload
+//! ```
+//!
+//! # Built-in Datasets (feature `datasets`)
 //!
 //! | Dataset              | Samples | Features | Task Type      |
 //! |----------------------|---------|----------|----------------|
@@ -20,54 +51,25 @@
 //! | Boston Housing       | 506     | 13       | Regression     |
 //! | Diabetes             | 768     | 8        | Classification |
 //! | Titanic              | 891     | 11       | Classification |
-//! | Wine Quality (Red)   | 1599    | 11       | Regression     |
-//! | Wine Quality (White) | 4898    | 11       | Regression     |
+//! | Wine Quality (Red)   | 1,599   | 11       | Regression     |
+//! | Wine Quality (White) | 4,898   | 11       | Regression     |
 //!
-//! # Quick Start
+//! ```rust,ignore
+//! use dataset_core::datasets::iris::Iris;
 //!
-//! ```rust, ignore
-//! use rustyml_dataset::datasets::iris::Iris;
-//!
-//! let download_dir = "./data"; // the code will create the directory if it doesn't exist
-//!
-//! let dataset = Iris::new(download_dir);
-//! let features = dataset.features().unwrap();
-//! let labels = dataset.labels().unwrap();
-//!
-//! let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
-//! // use `.to_owned()` to get owned copies of the data that can be modified
-//! let mut features_owned = features.to_owned();
-//! let mut labels_owned = labels.to_owned();
-//!
-//! // Example: Modify feature values
-//! features_owned[[0, 0]] = 5.5;
-//! labels_owned[0] = "setosa-modified";
-//!
+//! let iris = Iris::new("./data");
+//! let (features, labels) = iris.data().unwrap();
 //! assert_eq!(features.shape(), &[150, 4]);
-//! assert_eq!(labels.len(), 150);
-//!
-//! // clean up: remove the downloaded files
-//! std::fs::remove_dir_all(download_dir).unwrap();
 //! ```
 //!
-//! # API Patterns
+//! # Utility Functions (feature `utils`)
 //!
-//! Each dataset is represented as a struct with lazy loading. Data is not fetched until
-//! you call one of the accessor methods:
-//!
-//! - **`new(storage_path)`**: Create a dataset instance (lightweight, no I/O)
-//! - **`features()`**: Return a reference to the feature matrix
-//! - **`labels()` / `targets()`**: Return a reference to the label/target vector
-//! - **`data()`**: Return references to both features and labels/targets at once
-//!
-//! Call `.to_owned()` on any returned reference to get an owned, mutable copy.
-//!
-//! # Performance Considerations
-//!
-//! The first call to any accessor method downloads, parses, and caches the dataset.
-//! Subsequent calls return references to the cached data with zero overhead. Use the
-//! reference accessors when possible for better performance; call `.to_owned()` only
-//! when you need to modify the data.
+//! - [`download_to`] — download a remote file into a directory
+//! - [`unzip`] — extract a ZIP archive
+//! - [`create_temp_dir`] — create a self-cleaning temporary directory
+//! - [`file_sha256_matches`] — verify a file's SHA-256 hash
+//! - [`download_dataset_with`] — end-to-end dataset acquisition workflow
+//!   (temp dir → download → optional hash check → move to final location)
 
 use std::sync::OnceLock;
 #[cfg(feature = "utils")]
@@ -100,7 +102,7 @@ pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, downlo
 /// # Example
 ///
 /// ```rust
-/// use rustyml_dataset::Dataset;
+/// use dataset_core::Dataset;
 ///
 /// // Define a simple loader that reads a value from the storage directory path.
 /// // The loader can return any error type you choose.

@@ -1,7 +1,7 @@
 #![cfg(feature = "datasets")]
 
-use rustyml_dataset::datasets::boston_housing::*;
-use rustyml_dataset::utils::{download_to, file_sha256_matches, unzip};
+use dataset_core::datasets::boston_housing::*;
+use dataset_core::utils::{download_to, file_sha256_matches, unzip};
 use std::fs::File;
 use std::fs::{create_dir_all, remove_dir_all, rename};
 use std::io::Write;

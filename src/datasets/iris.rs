@@ -57,7 +57,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::datasets::iris::Iris;
+/// use dataset_core::datasets::iris::Iris;
 ///
 /// let download_dir = "./iris"; // the code will create the directory if it doesn't exist
 ///

@@ -1,6 +1,6 @@
 #![cfg(feature = "utils")]
 
-use rustyml_dataset::utils::{create_temp_dir, download_dataset_with, download_to, file_sha256_matches, unzip};
+use dataset_core::utils::{create_temp_dir, download_dataset_with, download_to, file_sha256_matches, unzip};
 use std::fs::{self, File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;

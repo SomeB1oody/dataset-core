@@ -3,7 +3,12 @@
 All notable changes to this project will be documented in this file.
 This change log records updates after 2026-2-13.
 
-Please view [SomeB1oody/RustyML-dataset](https://github.com/SomeB1oody/RustyML-dataset) for more info.
+Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
+
+## [0.1.0] - 2026-4-8
+### Changed
+- Migrate from `rustyml-dataset` to `dataset-core`, update import paths, refactor README and documentation
+- Update `zip` to v8.5.1
 
 ## [0.1.0] - 2026-4-7
 ### Changed

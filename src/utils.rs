@@ -25,7 +25,7 @@ use crate::DatasetError;
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::download_to;
+/// use dataset_core::download_to;
 /// use std::path::Path;
 ///
 /// let download_dir = "./download_example";
@@ -73,7 +73,7 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::{download_to, unzip};
+/// use dataset_core::{download_to, unzip};
 /// use std::path::Path;
 ///
 /// let work_dir = "./unzip_example";
@@ -117,7 +117,7 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::create_temp_dir;
+/// use dataset_core::create_temp_dir;
 /// use std::path::Path;
 ///
 /// let parent_dir = "./temp_dir_example";
@@ -166,7 +166,7 @@ pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetEr
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::file_sha256_matches;
+/// use dataset_core::file_sha256_matches;
 /// use std::path::Path;
 /// use std::io::Write;
 ///
@@ -240,7 +240,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///
 /// # Example
 /// ```rust, ignore
-/// use rustyml_dataset::prepare_download_dir;
+/// use dataset_core::prepare_download_dir;
 /// use std::path::Path;
 /// use std::io::Write;
 ///
@@ -375,9 +375,9 @@ fn prepare_download_dir(
 /// /// The name of the dataset
 /// const IRIS_DATASET_NAME: &str = "iris";
 ///
-/// use rustyml_dataset::download_dataset_with;
-/// use rustyml_dataset::download_to;
-/// use rustyml_dataset::unzip;
+/// use dataset_core::download_dataset_with;
+/// use dataset_core::download_to;
+/// use dataset_core::unzip;
 ///
 /// fn main() {
 ///     let dir = "./somewhere";

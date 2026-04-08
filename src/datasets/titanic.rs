@@ -60,7 +60,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::datasets::titanic::Titanic;
+/// use dataset_core::datasets::titanic::Titanic;
 ///
 /// let download_dir = "./titanic"; // the code will create the directory if it doesn't exist
 ///

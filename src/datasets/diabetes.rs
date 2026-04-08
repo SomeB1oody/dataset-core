@@ -47,7 +47,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 ///
 /// # Example
 /// ```rust
-/// use rustyml_dataset::datasets::diabetes::Diabetes;
+/// use dataset_core::datasets::diabetes::Diabetes;
 ///
 /// let download_dir = "./diabetes"; // the code will create the directory if it doesn't exist
 ///

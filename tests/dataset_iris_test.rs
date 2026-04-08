@@ -1,7 +1,7 @@
 #![cfg(feature = "datasets")]
 
-use rustyml_dataset::datasets::iris::*;
-use rustyml_dataset::utils::{download_to, file_sha256_matches, unzip};
+use dataset_core::datasets::iris::*;
+use dataset_core::utils::{download_to, file_sha256_matches, unzip};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
