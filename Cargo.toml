@@ -7,6 +7,8 @@ authors = ["SomeB1oody <stanyin64@gmail.com>"]
 description = "A generic, thread-safe dataset container with lazy loading and caching, plus optional utilities and built-in dataset loaders"
 license = "MIT"
 readme = "README.md"
+repository = "https://github.com/SomeB1oody/dataset-core"
+documentation = "https://docs.rs/crate/dataset-core"
 keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
 categories = ["caching", "data-structures", "science"]
 
@@ -27,3 +29,10 @@ opt-level = 0
 
 [profile.release]
 opt-level = 3
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.playground]
+features = []
