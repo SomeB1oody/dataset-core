@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.1.0] - 2026-4-9
+### Added
+- Add Chinese localization for README file (`README.zh-CN.md`) detailing functionality, features, and usage of `dataset-core
+
 ## [0.1.0] - 2026-4-8
 ### Changed
 - Migrate from `rustyml-dataset` to `dataset-core`, update import paths, refactor README and documentation
