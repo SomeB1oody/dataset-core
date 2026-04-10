@@ -1,3 +1,5 @@
+[简体中文](https://github.com/SomeB1oody/dataset-core/blob/master/README.zh-CN.md) | [English](https://github.com/SomeB1oody/dataset-core/blob/master/README.md)
+
 # dataset-core
 
 A generic, thread-safe dataset container with lazy loading and caching for Rust.

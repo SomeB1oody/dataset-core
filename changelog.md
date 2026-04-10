@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.1.0] - 2026-4-10
+### Added
+- Integrate `thiserror` for structured error handling, and refactor error implementations accordingly
+
 ## [0.1.0] - 2026-4-9
 ### Added
 - Add Chinese localization for README file (`README.zh-CN.md`) detailing functionality, features, and usage of `dataset-core

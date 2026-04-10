@@ -8,12 +8,12 @@ description = "A generic, thread-safe dataset container with lazy loading and ca
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/SomeB1oody/dataset-core"
-documentation = "https://docs.rs/crate/dataset-core"
+documentation = "https://docs.rs/dataset-core"
 keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
 categories = ["caching", "data-structures", "science"]
 
 [features]
-utils = ["dep:downloader", "dep:zip", "dep:tempfile", "dep:sha2"]
+utils = ["dep:downloader", "dep:zip", "dep:tempfile", "dep:sha2", "dep:thiserror"]
 datasets = ["utils", "dep:ndarray", "dep:csv"]
 
 [dependencies]
@@ -22,6 +22,7 @@ downloader = { version = "0.2.8", optional = true }
 zip = { version = "8.5.1", optional = true }
 tempfile = { version = "3.27.0", optional = true }
 sha2 = { version = "0.11.0", optional = true }
+thiserror = { version = "2.0", optional = true }
 csv = { version = "1.4.0", optional = true }
 
 [profile.dev]

@@ -1,3 +1,9 @@
+//! Error types for dataset loading operations.
+//!
+//! This module provides structured error types including download failures,
+//! validation errors, I/O errors, and detailed data format errors with line
+//! numbers and contextual information for debugging.
+
 use zip::result::ZipError;
 
 /// Specific kinds of data format errors that can occur during dataset parsing.
@@ -9,10 +15,12 @@ use zip::result::ZipError;
 /// - `ParseFailed` - Failed to parse a field value into the target type.
 /// - `InvalidValue` - The field value is syntactically valid but semantically incorrect.
 /// - `LengthMismatch` - The total parsed data length doesn't match expected dimensions.
+/// - `EmptyDataset` - The dataset is empty.
 /// - `ArrayShapeError` - Failed to construct ndarray with the given shape and data.
-#[derive(Debug, Clone)]
+#[derive(Debug, thiserror::Error)]
 pub enum DataFormatErrorKind {
     /// Failed to read a CSV record
+    #[error("[{dataset_name}] failed to read CSV record: {error}")]
     CsvReadError {
         /// Dataset identifier
         dataset_name: String,
@@ -20,6 +28,7 @@ pub enum DataFormatErrorKind {
         error: String,
     },
     /// The row has an unexpected number of columns
+    #[error("[{dataset_name}] invalid column count at line {line_num}: expected {expected}, got {actual} (line: `{line}`)")]
     InvalidColumnCount {
         /// Dataset identifier
         dataset_name: String,
@@ -33,6 +42,7 @@ pub enum DataFormatErrorKind {
         line: String,
     },
     /// Failed to parse a field value into the target type
+    #[error("[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error} (line: `{line}`)")]
     ParseFailed {
         /// Dataset identifier
         dataset_name: String,
@@ -46,6 +56,7 @@ pub enum DataFormatErrorKind {
         error: String,
     },
     /// The field value is syntactically valid but semantically incorrect
+    #[error("[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}` (line: `{line}`)")]
     InvalidValue {
         /// Dataset identifier
         dataset_name: String,
@@ -59,6 +70,7 @@ pub enum DataFormatErrorKind {
         line: String,
     },
     /// The total parsed data length doesn't match expected dimensions
+    #[error("[{dataset_name}] invalid `{field_name}` length: expected {expected}, got {actual}")]
     LengthMismatch {
         /// Dataset identifier
         dataset_name: String,
@@ -70,12 +82,13 @@ pub enum DataFormatErrorKind {
         actual: usize,
     },
     /// The dataset is empty
-    EmptyDataset
-    {
+    #[error("[{dataset_name}] is empty")]
+    EmptyDataset {
         /// Dataset identifier
         dataset_name: String,
     },
     /// Failed to construct ndarray with the given shape and data
+    #[error("[{dataset_name}] failed to build `{array_name}` array: {error}")]
     ArrayShapeError {
         /// Dataset identifier
         dataset_name: String,
@@ -84,83 +97,6 @@ pub enum DataFormatErrorKind {
         /// The underlying shape error message
         error: String,
     },
-}
-
-impl std::fmt::Display for DataFormatErrorKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DataFormatErrorKind::CsvReadError { dataset_name, error } => {
-                write!(f, "[{}] failed to read CSV record: {}", dataset_name, error)
-            }
-            DataFormatErrorKind::InvalidColumnCount {
-                dataset_name,
-                expected,
-                actual,
-                line_num,
-                line,
-            } => {
-                write!(
-                    f,
-                    "[{}] invalid column count at line {}: expected {}, got {} (line: `{}`)",
-                    dataset_name, line_num, expected, actual, line
-                )
-            }
-            DataFormatErrorKind::ParseFailed {
-                dataset_name,
-                field_name,
-                line_num,
-                line,
-                error,
-            } => {
-                write!(
-                    f,
-                    "[{}] failed to parse `{}` at line {}: {} (line: `{}`)",
-                    dataset_name, field_name, line_num, error, line
-                )
-            }
-            DataFormatErrorKind::InvalidValue {
-                dataset_name,
-                field_name,
-                value,
-                line_num,
-                line,
-            } => {
-                write!(
-                    f,
-                    "[{}] invalid value for `{}` at line {}: `{}` (line: `{}`)",
-                    dataset_name, field_name, line_num, value, line
-                )
-            }
-            DataFormatErrorKind::LengthMismatch {
-                dataset_name,
-                field_name,
-                expected,
-                actual,
-            } => {
-                write!(
-                    f,
-                    "[{}] invalid `{}` length: expected {}, got {}",
-                    dataset_name, field_name, expected, actual
-                )
-            }
-            
-            DataFormatErrorKind::EmptyDataset { dataset_name } => {
-                write!(f, "[{}] is empty", dataset_name)
-            }
-            
-            DataFormatErrorKind::ArrayShapeError {
-                dataset_name,
-                array_name,
-                error,
-            } => {
-                write!(
-                    f,
-                    "[{}] failed to build `{}` array: {}",
-                    dataset_name, array_name, error
-                )
-            }
-        }
-    }
 }
 
 /// Error type used by dataset loading utilities.
@@ -172,45 +108,22 @@ impl std::fmt::Display for DataFormatErrorKind {
 /// - `UnzipError` - Extracting a zip archive failed.
 /// - `IoError` - A standard I/O operation failed (reading directories, opening/removing files, etc.).
 /// - `DataFormatError` - The dataset content was not in the expected format.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DatasetError {
-    DownloadError(downloader::Error),
+    #[error("Download error: {0}")]
+    DownloadError(#[from] downloader::Error),
+
+    #[error("Validation error: {0}")]
     ValidationError(String),
-    UnzipError(ZipError),
-    IoError(std::io::Error),
-    DataFormatError(DataFormatErrorKind),
-}
 
-impl std::fmt::Display for DatasetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            DatasetError::DownloadError(e) => write!(f, "Download error: {}", e),
-            DatasetError::ValidationError(e) => write!(f, "Validation error: {}", e),
-            DatasetError::UnzipError(e) => write!(f, "Unzip error: {}", e),
-            DatasetError::IoError(e) => write!(f, "I/O error: {}", e),
-            DatasetError::DataFormatError(e) => write!(f, "Data format error: {}", e),
-        }
-    }
-}
+    #[error("Unzip error: {0}")]
+    UnzipError(#[from] ZipError),
 
-impl std::error::Error for DatasetError {}
+    #[error("I/O error: {0}")]
+    IoError(#[from] std::io::Error),
 
-impl From<downloader::Error> for DatasetError {
-    fn from(error: downloader::Error) -> Self {
-        Self::DownloadError(error)
-    }
-}
-
-impl From<ZipError> for DatasetError {
-    fn from(error: ZipError) -> Self {
-        Self::UnzipError(error)
-    }
-}
-
-impl From<std::io::Error> for DatasetError {
-    fn from(error: std::io::Error) -> Self {
-        Self::IoError(error)
-    }
+    #[error("Data format error: {0}")]
+    DataFormatError(#[from] DataFormatErrorKind),
 }
 
 impl DatasetError {
@@ -242,10 +155,9 @@ impl DatasetError {
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::CsvReadError)` - A variant of `DatasetError` describing the CSV read error.
     pub fn csv_read_error(dataset_name: &str, error: impl std::fmt::Display) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::CsvReadError {
-                dataset_name: dataset_name.to_string(),
-                error: error.to_string(),
+        Self::DataFormatError(DataFormatErrorKind::CsvReadError {
+            dataset_name: dataset_name.to_string(),
+            error: error.to_string(),
         })
     }
 
@@ -262,23 +174,27 @@ impl DatasetError {
     /// # Returns
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::InvalidColumnCount)` - A variant of `DatasetError` describing the column count mismatch.
-    pub fn invalid_column_count(dataset_name: &str, expected: usize, actual: usize, line_num: usize, line: &str) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::InvalidColumnCount {
-                dataset_name: dataset_name.to_string(),
-                expected,
-                actual,
-                line_num,
-                line: line.to_string(),
-            }
-        )
+    pub fn invalid_column_count(
+        dataset_name: &str,
+        expected: usize,
+        actual: usize,
+        line_num: usize,
+        line: &str,
+    ) -> Self {
+        Self::DataFormatError(DataFormatErrorKind::InvalidColumnCount {
+            dataset_name: dataset_name.to_string(),
+            expected,
+            actual,
+            line_num,
+            line: line.to_string(),
+        })
     }
 
     /// Creates a unified parse failure data format error.
     ///
     /// # Parameters
     ///
-    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    /// - `dataset_name` - The dataset identifier.
     /// - `field_name` - The logical field name that failed to parse.
     /// - `line_num` - The line number (1-based) where the error occurred.
     /// - `line` - The original input line where parsing failed.
@@ -294,22 +210,20 @@ impl DatasetError {
         line: &str,
         err: impl std::fmt::Display,
     ) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::ParseFailed {
-                dataset_name: dataset_name.to_string(),
-                field_name: field_name.to_string(),
-                line_num,
-                line: line.to_string(),
-                error: err.to_string(),
-            }
-        )
+        Self::DataFormatError(DataFormatErrorKind::ParseFailed {
+            dataset_name: dataset_name.to_string(),
+            field_name: field_name.to_string(),
+            line_num,
+            line: line.to_string(),
+            error: err.to_string(),
+        })
     }
 
     /// Creates a unified invalid-field-value data format error.
     ///
     /// # Parameters
     ///
-    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    /// - `dataset_name` - The dataset identifier.
     /// - `field_name` - The logical field name with an invalid value.
     /// - `value` - The invalid raw value.
     /// - `line_num` - The line number (1-based) where the error occurred.
@@ -318,23 +232,27 @@ impl DatasetError {
     /// # Returns
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::InvalidValue)` - A variant of `DatasetError` describing the invalid value.
-    pub fn invalid_value(dataset_name: &str, field_name: &str, value: &str, line_num: usize, line: &str) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::InvalidValue {
-                dataset_name: dataset_name.to_string(),
-                field_name: field_name.to_string(),
-                value: value.to_string(),
-                line_num,
-                line: line.to_string(),
-            }
-        )
+    pub fn invalid_value(
+        dataset_name: &str,
+        field_name: &str,
+        value: &str,
+        line_num: usize,
+        line: &str,
+    ) -> Self {
+        Self::DataFormatError(DataFormatErrorKind::InvalidValue {
+            dataset_name: dataset_name.to_string(),
+            field_name: field_name.to_string(),
+            value: value.to_string(),
+            line_num,
+            line: line.to_string(),
+        })
     }
 
     /// Creates a unified vector/row length mismatch data format error.
     ///
     /// # Parameters
     ///
-    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    /// - `dataset_name` - The dataset identifier.
     /// - `field_name` - The logical field name whose length is being validated.
     /// - `expected` - The expected length.
     /// - `actual` - The actual length.
@@ -342,22 +260,25 @@ impl DatasetError {
     /// # Returns
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::LengthMismatch)` - A variant of `DatasetError` describing the length mismatch.
-    pub fn length_mismatch(dataset_name: &str, field_name: &str, expected: usize, actual: usize) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::LengthMismatch {
-                dataset_name: dataset_name.to_string(),
-                field_name: field_name.to_string(),
-                expected,
-                actual,
-            }
-        )
+    pub fn length_mismatch(
+        dataset_name: &str,
+        field_name: &str,
+        expected: usize,
+        actual: usize,
+    ) -> Self {
+        Self::DataFormatError(DataFormatErrorKind::LengthMismatch {
+            dataset_name: dataset_name.to_string(),
+            field_name: field_name.to_string(),
+            expected,
+            actual,
+        })
     }
 
     /// Creates a unified ndarray shape construction data format error.
     ///
     /// # Parameters
     ///
-    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    /// - `dataset_name` - The dataset identifier.
     /// - `array_name` - The logical array name that failed to build.
     /// - `err` - The underlying ndarray shape construction error detail.
     ///
@@ -365,29 +286,25 @@ impl DatasetError {
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::ArrayShapeError)` - A variant of `DatasetError` describing the array shape failure.
     pub fn array_shape_error(dataset_name: &str, array_name: &str, err: impl std::fmt::Display) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::ArrayShapeError {
-                dataset_name: dataset_name.to_string(),
-                array_name: array_name.to_string(),
-                error: err.to_string(),
-            }
-        )
+        Self::DataFormatError(DataFormatErrorKind::ArrayShapeError {
+            dataset_name: dataset_name.to_string(),
+            array_name: array_name.to_string(),
+            error: err.to_string(),
+        })
     }
 
     /// Creates an empty dataset error.
     ///
     /// # Parameters
     ///
-    /// - `dataset_name` - The dataset identifier used in the error prefix.
+    /// - `dataset_name` - The dataset identifier.
     ///
     /// # Returns
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::EmptyDataset)` - A variant of `DatasetError` indicating the dataset is empty.
     pub fn empty_dataset(dataset_name: &str) -> Self {
-        Self::DataFormatError(
-            DataFormatErrorKind::EmptyDataset {
-                dataset_name: dataset_name.to_string(),
-            }
-        )
+        Self::DataFormatError(DataFormatErrorKind::EmptyDataset {
+            dataset_name: dataset_name.to_string(),
+        })
     }
 }
