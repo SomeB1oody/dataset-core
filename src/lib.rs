@@ -18,7 +18,7 @@
 //!
 //! | Feature    | What it enables                                                  |
 //! |------------|------------------------------------------------------------------|
-//! | `utils`    | [`download_to`], [`unzip`], [`create_temp_dir`], [`file_sha256_matches`], [`acquire_dataset`], and the [`error`] module |
+//! | `utils`    | `download_to`, `unzip`, `create_temp_dir`, `file_sha256_matches`, `acquire_dataset`, and the `error` module |
 //! | `datasets` | All built-in dataset loaders (implies `utils`)                   |
 //!
 //! With no features enabled, only `Dataset<T>` is available — only depend on `std::sync::OnceLock`.
@@ -64,11 +64,11 @@
 //!
 //! # Utility Functions (feature `utils`)
 //!
-//! - [`download_to`] — download a remote file into a directory
-//! - [`unzip`] — extract a ZIP archive
-//! - [`create_temp_dir`] — create a self-cleaning temporary directory
-//! - [`file_sha256_matches`] — verify a file's SHA-256 hash
-//! - [`acquire_dataset`] — cache-aware dataset acquisition workflow
+//! - `download_to` — download a remote file into a directory
+//! - `unzip` — extract a ZIP archive
+//! - `create_temp_dir` — create a self-cleaning temporary directory
+//! - `file_sha256_matches` — verify a file's SHA-256 hash
+//! - `acquire_dataset` — cache-aware dataset acquisition workflow
 //!   (temp dir → prepare → optional hash check → move to final location)
 
 #[cfg(feature = "utils")]
