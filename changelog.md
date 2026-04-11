@@ -10,6 +10,7 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 - Replace `downloader` with `ureq` for file downloads
 - split wine quality dataset into red and white datasets
 - refactor `download_to` to provide optional file naming
+- Refactor `utils` module: improve formatting, rename functions, update docs and examples for clarity
 
 ## [0.1.0] - 2026-4-10
 ### Added

@@ -1,6 +1,8 @@
 #![cfg(feature = "utils")]
 
-use dataset_core::utils::{create_temp_dir, download_dataset_with, download_to, file_sha256_matches, unzip};
+use dataset_core::utils::{
+    acquire_dataset, create_temp_dir, download_to, file_sha256_matches, unzip,
+};
 use std::fs::{self, File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -73,7 +75,10 @@ fn test_file_sha256_matches_correct_hash() {
     let dir = "./test_file_sha256_matches_correct_hash";
     create_dir_all(dir).unwrap();
     let path = Path::new(dir).join("f.txt");
-    File::create(&path).unwrap().write_all(b"hello world").unwrap();
+    File::create(&path)
+        .unwrap()
+        .write_all(b"hello world")
+        .unwrap();
 
     assert!(file_sha256_matches(&path, HELLO_WORLD_SHA256).unwrap());
 
@@ -86,7 +91,10 @@ fn test_file_sha256_matches_uppercase_hash() {
     let dir = "./test_file_sha256_matches_uppercase_hash";
     create_dir_all(dir).unwrap();
     let path = Path::new(dir).join("f.txt");
-    File::create(&path).unwrap().write_all(b"hello world").unwrap();
+    File::create(&path)
+        .unwrap()
+        .write_all(b"hello world")
+        .unwrap();
 
     assert!(file_sha256_matches(&path, &HELLO_WORLD_SHA256.to_uppercase()).unwrap());
 
@@ -99,7 +107,10 @@ fn test_file_sha256_matches_wrong_hash_returns_false() {
     let dir = "./test_file_sha256_matches_wrong_hash_returns_false";
     create_dir_all(dir).unwrap();
     let path = Path::new(dir).join("f.txt");
-    File::create(&path).unwrap().write_all(b"hello world").unwrap();
+    File::create(&path)
+        .unwrap()
+        .write_all(b"hello world")
+        .unwrap();
 
     assert!(!file_sha256_matches(&path, ZERO_SHA256).unwrap());
 
@@ -149,7 +160,10 @@ fn test_unzip_single_file() {
 
     unzip(&zip_path, dir_path).unwrap();
 
-    assert_eq!(fs::read_to_string(dir_path.join("hello.txt")).unwrap(), "hello world");
+    assert_eq!(
+        fs::read_to_string(dir_path.join("hello.txt")).unwrap(),
+        "hello world"
+    );
 
     remove_dir_all(dir).unwrap();
 }
@@ -166,8 +180,14 @@ fn test_unzip_multiple_files() {
 
     unzip(&zip_path, dir_path).unwrap();
 
-    assert_eq!(fs::read_to_string(dir_path.join("a.txt")).unwrap(), "file a");
-    assert_eq!(fs::read_to_string(dir_path.join("b.txt")).unwrap(), "file b");
+    assert_eq!(
+        fs::read_to_string(dir_path.join("a.txt")).unwrap(),
+        "file a"
+    );
+    assert_eq!(
+        fs::read_to_string(dir_path.join("b.txt")).unwrap(),
+        "file b"
+    );
 
     remove_dir_all(dir).unwrap();
 }
@@ -175,17 +195,20 @@ fn test_unzip_multiple_files() {
 #[test]
 // Verifies that unzip returns an error when the zip file does not exist.
 fn test_unzip_nonexistent_zip_errors() {
-    let result = unzip(Path::new("./no_such_archive_for_unzip_test.zip"), Path::new("."));
+    let result = unzip(
+        Path::new("./no_such_archive_for_unzip_test.zip"),
+        Path::new("."),
+    );
     assert!(result.is_err());
 }
 
 #[test]
-// Verifies the basic happy-path: download_dataset_with writes a file and returns its path.
-fn test_download_dataset_with_basic() {
-    let dir = "./test_download_dataset_with_basic";
+// Verifies the basic happy-path: acquire_dataset writes a file and returns its path.
+fn test_acquire_dataset_basic() {
+    let dir = "./test_acquire_dataset_basic";
     create_dir_all(dir).unwrap();
 
-    let result = download_dataset_with(
+    let result = acquire_dataset(
         dir,
         "output.txt",
         "test_dataset",
@@ -206,22 +229,16 @@ fn test_download_dataset_with_basic() {
 }
 
 #[test]
-// Verifies that download_dataset_with succeeds without SHA256 validation when no hash is provided.
-fn test_download_dataset_with_no_sha256_validation() {
-    let dir = "./test_download_dataset_with_no_sha256_validation";
+// Verifies that acquire_dataset succeeds without SHA256 validation when no hash is provided.
+fn test_acquire_dataset_no_sha256_validation() {
+    let dir = "./test_acquire_dataset_no_sha256_validation";
     create_dir_all(dir).unwrap();
 
-    let result = download_dataset_with(
-        dir,
-        "output.txt",
-        "test_dataset",
-        None,
-        |temp_path| {
-            let dst = temp_path.join("output.txt");
-            fs::write(&dst, b"any content, no hash check").unwrap();
-            Ok(dst)
-        },
-    );
+    let result = acquire_dataset(dir, "output.txt", "test_dataset", None, |temp_path| {
+        let dst = temp_path.join("output.txt");
+        fs::write(&dst, b"any content, no hash check").unwrap();
+        Ok(dst)
+    });
 
     assert!(result.is_ok());
     assert!(result.unwrap().exists());
@@ -230,12 +247,12 @@ fn test_download_dataset_with_no_sha256_validation() {
 }
 
 #[test]
-// Verifies that download_dataset_with returns an error when the downloaded file's hash doesn't match.
-fn test_download_dataset_with_sha256_mismatch_errors() {
-    let dir = "./test_download_dataset_with_sha256_mismatch_errors";
+// Verifies that acquire_dataset returns an error when the prepared file's hash doesn't match.
+fn test_acquire_dataset_sha256_mismatch_errors() {
+    let dir = "./test_acquire_dataset_sha256_mismatch_errors";
     create_dir_all(dir).unwrap();
 
-    let result = download_dataset_with(
+    let result = acquire_dataset(
         dir,
         "output.txt",
         "test_dataset",
@@ -253,9 +270,9 @@ fn test_download_dataset_with_sha256_mismatch_errors() {
 }
 
 #[test]
-// Verifies that the download closure is not invoked when a valid cached file already exists.
-fn test_download_dataset_with_skips_download_when_cached() {
-    let dir = "./test_download_dataset_with_skips_download_when_cached";
+// Verifies that the preparation closure is not invoked when a valid cached file already exists.
+fn test_acquire_dataset_skips_acquisition_when_cached() {
+    let dir = "./test_acquire_dataset_skips_acquisition_when_cached";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
@@ -263,7 +280,7 @@ fn test_download_dataset_with_skips_download_when_cached() {
     fs::write(dir_path.join("output.txt"), b"hello world").unwrap();
 
     // The closure must NOT be called; if it is, the test panics
-    let result = download_dataset_with(
+    let result = acquire_dataset(
         dir,
         "output.txt",
         "test_dataset",
@@ -277,40 +294,39 @@ fn test_download_dataset_with_skips_download_when_cached() {
 }
 
 #[test]
-// Verifies that the download closure is skipped when the file exists and no hash check is required.
-fn test_download_dataset_with_no_sha256_skips_download_when_file_exists() {
-    let dir = "./test_download_dataset_with_no_sha256_skips_download_when_file_exists";
+// Verifies that the preparation closure is skipped when the file exists and no hash check is required.
+fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
+    let dir = "./test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
     fs::write(dir_path.join("output.txt"), b"cached content").unwrap();
 
-    let result = download_dataset_with(
-        dir,
-        "output.txt",
-        "test_dataset",
-        None,
-        |_temp_path| panic!("closure must not run when file exists and no hash is required"),
-    );
+    let result = acquire_dataset(dir, "output.txt", "test_dataset", None, |_temp_path| {
+        panic!("closure must not run when file exists and no hash is required")
+    });
 
     assert!(result.is_ok());
     // Original content is preserved
-    assert_eq!(fs::read(dir_path.join("output.txt")).unwrap(), b"cached content");
+    assert_eq!(
+        fs::read(dir_path.join("output.txt")).unwrap(),
+        b"cached content"
+    );
 
     remove_dir_all(dir).unwrap();
 }
 
 #[test]
-// Verifies that a stale file with a mismatched hash is overwritten by re-downloading.
-fn test_download_dataset_with_overwrites_stale_file() {
-    let dir = "./test_download_dataset_with_overwrites_stale_file";
+// Verifies that a stale file with a mismatched hash is overwritten by preparing a new file.
+fn test_acquire_dataset_overwrites_stale_file() {
+    let dir = "./test_acquire_dataset_overwrites_stale_file";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
     // Stale file whose hash doesn't match
     fs::write(dir_path.join("output.txt"), b"stale content").unwrap();
 
-    let result = download_dataset_with(
+    let result = acquire_dataset(
         dir,
         "output.txt",
         "test_dataset",
@@ -323,28 +339,25 @@ fn test_download_dataset_with_overwrites_stale_file() {
     );
 
     assert!(result.is_ok());
-    assert_eq!(fs::read(dir_path.join("output.txt")).unwrap(), b"hello world");
+    assert_eq!(
+        fs::read(dir_path.join("output.txt")).unwrap(),
+        b"hello world"
+    );
 
     remove_dir_all(dir).unwrap();
 }
 
 #[test]
-// Verifies that download_dataset_with creates the destination directory if it does not exist.
-fn test_download_dataset_with_creates_directory() {
+// Verifies that acquire_dataset creates the destination directory if it does not exist.
+fn test_acquire_dataset_creates_directory() {
     // dir does not exist yet — the function must create it
-    let dir = "./test_download_dataset_with_creates_directory";
+    let dir = "./test_acquire_dataset_creates_directory";
 
-    let result = download_dataset_with(
-        dir,
-        "output.txt",
-        "test_dataset",
-        None,
-        |temp_path| {
-            let dst = temp_path.join("output.txt");
-            fs::write(&dst, b"content").unwrap();
-            Ok(dst)
-        },
-    );
+    let result = acquire_dataset(dir, "output.txt", "test_dataset", None, |temp_path| {
+        let dst = temp_path.join("output.txt");
+        fs::write(&dst, b"content").unwrap();
+        Ok(dst)
+    });
 
     assert!(result.is_ok());
     assert!(Path::new(dir).exists());
@@ -353,22 +366,16 @@ fn test_download_dataset_with_creates_directory() {
 }
 
 #[test]
-// Verifies that download_dataset_with returns the correct final file path after download.
-fn test_download_dataset_with_returns_correct_path() {
-    let dir = "./test_download_dataset_with_returns_correct_path";
+// Verifies that acquire_dataset returns the correct final file path.
+fn test_acquire_dataset_returns_correct_path() {
+    let dir = "./test_acquire_dataset_returns_correct_path";
     create_dir_all(dir).unwrap();
 
-    let result = download_dataset_with(
-        dir,
-        "my_data.txt",
-        "test_dataset",
-        None,
-        |temp_path| {
-            let dst = temp_path.join("my_data.txt");
-            fs::write(&dst, b"data").unwrap();
-            Ok(dst)
-        },
-    )
+    let result = acquire_dataset(dir, "my_data.txt", "test_dataset", None, |temp_path| {
+        let dst = temp_path.join("my_data.txt");
+        fs::write(&dst, b"data").unwrap();
+        Ok(dst)
+    })
     .unwrap();
 
     assert_eq!(result, Path::new(dir).join("my_data.txt"));

@@ -1,16 +1,18 @@
-use crate::{Dataset, DatasetError, download_dataset_with, download_to};
+use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
-use csv::ReaderBuilder;
 
 /// The URL for the Boston Housing dataset.
-const BOSTON_HOUSING_DATA_URL: &str = "https://github.com/selva86/datasets/raw/master/BostonHousing.csv";
+const BOSTON_HOUSING_DATA_URL: &str =
+    "https://github.com/selva86/datasets/raw/master/BostonHousing.csv";
 
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
 
 /// The SHA256 hash of the dataset file
-const BOSTON_HOUSING_SHA256: &str = "ab16ba38fbbbbcc69fe930aab1293104f1442c8279c130d9eba03dd864bef675";
+const BOSTON_HOUSING_SHA256: &str =
+    "ab16ba38fbbbbcc69fe930aab1293104f1442c8279c130d9eba03dd864bef675";
 
 /// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
@@ -97,10 +99,10 @@ impl BostonHousing {
         }
     }
 
-    /// Download and parse the Boston Housing dataset.
+    /// Acquire and parse the Boston Housing dataset.
     fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        // Download and unzip the dataset
-        let file_path = download_dataset_with(
+        // Prepare the dataset file
+        let file_path = acquire_dataset(
             dir,
             BOSTON_HOUSING_FILENAME,
             BOSTON_HOUSING_DATASET_NAME,
@@ -110,21 +112,18 @@ impl BostonHousing {
                 Ok(temp_path.join(BOSTON_HOUSING_FILENAME))
             },
         )?;
-        
+
         // Parse the file
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new()
-            .has_headers(true)
-            .from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut features = Vec::new();
         let mut targets = Vec::new();
         let mut num_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
-            let record = result.map_err(|e| {
-                DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e)
-            })?;
+            let record =
+                result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             // Infer number of features from the first row
@@ -185,11 +184,10 @@ impl BostonHousing {
         }
 
         let n_features = num_features.unwrap();
-        let features_array = Array2::from_shape_vec(
-            (n_samples, n_features),
-            features,
-        )
-            .map_err(|e| DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e))?;
+        let features_array =
+            Array2::from_shape_vec((n_samples, n_features), features).map_err(|e| {
+                DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e)
+            })?;
         let targets_array = Array1::from_vec(targets);
 
         Ok((features_array, targets_array))

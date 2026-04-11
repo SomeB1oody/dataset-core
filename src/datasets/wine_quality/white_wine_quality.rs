@@ -1,7 +1,7 @@
-use std::fs::File;
-use ndarray::{Array1, Array2};
-use crate::{download_dataset_with, download_to, Dataset, DatasetError};
 use crate::datasets::wine_quality::parse_wine_data_to_array;
+use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use ndarray::{Array1, Array2};
+use std::fs::File;
 
 /// The URL for the White Wine Quality dataset.
 const WHITE_WINE_DATA_URL: &str = "https://raw.githubusercontent.com/shrikant-temburwar/Wine-Quality-Dataset/refs/heads/master/winequality-white.csv";
@@ -10,7 +10,8 @@ const WHITE_WINE_DATA_URL: &str = "https://raw.githubusercontent.com/shrikant-te
 const WHITE_WINE_QUALITY_FILENAME: &str = "winequality-white.csv";
 
 /// The SHA256 hash of the white wine quality dataset.
-const WHITE_WINE_QUALITY_SHA256: &str = "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
+const WHITE_WINE_QUALITY_SHA256: &str =
+    "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
 
 /// A struct representing the White Wine Quality dataset with lazy loading.
 ///
@@ -98,10 +99,10 @@ impl WhiteWineQuality {
         }
     }
 
-    /// Download and parse the White Wine Quality dataset.
+    /// Acquire and parse the White Wine Quality dataset.
     fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
-        // Download the dataset
-        let file_path = download_dataset_with(
+        // Prepare the dataset file
+        let file_path = acquire_dataset(
             dir,
             WHITE_WINE_QUALITY_FILENAME,
             "white_wine_quality",

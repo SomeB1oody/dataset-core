@@ -1,7 +1,7 @@
-use crate::{Dataset, DatasetError, download_dataset_with, download_to};
+use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
-use csv::ReaderBuilder;
 
 /// The URL for the Iris dataset.
 ///
@@ -101,10 +101,10 @@ impl Iris {
         }
     }
 
-    /// Download and parse the Iris dataset.
+    /// Acquire and parse the Iris dataset.
     fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
-        // Download the dataset
-        let file_path = download_dataset_with(
+        // Prepare the dataset file
+        let file_path = acquire_dataset(
             dir,
             IRIS_FILENAME,
             IRIS_DATASET_NAME,
@@ -117,18 +117,14 @@ impl Iris {
 
         // Parse the file
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new()
-            .has_headers(true)
-            .from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
         let mut num_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
-            let record = result.map_err(|e| {
-                DatasetError::csv_read_error(IRIS_DATASET_NAME, e)
-            })?;
+            let record = result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             if num_features.is_none() {
@@ -190,9 +186,8 @@ impl Iris {
         }
 
         let n_features = num_features.unwrap();
-        let features_array =
-            Array2::from_shape_vec((n_samples, n_features), features)
-                .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
+        let features_array = Array2::from_shape_vec((n_samples, n_features), features)
+            .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 
         Ok((features_array, labels_array))

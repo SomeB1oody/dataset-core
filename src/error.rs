@@ -4,8 +4,8 @@
 //! validation errors, I/O errors, and detailed data format errors with line
 //! numbers and contextual information for debugging.
 
-use zip::result::ZipError;
 use ureq::Error as UreqError;
+use zip::result::ZipError;
 
 /// Specific kinds of data format errors that can occur during dataset parsing.
 ///
@@ -29,7 +29,9 @@ pub enum DataFormatErrorKind {
         error: String,
     },
     /// The row has an unexpected number of columns
-    #[error("[{dataset_name}] invalid column count at line {line_num}: expected {expected}, got {actual} (line: `{line}`)")]
+    #[error(
+        "[{dataset_name}] invalid column count at line {line_num}: expected {expected}, got {actual} (line: `{line}`)"
+    )]
     InvalidColumnCount {
         /// Dataset identifier
         dataset_name: String,
@@ -43,7 +45,9 @@ pub enum DataFormatErrorKind {
         line: String,
     },
     /// Failed to parse a field value into the target type
-    #[error("[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error} (line: `{line}`)")]
+    #[error(
+        "[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error} (line: `{line}`)"
+    )]
     ParseFailed {
         /// Dataset identifier
         dataset_name: String,
@@ -57,7 +61,9 @@ pub enum DataFormatErrorKind {
         error: String,
     },
     /// The field value is syntactically valid but semantically incorrect
-    #[error("[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}` (line: `{line}`)")]
+    #[error(
+        "[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}` (line: `{line}`)"
+    )]
     InvalidValue {
         /// Dataset identifier
         dataset_name: String,
@@ -286,7 +292,11 @@ impl DatasetError {
     /// # Returns
     ///
     /// - `DatasetError::DataFormatError(DataFormatErrorKind::ArrayShapeError)` - A variant of `DatasetError` describing the array shape failure.
-    pub fn array_shape_error(dataset_name: &str, array_name: &str, err: impl std::fmt::Display) -> Self {
+    pub fn array_shape_error(
+        dataset_name: &str,
+        array_name: &str,
+        err: impl std::fmt::Display,
+    ) -> Self {
         Self::DataFormatError(DataFormatErrorKind::ArrayShapeError {
             dataset_name: dataset_name.to_string(),
             array_name: array_name.to_string(),

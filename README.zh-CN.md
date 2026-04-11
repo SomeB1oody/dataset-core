@@ -130,7 +130,7 @@ fn main() {
 | `unzip`                | 解压 ZIP 归档                                                 |
 | `create_temp_dir`      | 创建自动清理的临时目录                                        |
 | `file_sha256_matches`  | 验证文件的 SHA-256 哈希值                                     |
-| `download_dataset_with`| 端到端获取：临时目录、下载、哈希校验、移动                    |
+| `acquire_dataset`      | 缓存感知的数据集获取：复用有效本地文件、临时目录准备、哈希校验、移动 |
 
 ## 构建自己的数据集
 

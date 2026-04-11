@@ -1,3 +1,4 @@
+use crate::DatasetError;
 use sha2::{Digest, Sha256};
 use std::fs::File;
 use std::io;
@@ -5,7 +6,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 use zip::result::ZipError;
-use crate::DatasetError;
 
 /// Download a remote file into the given directory.
 ///
@@ -45,11 +45,15 @@ use crate::DatasetError;
 /// // Clean up (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-pub fn download_to(url: &str, storage_path: &Path, filename: Option<&str>) -> Result<(), DatasetError> {
+pub fn download_to(
+    url: &str,
+    storage_path: &Path,
+    filename: Option<&str>,
+) -> Result<(), DatasetError> {
     // Get the filename: use provided name, or fall back to URL extraction
-    let filename = filename
-        .or_else(|| url.split('/').last())
-        .ok_or_else(|| DatasetError::ValidationError("Invalid URL: cannot extract filename from URL".to_string()))?;
+    let filename = filename.or_else(|| url.split('/').last()).ok_or_else(|| {
+        DatasetError::ValidationError("Invalid URL: cannot extract filename from URL".to_string())
+    })?;
 
     let save_path = storage_path.join(filename);
 
@@ -138,8 +142,7 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// std::fs::remove_dir_all(parent_dir).unwrap();
 /// ```
 pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
-    let temp_dir = tempfile::Builder::new()
-        .tempdir_in(tempdir_in)?;
+    let temp_dir = tempfile::Builder::new().tempdir_in(tempdir_in)?;
 
     Ok(temp_dir)
 }
@@ -210,15 +213,18 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
     }
 
     let digest = hasher.finalize();
-    let actual_hex = digest.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+    let actual_hex = digest
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
     Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
 }
 
-/// Prepare a dataset download directory and determine if download/overwrite is needed.
+/// Evaluate the storage state for a dataset file.
 ///
 /// This helper ensures the target directory exists and checks whether the destination
-/// file already matches the expected SHA256 hash. If `expected_sha256` is `None`,
-/// the file is accepted if it exists without validation.
+/// file is already present and valid. If `expected_sha256` is `None`, any existing
+/// file at `dst` is accepted without validation.
 ///
 /// # Parameters
 ///
@@ -229,8 +235,8 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///
 /// # Returns
 ///
-/// - `(need_download, need_overwrite)` - Flags indicating whether to download and
-///   whether an existing file should be overwritten.
+/// - `(need_acquire, need_overwrite)` - Flags indicating whether a new file needs to be
+///   prepared and whether an existing file should be overwritten.
 ///
 /// # Errors
 ///
@@ -238,22 +244,22 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///   file I/O operations fail during hash verification.
 ///
 /// # Example
-/// ```rust, ignore
-/// use dataset_core::prepare_download_dir;
+/// ```rust
+/// use dataset_core::utils::evaluate_storage;
 /// use std::path::Path;
 /// use std::io::Write;
 ///
-/// let test_dir = "./prepare_download_example";
+/// let test_dir = "./evaluate_storage_example";
 /// let dir_path = Path::new(test_dir);
 /// let file_path = dir_path.join("data.txt");
 ///
 /// // Case 1: Directory doesn't exist yet
-/// let (need_download, need_overwrite) = prepare_download_dir(
+/// let (need_acquire, need_overwrite) = evaluate_storage(
 ///     dir_path,
 ///     &file_path,
 ///     None,
 /// ).unwrap();
-/// assert!(need_download);    // File doesn't exist, need to download
+/// assert!(need_acquire);     // File doesn't exist, a new file must be prepared
 /// assert!(!need_overwrite);  // Nothing to overwrite
 ///
 /// // Case 2: File exists with correct hash
@@ -262,33 +268,33 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 /// drop(file);
 ///
 /// let correct_hash = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
-/// let (need_download, need_overwrite) = prepare_download_dir(
+/// let (need_acquire, need_overwrite) = evaluate_storage(
 ///     dir_path,
 ///     &file_path,
 ///     Some(correct_hash),
 /// ).unwrap();
-/// assert!(!need_download);   // File exists with correct hash
+/// assert!(!need_acquire);    // File exists with correct hash
 /// assert!(!need_overwrite);
 ///
 /// // Case 3: File exists but hash doesn't match
 /// let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
-/// let (need_download, need_overwrite) = prepare_download_dir(
+/// let (need_acquire, need_overwrite) = evaluate_storage(
 ///     dir_path,
 ///     &file_path,
 ///     Some(wrong_hash),
 /// ).unwrap();
-/// assert!(need_download);    // Hash mismatch, need to download
+/// assert!(need_acquire);     // Hash mismatch, a new file must be prepared
 /// assert!(need_overwrite);   // Existing file needs to be replaced
 ///
 /// // Clean up (dispensable)
 /// std::fs::remove_dir_all(test_dir).unwrap();
 /// ```
-fn prepare_download_dir(
+pub fn evaluate_storage(
     path: &Path,
     dst: &Path,
     expected_sha256: Option<&str>,
 ) -> Result<(bool, bool), DatasetError> {
-    let mut need_download = true;
+    let mut need_acquire = true;
     let mut need_overwrite = false;
 
     if !path.exists() {
@@ -299,60 +305,68 @@ fn prepare_download_dir(
         if let Some(hash) = expected_sha256 {
             // SHA256 validation enabled
             if file_sha256_matches(dst, hash)? {
-                need_download = false;
+                need_acquire = false;
             } else {
                 need_overwrite = true;
             }
         } else {
             // No SHA256 validation: accept existing file
-            need_download = false;
+            need_acquire = false;
         }
     }
 
-    Ok((need_download, need_overwrite))
+    Ok((need_acquire, need_overwrite))
 }
 
-/// Generic dataset download framework that handles common download workflow.
+/// Acquire a dataset file using a caller-provided preparation closure.
 ///
-/// This function manages the complete dataset acquisition workflow: checking if download
-/// is needed, creating a temporary directory, delegating file preparation to a user-provided
-/// closure, optionally validating the file with SHA256, and moving it to the final destination.
+/// This function orchestrates the dataset acquisition workflow: it checks whether
+/// the destination file can be reused, creates a temporary directory when a new
+/// file is needed, delegates file preparation to a user-provided closure,
+/// optionally validates the prepared file with SHA256, and moves it to the final
+/// destination.
+///
+/// The function itself does not perform network I/O. The `prepare_file` closure
+/// is responsible for preparing the dataset file, which may include downloading,
+/// extracting archives, or locating files within an extracted directory.
 ///
 /// # Parameters
 ///
-/// - `dir` - Target storage directory path
-/// - `filename` - Final dataset filename (will be stored as `dir/filename`).
-///    Please give the filename with the extension (e.g., "iris.csv").
-/// - `dataset_name` - Dataset name for error messages (e.g., "iris").
+/// - `dir` - Target storage directory path.
+/// - `filename` - Final dataset filename (stored as `dir/filename`).
+///   Please give the filename with the extension (e.g., `"iris.csv"`).
+/// - `dataset_name` - Dataset name for error messages (e.g., `"iris"`).
 /// - `expected_sha256` - Optional expected SHA256 hash of the dataset file. If `None`,
 ///   any existing file at the destination is accepted without validation, and newly
 ///   prepared files skip SHA256 verification.
-/// - `prepare_file` - Closure that prepares the dataset file in the temporary directory
+/// - `prepare_file` - Closure that prepares the dataset file in the temporary directory.
 ///   - Input: `temp_dir: &Path` - Path to the temporary directory.
-///     It is recommended to execute file operations within this directory, as it will be cleaned up
-///     automatically when the closure returns. But it is not required.
-///     (Please note that the file will be moved to the final destination, not copied)
-///   - Output: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file (will be moved to `dir/filename`).
-///   - Responsibility: This closure can perform any operations needed to get the
-///     dataset file, such as downloading (you can use [`download_to`] provided in this crate), extracting archives
-///     (you can use [`unzip`] provided in this crate), or locating files within extracted folders. The returned
-///     `PathBuf` must point to the final dataset file ready for validation.
+///     It is recommended to execute file operations within this directory, as it will be
+///     cleaned up automatically when the closure returns. But it is not required.
+///     (Please note that the file will be moved to the final destination, not copied.)
+///   - Output: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file
+///     (which will be moved to `dir/filename`).
+///   - Responsibility: This closure can perform any operations needed to prepare the
+///     dataset file, such as downloading (you can use [`download_to`] provided in this crate),
+///     extracting archives (you can use [`unzip`] provided in this crate), or locating files
+///     within extracted folders. The returned `PathBuf` must point to the final dataset file
+///     ready for validation.
 ///
 /// # Returns
 ///
-/// - `PathBuf` - Path to the final dataset file (`dir/filename`)
+/// - `PathBuf` - Path to the final dataset file (`dir/filename`).
 ///
 /// # Errors
 ///
 /// - `DatasetError::IoError` - Returned when directory creation, file operations, or
-///   hash verification fails
+///   hash verification fails.
 /// - `DatasetError::Sha256ValidationFailed` - Returned when `expected_sha256` is provided
-///   and the prepared file's SHA256 hash does not match it
-/// - Any error returned by the `prepare_file` closure
+///   and the prepared file's SHA256 hash does not match it.
+/// - Any error returned by the `prepare_file` closure.
 ///
 /// # Example
 /// ```rust
-/// // Implement the downloading process for iris dataset
+/// // Implement the file preparation process for the Iris dataset.
 ///
 /// /// The URL for the Iris dataset.
 /// ///
@@ -368,41 +382,40 @@ fn prepare_download_dir(
 /// /// The SHA256 hash of the Iris dataset file.
 /// const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930";
 ///
-/// /// The name of the dataset
+/// /// The name of the dataset.
 /// const IRIS_DATASET_NAME: &str = "iris";
 ///
-/// use dataset_core::download_dataset_with;
+/// use dataset_core::acquire_dataset;
 /// use dataset_core::download_to;
-/// use dataset_core::unzip;
 ///
 /// fn main() {
 ///     let dir = "./somewhere";
 ///
-///     let file_path = download_dataset_with(
-///             // Target storage directory path
-///             dir,
-///             // Final dataset filename (will be stored as `dir/filename`)
-///             IRIS_FILENAME,
-///             // Dataset name for error messages
-///             IRIS_DATASET_NAME,
-///             // Expected SHA256 hash of the dataset file
-///             Some(IRIS_SHA256),
-///             // Closure that prepares the dataset file in the temporary directory
-///             |temp_path| {
-///                 // Download the dataset
-///                 download_to(IRIS_DATA_URL, temp_path, None)?;
-///                 Ok(temp_path.join(IRIS_FILENAME))
-///             },
-///         ).unwrap();
+///     let file_path = acquire_dataset(
+///         // Target storage directory path
+///         dir,
+///         // Final dataset filename (will be stored as `dir/filename`)
+///         IRIS_FILENAME,
+///         // Dataset name for error messages
+///         IRIS_DATASET_NAME,
+///         // Expected SHA256 hash of the dataset file
+///         Some(IRIS_SHA256),
+///         // Closure that prepares the dataset file in the temporary directory
+///         |temp_path| {
+///             // Download the dataset into the temporary directory
+///             download_to(IRIS_DATA_URL, temp_path, None)?;
+///             Ok(temp_path.join(IRIS_FILENAME))
+///         },
+///     ).unwrap();
 ///
-///     // `file_path` is now the path to the downloaded and extracted Iris dataset file
-///     // it can be used to give the path of the dataset or parse data
+///     // `file_path` is now the path to the acquired Iris dataset file.
+///     // It can be used to locate or parse the dataset.
 ///
 ///     // cleanup (dispensable)
 ///     std::fs::remove_dir_all(dir).unwrap();
 /// }
 /// ```
-pub fn download_dataset_with<F>(
+pub fn acquire_dataset<F>(
     dir: &str,
     filename: &str,
     dataset_name: &str,
@@ -414,9 +427,9 @@ where
 {
     let dir_path = Path::new(dir);
     let dst = dir_path.join(filename);
-    let (need_download, need_overwrite) = prepare_download_dir(dir_path, &dst, expected_sha256)?;
+    let (need_acquire, need_overwrite) = evaluate_storage(dir_path, &dst, expected_sha256)?;
 
-    if need_download {
+    if need_acquire {
         let temp_dir = create_temp_dir(dir_path)?;
         let temp_path = temp_dir.path();
 

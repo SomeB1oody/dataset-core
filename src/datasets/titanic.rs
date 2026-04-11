@@ -1,13 +1,14 @@
-use crate::{Dataset, DatasetError, download_dataset_with, download_to};
+use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
-use csv::ReaderBuilder;
 
 /// Type alias for Titanic dataset: (string features, numeric features, labels)
 type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 
 /// The URL for the Titanic dataset.
-const TITANIC_DATA_URL: &str = "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+const TITANIC_DATA_URL: &str =
+    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
 
 /// The name of the Titanic dataset file.
 const TITANIC_FILENAME: &str = "titanic.csv";
@@ -109,10 +110,10 @@ impl Titanic {
         }
     }
 
-    /// Download and parse the Titanic dataset.
+    /// Acquire and parse the Titanic dataset.
     fn load_data(dir: &str) -> Result<TitanicData, DatasetError> {
-        // Download and unzip the dataset
-        let file_path = download_dataset_with(
+        // Prepare the dataset file
+        let file_path = acquire_dataset(
             dir,
             TITANIC_FILENAME,
             TITANIC_DATASET_NAME,
@@ -125,9 +126,7 @@ impl Titanic {
 
         // Parse the file
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new()
-            .has_headers(true)
-            .from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut string_features = Vec::new();
         let mut numeric_features = Vec::new();
@@ -145,9 +144,8 @@ impl Titanic {
         let mut num_numeric_features: Option<usize> = None;
 
         for (idx, result) in rdr.records().enumerate() {
-            let record = result.map_err(|e| {
-                DatasetError::csv_read_error(TITANIC_DATASET_NAME, e)
-            })?;
+            let record =
+                result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             if num_string_features.is_none() {
@@ -212,19 +210,15 @@ impl Titanic {
         let n_string_features = num_string_features.unwrap();
         let n_numeric_features = num_numeric_features.unwrap();
 
-        let string_array = Array2::from_shape_vec(
-            (n_samples, n_string_features),
-            string_features,
-        )
-            .map_err(|e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e))?;
-
-        let numeric_array = Array2::from_shape_vec(
-            (n_samples, n_numeric_features),
-            numeric_features,
-        )
+        let string_array = Array2::from_shape_vec((n_samples, n_string_features), string_features)
             .map_err(|e| {
-                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
+                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e)
             })?;
+
+        let numeric_array =
+            Array2::from_shape_vec((n_samples, n_numeric_features), numeric_features).map_err(
+                |e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e),
+            )?;
 
         let labels_array = Array1::from_vec(labels);
 

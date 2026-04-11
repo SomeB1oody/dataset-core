@@ -18,7 +18,7 @@
 //!
 //! | Feature    | What it enables                                                  |
 //! |------------|------------------------------------------------------------------|
-//! | `utils`    | [`download_to`], [`unzip`], [`create_temp_dir`], [`file_sha256_matches`], [`download_dataset_with`], and the [`error`] module |
+//! | `utils`    | [`download_to`], [`unzip`], [`create_temp_dir`], [`file_sha256_matches`], [`acquire_dataset`], and the [`error`] module |
 //! | `datasets` | All built-in dataset loaders (implies `utils`)                   |
 //!
 //! With no features enabled, only `Dataset<T>` is available — only depend on `std::sync::OnceLock`.
@@ -68,14 +68,14 @@
 //! - [`unzip`] — extract a ZIP archive
 //! - [`create_temp_dir`] — create a self-cleaning temporary directory
 //! - [`file_sha256_matches`] — verify a file's SHA-256 hash
-//! - [`download_dataset_with`] — end-to-end dataset acquisition workflow
-//!   (temp dir → download → optional hash check → move to final location)
+//! - [`acquire_dataset`] — cache-aware dataset acquisition workflow
+//!   (temp dir → prepare → optional hash check → move to final location)
 
+#[cfg(feature = "utils")]
+pub use error::{DataFormatErrorKind, DatasetError};
 use std::sync::OnceLock;
 #[cfg(feature = "utils")]
-pub use error::{DatasetError, DataFormatErrorKind};
-#[cfg(feature = "utils")]
-pub use utils::{download_to, unzip, create_temp_dir, file_sha256_matches, download_dataset_with};
+pub use utils::{acquire_dataset, create_temp_dir, download_to, file_sha256_matches, unzip};
 
 /// A generic, thread-safe dataset container with lazy loading and in-memory caching.
 ///
@@ -180,7 +180,10 @@ impl<T> Dataset<T> {
         let value = loader(&self.storage_dir)?;
         let _ = self.data.set(value);
 
-        Ok(self.data.get().expect("data should be set after successful load"))
+        Ok(self
+            .data
+            .get()
+            .expect("data should be set after successful load"))
     }
 
     /// Check whether the dataset has been loaded into memory.

@@ -2,8 +2,8 @@ pub mod red_wine_quality;
 pub mod white_wine_quality;
 
 use crate::DatasetError;
-use ndarray::{Array1, Array2};
 use csv::ReaderBuilder;
+use ndarray::{Array1, Array2};
 
 /// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
 ///
@@ -42,9 +42,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     let mut num_features: Option<usize> = None;
 
     for (idx, result) in rdr.records().enumerate() {
-        let record = result.map_err(|e| {
-            DatasetError::csv_read_error(dataset_name, e)
-        })?;
+        let record = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
         let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
         if num_features.is_none() {
@@ -73,18 +71,26 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 
         for i in 0..n_features {
             let field = format!("feature[{i}]");
-            features_array.push(
-                record[i]
-                    .parse::<f64>()
-                    .map_err(|e| DatasetError::parse_failed(dataset_name, &field, line_num, &format!("{:?}", record), e))?,
-            );
+            features_array.push(record[i].parse::<f64>().map_err(|e| {
+                DatasetError::parse_failed(
+                    dataset_name,
+                    &field,
+                    line_num,
+                    &format!("{:?}", record),
+                    e,
+                )
+            })?);
         }
 
-        target_array.push(
-            record[n_features]
-                .parse::<f64>()
-                .map_err(|e| DatasetError::parse_failed(dataset_name, "target", line_num, &format!("{:?}", record), e))?,
-        );
+        target_array.push(record[n_features].parse::<f64>().map_err(|e| {
+            DatasetError::parse_failed(
+                dataset_name,
+                "target",
+                line_num,
+                &format!("{:?}", record),
+                e,
+            )
+        })?);
     }
 
     let n_samples = target_array.len();
@@ -93,9 +99,8 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     }
 
     let n_features = num_features.unwrap();
-    let features_array =
-        Array2::from_shape_vec((n_samples, n_features), features_array)
-            .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
+    let features_array = Array2::from_shape_vec((n_samples, n_features), features_array)
+        .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
     let target_array = Array1::from_vec(target_array);
 
     Ok((features_array, target_array))

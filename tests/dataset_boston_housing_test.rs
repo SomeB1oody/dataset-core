@@ -45,7 +45,8 @@ fn test_boston_housing_no_need_download() {
             "https://github.com/selva86/datasets/raw/master/BostonHousing.csv",
             download_dir_path,
             None,
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // should use cached Boston Housing dataset

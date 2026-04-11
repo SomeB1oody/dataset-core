@@ -132,7 +132,7 @@ Each built-in dataset struct follows the same pattern:
 | `unzip`                | Extract a ZIP archive                                         |
 | `create_temp_dir`      | Create a self-cleaning temporary directory                    |
 | `file_sha256_matches`  | Verify a file's SHA-256 hash                                  |
-| `download_dataset_with`| End-to-end acquisition: temp dir, download, hash check, move  |
+| `acquire_dataset`      | Cache-aware acquisition: reuse valid local file, prepare in temp dir, hash check, move |
 
 ## Building Your Own Dataset
 
