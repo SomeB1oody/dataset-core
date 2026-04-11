@@ -1,22 +1,16 @@
-use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
+use crate::{Dataset, DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
 
 /// The URL for the Boston Housing dataset.
-const BOSTON_HOUSING_DATA_URL: &str = "https://gist.github.com/nnbphuong/def91b5553736764e8e08f6255390f37/archive/373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
-
-/// The downloaded zip file name
-const BOSTON_HOUSING_ZIP_FILENAME: &str = "373a856a3c9c1119e34b344de9230ae2ea89569d.zip";
-
-/// The folder where the file is located inside after extraction
-const BOSTON_HOUSING_UNZIP_FOLDER: &str = "def91b5553736764e8e08f6255390f37-373a856a3c9c1119e34b344de9230ae2ea89569d";
+const BOSTON_HOUSING_DATA_URL: &str = "https://github.com/selva86/datasets/raw/master/BostonHousing.csv";
 
 /// The name of the file inside the extracted folder
 const BOSTON_HOUSING_FILENAME: &str = "BostonHousing.csv";
 
 /// The SHA256 hash of the dataset file
-const BOSTON_HOUSING_SHA256: &str = "c9aef7e921f2b44d4e7a234aea24f478186d5d457c3758035864b083ac8e7451";
+const BOSTON_HOUSING_SHA256: &str = "ab16ba38fbbbbcc69fe930aab1293104f1442c8279c130d9eba03dd864bef675";
 
 /// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
@@ -112,11 +106,8 @@ impl BostonHousing {
             BOSTON_HOUSING_DATASET_NAME,
             Some(BOSTON_HOUSING_SHA256),
             |temp_path| {
-                download_to(BOSTON_HOUSING_DATA_URL, temp_path)?;
-                unzip(&temp_path.join(BOSTON_HOUSING_ZIP_FILENAME), temp_path)?;
-                Ok(temp_path
-                    .join(BOSTON_HOUSING_UNZIP_FOLDER)
-                    .join(BOSTON_HOUSING_FILENAME))
+                download_to(BOSTON_HOUSING_DATA_URL, temp_path, None)?;
+                Ok(temp_path.join(BOSTON_HOUSING_FILENAME))
             },
         )?;
         

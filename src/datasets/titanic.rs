@@ -118,7 +118,7 @@ impl Titanic {
             TITANIC_DATASET_NAME,
             Some(TITANIC_SHA256),
             |temp_path| {
-                download_to(TITANIC_DATA_URL, temp_path)?;
+                download_to(TITANIC_DATA_URL, temp_path, None)?;
                 Ok(temp_path.join(TITANIC_FILENAME))
             },
         )?;

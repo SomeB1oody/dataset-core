@@ -76,6 +76,7 @@ fn test_titanic_no_need_download() {
         download_to(
             "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
             download_dir_path,
+            None,
         )
         .unwrap();
     }

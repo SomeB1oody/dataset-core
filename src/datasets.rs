@@ -35,4 +35,7 @@ pub use boston_housing::BostonHousing;
 pub use diabetes::Diabetes;
 pub use iris::Iris;
 pub use titanic::Titanic;
-pub use wine_quality::{RedWineQuality, WhiteWineQuality};
+pub use wine_quality::{
+    red_wine_quality::RedWineQuality,
+    white_wine_quality::WhiteWineQuality,
+};

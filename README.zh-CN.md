@@ -45,7 +45,7 @@ dataset-core = { version = "*", features = ["datasets"] }
 | 特性       | 启用的功能                                                     | 额外依赖                                  |
 |------------|----------------------------------------------------------------|-------------------------------------------|
 | *（无）*   | 仅 `Dataset<T>`                                                | 无                                        |
-| `utils`    | 下载、解压、临时目录、SHA-256 验证、错误类型                   | downloader, zip, tempfile, sha2           |
+| `utils`    | 下载、解压、临时目录、SHA-256 验证、错误类型                   | ureq, zip, tempfile, sha2           |
 | `datasets` | 所有内置数据集加载器（隐含启用 `utils`）                       | ndarray, csv（+ `utils` 中的所有依赖）    |
 
 ## 核心用法

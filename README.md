@@ -47,7 +47,7 @@ dataset-core = { version = "*", features = ["datasets"] }
 | Feature    | What it enables                                                  | Extra dependencies                        |
 |------------|------------------------------------------------------------------|-------------------------------------------|
 | *(none)*   | `Dataset<T>` only                                                | none                                      |
-| `utils`    | Download, unzip, temp dirs, SHA-256 validation, error types      | downloader, zip, tempfile, sha2           |
+| `utils`    | Download, unzip, temp dirs, SHA-256 validation, error types      | ureq, zip, tempfile, sha2           |
 | `datasets` | All built-in dataset loaders (implies `utils`)                   | ndarray, csv (+ everything in `utils`)    |
 
 ## Core Usage

@@ -103,7 +103,7 @@ impl Diabetes {
             DIABETES_DATASET_NAME,
             Some(DIABETES_SHA256),
             |temp_path| {
-                download_to(DIABETES_DATA_URL, temp_path)?;
+                download_to(DIABETES_DATA_URL, temp_path, None)?;
                 Ok(temp_path.join(DIABETES_FILENAME))
             },
         )?;

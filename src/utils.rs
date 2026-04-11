@@ -1,7 +1,6 @@
-use downloader::Download;
-use downloader::downloader::Builder;
 use sha2::{Digest, Sha256};
 use std::fs::File;
+use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
@@ -10,18 +9,19 @@ use crate::DatasetError;
 
 /// Download a remote file into the given directory.
 ///
-/// This is a small wrapper around the [`downloader`] crate used by dataset loaders.
-/// It downloads the content at `url` into `storage_path` using the downloader's
-/// default file naming behavior.
+/// It downloads the content at `url` (using [`ureq`] crate) into `storage_path` using the file name
+/// extracted from the last segment of the URL, unless a custom filename is provided.
 ///
 /// # Parameters
 ///
 /// - `url` - The URL to download.
 /// - `storage_path` - The directory to store the downloaded file in.
+/// - `filename` - Optional custom filename (with extension). If `None`, the filename is extracted
+///   from the last segment of the URL.
 ///
 /// # Errors
 ///
-/// - `DatasetError` - Returned when the downloader cannot be built or when the download fails.
+/// - `DatasetError` - Returned when the download fails or URL is invalid.
 ///
 /// # Example
 /// ```rust
@@ -32,30 +32,33 @@ use crate::DatasetError;
 /// std::fs::create_dir_all(download_dir).unwrap();
 ///
 /// // Download a file from the internet
-/// let url = "https://archive.ics.uci.edu/static/public/53/iris.zip";
-/// download_to(url, Path::new(download_dir)).unwrap();
+/// let url = "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv";
 ///
-/// // The file will be saved with the name from the URL (iris.zip)
-/// assert!(Path::new(download_dir).join("iris.zip").exists());
+/// // Use filename from URL
+/// download_to(url, Path::new(download_dir), None).unwrap();
+/// assert!(Path::new(download_dir).join("iris.csv").exists());
+///
+/// // Use custom filename
+/// download_to(url, Path::new(download_dir), Some("custom.csv")).unwrap();
+/// assert!(Path::new(download_dir).join("custom.csv").exists());
 ///
 /// // Clean up (dispensable)
 /// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
-pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
-    let data = Download::new(url);
+pub fn download_to(url: &str, storage_path: &Path, filename: Option<&str>) -> Result<(), DatasetError> {
+    // Get the filename: use provided name, or fall back to URL extraction
+    let filename = filename
+        .or_else(|| url.split('/').last())
+        .ok_or_else(|| DatasetError::ValidationError("Invalid URL: cannot extract filename from URL".to_string()))?;
 
-    let mut dl = Builder::default()
-        .connect_timeout(std::time::Duration::from_secs(10))
-        .download_folder(storage_path)
-        .build()?;
+    let save_path = storage_path.join(filename);
 
-    let response = dl.download(&[data])?;
+    let mut response = ureq::get(url).call()?;
+    let mut body = response.body_mut().as_reader();
 
-    for r in response {
-        if let Err(e) = r {
-            return Err(e.into());
-        }
-    }
+    // create local file and write body to it
+    let mut file = File::create(save_path)?;
+    io::copy(&mut body, &mut file)?;
 
     Ok(())
 }
@@ -79,16 +82,12 @@ pub fn download_to(url: &str, storage_path: &Path) -> Result<(), DatasetError> {
 /// let work_dir = "./unzip_example";
 /// std::fs::create_dir_all(work_dir).unwrap();
 ///
-/// // First download a zip file
-/// let url = "https://archive.ics.uci.edu/static/public/53/iris.zip";
-/// download_to(url, Path::new(work_dir)).unwrap();
+/// // First download a file
+/// let url = "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv";
+/// download_to(url, Path::new(work_dir), None).unwrap();
 ///
-/// // Extract the zip archive
-/// let zip_path = Path::new(work_dir).join("iris.zip");
-/// unzip(&zip_path, Path::new(work_dir)).unwrap();
-///
-/// // The extracted files are now in the work directory
-/// assert!(Path::new(work_dir).join("iris.data").exists());
+/// // The file is already a CSV (no extraction needed in this example)
+/// assert!(Path::new(work_dir).join("iris.csv").exists());
 ///
 /// // Clean up (dispensable)
 /// std::fs::remove_dir_all(work_dir).unwrap();
@@ -361,16 +360,13 @@ fn prepare_download_dir(
 /// ///
 /// /// R. A. Fisher. "Iris," UCI Machine Learning Repository, \[Online\].
 /// /// Available: <https://doi.org/10.24432/C56C76>
-/// const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+/// const IRIS_DATA_URL: &str = "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv";
 ///
-/// /// The name of the zip file downloaded.
-/// const IRIS_ZIP_FILENAME: &str = "iris.zip";
-///
-/// /// The name of the file in the zip after extraction.
-/// const IRIS_FILENAME: &str = "iris.data";
+/// /// The name of the Iris dataset file.
+/// const IRIS_FILENAME: &str = "iris.csv";
 ///
 /// /// The SHA256 hash of the Iris dataset file.
-/// const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
+/// const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930";
 ///
 /// /// The name of the dataset
 /// const IRIS_DATASET_NAME: &str = "iris";
@@ -393,10 +389,8 @@ fn prepare_download_dir(
 ///             Some(IRIS_SHA256),
 ///             // Closure that prepares the dataset file in the temporary directory
 ///             |temp_path| {
-///                 // Download and extract the dataset
-///                 download_to(IRIS_DATA_URL, temp_path)?;
-///                 unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
-///                 // Return the path to the extracted dataset file
+///                 // Download the dataset
+///                 download_to(IRIS_DATA_URL, temp_path, None)?;
 ///                 Ok(temp_path.join(IRIS_FILENAME))
 ///             },
 ///         ).unwrap();

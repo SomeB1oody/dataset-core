@@ -5,6 +5,7 @@
 //! numbers and contextual information for debugging.
 
 use zip::result::ZipError;
+use ureq::Error as UreqError;
 
 /// Specific kinds of data format errors that can occur during dataset parsing.
 ///
@@ -111,7 +112,7 @@ pub enum DataFormatErrorKind {
 #[derive(Debug, thiserror::Error)]
 pub enum DatasetError {
     #[error("Download error: {0}")]
-    DownloadError(#[from] downloader::Error),
+    DownloadError(#[from] UreqError),
 
     #[error("Validation error: {0}")]
     ValidationError(String),

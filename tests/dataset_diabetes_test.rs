@@ -43,6 +43,7 @@ fn test_diabetes_no_need_download() {
         download_to(
             "https://raw.githubusercontent.com/plotly/datasets/master/diabetes.csv",
             download_dir_path,
+            None,
         )
         .unwrap();
     }

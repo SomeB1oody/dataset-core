@@ -383,12 +383,13 @@ fn test_download_to_downloads_file() {
     create_dir_all(dir).unwrap();
 
     download_to(
-        "https://archive.ics.uci.edu/static/public/53/iris.zip",
+        "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv",
         Path::new(dir),
+        None,
     )
     .unwrap();
 
-    assert!(Path::new(dir).join("iris.zip").exists());
+    assert!(Path::new(dir).join("iris.csv").exists());
 
     remove_dir_all(dir).unwrap();
 }

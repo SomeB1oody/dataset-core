@@ -1,7 +1,7 @@
 #![cfg(feature = "datasets")]
 
 use dataset_core::datasets::iris::*;
-use dataset_core::utils::{download_to, file_sha256_matches, unzip};
+use dataset_core::utils::{download_to, file_sha256_matches};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -39,14 +39,12 @@ fn test_iris_no_need_download() {
     create_dir_all(download_dir_path).unwrap();
 
     // download Iris dataset in advance
-    {
-        download_to(
-            "https://archive.ics.uci.edu/static/public/53/iris.zip",
-            download_dir_path,
-        )
-        .unwrap();
-        unzip(&download_dir_path.join("iris.zip"), download_dir_path).unwrap();
-    }
+    download_to(
+        "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv",
+        download_dir_path,
+        None,
+    )
+    .unwrap();
 
     // should use cached Iris dataset
     let dataset = Iris::new(download_dir);
@@ -64,7 +62,7 @@ fn test_iris_overwrite() {
     create_dir_all(download_dir_path).unwrap();
     // create a fake Iris dataset in advance
     {
-        let iris_path = download_dir_path.join("iris.data");
+        let iris_path = download_dir_path.join("iris.csv");
         let mut fake_iris = File::create(iris_path).unwrap();
         fake_iris.write_all(b"fake data").unwrap();
     }
@@ -76,8 +74,8 @@ fn test_iris_overwrite() {
     // check the fake file is overwritten
     assert!(
         file_sha256_matches(
-            &download_dir_path.join("iris.data"),
-            "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0"
+            &download_dir_path.join("iris.csv"),
+            "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930"
         )
         .unwrap()
     );

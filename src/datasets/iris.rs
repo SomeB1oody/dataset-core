@@ -1,4 +1,4 @@
-use crate::{Dataset, DatasetError, download_dataset_with, download_to, unzip};
+use crate::{Dataset, DatasetError, download_dataset_with, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 use csv::ReaderBuilder;
@@ -9,16 +9,13 @@ use csv::ReaderBuilder;
 ///
 /// R. A. Fisher. "Iris," UCI Machine Learning Repository, \[Online\].
 /// Available: <https://doi.org/10.24432/C56C76>
-const IRIS_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/53/iris.zip";
+const IRIS_DATA_URL: &str = "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv";
 
-/// The name of the zip file downloaded.
-const IRIS_ZIP_FILENAME: &str = "iris.zip";
-
-/// The name of the file in the zip after extraction.
-const IRIS_FILENAME: &str = "iris.data";
+/// The name of the Iris dataset file.
+const IRIS_FILENAME: &str = "iris.csv";
 
 /// The SHA256 hash of the Iris dataset file.
-const IRIS_SHA256: &str = "6f608b71a7317216319b4d27b4d9bc84e6abd734eda7872b71a458569e2656c0";
+const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930";
 
 /// The name of the dataset
 const IRIS_DATASET_NAME: &str = "iris";
@@ -106,15 +103,14 @@ impl Iris {
 
     /// Download and parse the Iris dataset.
     fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
-        // Download and unzip the dataset
+        // Download the dataset
         let file_path = download_dataset_with(
             dir,
             IRIS_FILENAME,
             IRIS_DATASET_NAME,
             Some(IRIS_SHA256),
             |temp_path| {
-                download_to(IRIS_DATA_URL, temp_path)?;
-                unzip(&temp_path.join(IRIS_ZIP_FILENAME), temp_path)?;
+                download_to(IRIS_DATA_URL, temp_path, None)?;
                 Ok(temp_path.join(IRIS_FILENAME))
             },
         )?;
@@ -122,7 +118,7 @@ impl Iris {
         // Parse the file
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
-            .has_headers(false)
+            .has_headers(true)
             .from_reader(file);
 
         let mut features = Vec::new();
@@ -133,7 +129,7 @@ impl Iris {
             let record = result.map_err(|e| {
                 DatasetError::csv_read_error(IRIS_DATASET_NAME, e)
             })?;
-            let line_num = idx + 1; // +1 for 0-indexed, no header
+            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             if num_features.is_none() {
                 if record.len() < 2 {
@@ -173,9 +169,9 @@ impl Iris {
             }
 
             labels.push(match &record[n_features] {
-                "Iris-setosa" => "setosa",
-                "Iris-versicolor" => "versicolor",
-                "Iris-virginica" => "virginica",
+                "setosa" => "setosa",
+                "versicolor" => "versicolor",
+                "virginica" => "virginica",
                 other => {
                     return Err(DatasetError::invalid_value(
                         IRIS_DATASET_NAME,

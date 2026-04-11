@@ -1,7 +1,7 @@
 #![cfg(feature = "datasets")]
 
-use dataset_core::datasets::wine_quality::*;
-use dataset_core::utils::{download_to, file_sha256_matches, unzip};
+use dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality;
+use dataset_core::utils::{download_to, file_sha256_matches};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -39,18 +39,12 @@ fn test_red_wine_quality_no_need_download() {
     create_dir_all(download_dir_path).unwrap();
 
     // download dataset in advance
-    {
-        download_to(
-            "https://archive.ics.uci.edu/static/public/186/wine+quality.zip",
-            download_dir_path,
-        )
-        .unwrap();
-        unzip(
-            &download_dir_path.join("wine+quality.zip"),
-            download_dir_path,
-        )
-        .unwrap();
-    }
+    download_to(
+        "https://raw.githubusercontent.com/shrikant-temburwar/Wine-Quality-Dataset/refs/heads/master/winequality-red.csv",
+        download_dir_path,
+        None,
+    )
+    .unwrap();
 
     // should use cached dataset
     let dataset = RedWineQuality::new(download_dir);
