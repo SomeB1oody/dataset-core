@@ -1,9 +1,3 @@
-//! Error types for dataset loading operations.
-//!
-//! This module provides structured error types including download failures,
-//! validation errors, I/O errors, and detailed data format errors with line
-//! numbers and contextual information for debugging.
-
 use ureq::Error as UreqError;
 use zip::result::ZipError;
 
