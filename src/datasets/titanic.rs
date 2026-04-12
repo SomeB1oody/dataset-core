@@ -1,3 +1,20 @@
+//! Titanic survival dataset.
+//!
+//! Passenger records from the Kaggle `Titanic: Machine Learning from Disaster`
+//! competition, used to predict survival on the RMS Titanic.
+//!
+//! **Features (11, mixed):**
+//! - String features: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`
+//! - Numeric features: `PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare`
+//!
+//! **Target:** `Survived` - binary label (`0` = died, `1` = survived)
+//!
+//! **Samples:** 891
+//! **Application:** Binary classification / survival prediction
+//!
+//! **Source:** Kaggle competition
+//! <https://www.kaggle.com/c/titanic/data>
+
 use crate::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};

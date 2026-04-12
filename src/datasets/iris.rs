@@ -1,3 +1,23 @@
+//! Iris flower dataset.
+//!
+//! The classic Fisher Iris dataset for multi-class classification.
+//! It contains measurements for three Iris species: `setosa`, `versicolor`,
+//! and `virginica`.
+//!
+//! **Features (4):**
+//! - `sepal_length` - sepal length in cm
+//! - `sepal_width` - sepal width in cm
+//! - `petal_length` - petal length in cm
+//! - `petal_width` - petal width in cm
+//!
+//! **Target:** `species` - one of `setosa`, `versicolor`, or `virginica`
+//!
+//! **Samples:** 150 total, with 50 samples per species
+//! **Application:** Multi-class classification / species recognition
+//!
+//! **Source:** UCI Machine Learning Repository
+//! <https://doi.org/10.24432/C56C76>
+
 use crate::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};

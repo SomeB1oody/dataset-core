@@ -1,3 +1,36 @@
+//! Wine Quality dataset.
+//!
+//! Physicochemical measurements and quality scores for Portuguese "Vinho Verde"
+//! red and white wines, commonly used for regression or ordinal classification.
+//!
+//! **Features (11):**
+//! - `fixed acidity`
+//! - `volatile acidity`
+//! - `citric acid`
+//! - `residual sugar`
+//! - `chlorides`
+//! - `free sulfur dioxide`
+//! - `total sulfur dioxide`
+//! - `density`
+//! - `pH`
+//! - `sulphates`
+//! - `alcohol`
+//!
+//! **Target:** `quality` - quality score between `0` and `10`
+//!
+//! **Samples:**
+//! - Red wine subset: 1599
+//! - White wine subset: 4898
+//!
+//! **Application:** Regression / ordinal classification of wine quality
+//!
+//! **Source:** UCI Machine Learning Repository
+//! <https://doi.org/10.24432/C56S3T>
+//!
+//! **Subsets:**
+//! - `red_wine_quality::RedWineQuality`
+//! - `white_wine_quality::WhiteWineQuality`
+
 pub mod red_wine_quality;
 pub mod white_wine_quality;
 

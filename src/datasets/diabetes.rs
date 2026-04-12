@@ -1,3 +1,26 @@
+//! Pima Indians Diabetes dataset.
+//!
+//! Diagnostic measurements from the National Institute of Diabetes and
+//! Digestive and Kidney Diseases, used to predict whether a patient has diabetes.
+//!
+//! **Features (8):**
+//! - `Pregnancies` - number of times pregnant
+//! - `Glucose` - plasma glucose concentration at 2 hours in an oral glucose tolerance test
+//! - `BloodPressure` - diastolic blood pressure (mm Hg)
+//! - `SkinThickness` - triceps skin fold thickness (mm)
+//! - `Insulin` - 2-hour serum insulin (mu U/ml)
+//! - `BMI` - body mass index (weight in kg / (height in m)^2)
+//! - `DiabetesPedigreeFunction` - diabetes pedigree function
+//! - `Age` - age in years
+//!
+//! **Target:** `Outcome` - binary class label (`0` or `1`)
+//!
+//! **Samples:** 768
+//! **Application:** Binary classification / diabetes prediction
+//!
+//! **Source:** UCI Machine Learning Repository
+//! <https://archive.ics.uci.edu/dataset/34/diabetes>
+
 use crate::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};

@@ -1,3 +1,12 @@
+//! White wine subset of the Wine Quality dataset.
+//!
+//! See [`crate::datasets::wine_quality`] for the full dataset description,
+//! including features, target, application scenarios, and source.
+//!
+//! **Samples:** 4898
+//! **Feature shape:** `(4898, 11)`
+//! **Target shape:** `(4898,)`
+
 use crate::datasets::wine_quality::parse_wine_data_to_array;
 use crate::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
