@@ -15,15 +15,61 @@ fn test_load_titanic() {
     let (string_features, numeric_features) = dataset.features().unwrap();
     let labels = dataset.labels().unwrap();
 
+    // Accessor consistency: data() returns the same arrays as features() and labels()
     assert_eq!(string_features.shape(), &[891, 5]);
     assert_eq!(numeric_features.shape(), &[891, 6]);
     assert_eq!(labels.len(), 891);
+    assert_eq!(string_features.nrows(), numeric_features.nrows());
+    assert_eq!(numeric_features.nrows(), labels.len());
 
     let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
     // you can use `.to_owned()` to get owned copies of the data
     let mut string_features_owned = string_features.to_owned();
     let mut numeric_features_owned = numeric_features.to_owned();
     let mut labels_owned = labels.to_owned();
+
+    // Semantic assertions: labels must be binary (0.0 or 1.0), NaN is allowed for missing values
+    for i in 0..labels.len() {
+        let val = labels[i];
+        if !val.is_nan() {
+            assert!(
+                val == 0.0 || val == 1.0,
+                "labels[{}] = {} is not a binary value (expected 0.0 or 1.0, or NaN)",
+                i,
+                val
+            );
+        }
+    }
+
+    // Semantic assertions: numeric features must be finite or NaN (no Inf)
+    for row in 0..numeric_features.nrows() {
+        for col in 0..numeric_features.ncols() {
+            let val = numeric_features[[row, col]];
+            assert!(
+                val.is_finite() || val.is_nan(),
+                "numeric_feature[{}, {}] = {} is not finite or NaN",
+                row,
+                col,
+                val
+            );
+        }
+    }
+
+    // Semantic assertions: Titanic has known missing values — confirm NaN and empty strings exist
+    let nan_count: usize = numeric_features
+        .iter()
+        .map(|&v| if v.is_nan() { 1 } else { 0 })
+        .sum();
+    assert!(nan_count > 0, "numeric features should contain at least one NaN (missing Age values)");
+
+    let empty_string_count: usize = string_features
+        .iter()
+        .map(|s| if s.is_empty() { 1 } else { 0 })
+        .sum();
+    assert!(
+        empty_string_count > 0,
+        "string features should contain at least one empty string (missing Cabin/Embarked values)"
+    );
 
     // Example: Modify feature values
     string_features_owned[[0, 0]] = "test".to_string();

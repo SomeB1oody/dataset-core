@@ -15,6 +15,7 @@ fn test_load_diabetes() {
     let features = dataset.features().unwrap();
     let labels = dataset.labels().unwrap();
 
+    // Accessor consistency: data() returns the same arrays as features() and labels()
     assert_eq!(features.shape(), &[768, 8]);
     assert_eq!(labels.len(), 768);
 
@@ -22,6 +23,41 @@ fn test_load_diabetes() {
     // you can use `.to_owned()` to get owned copies of the data
     let mut features_owned = features.to_owned();
     let mut labels_owned = labels.to_owned();
+
+    // Semantic assertions: labels must be binary (0.0 or 1.0)
+    let mut has_class_0 = false;
+    let mut has_class_1 = false;
+    for i in 0..labels.len() {
+        let val = labels[i];
+        assert!(
+            val == 0.0 || val == 1.0,
+            "labels[{}] = {} is not a binary value (expected 0.0 or 1.0)",
+            i,
+            val
+        );
+        if val == 0.0 {
+            has_class_0 = true;
+        }
+        if val == 1.0 {
+            has_class_1 = true;
+        }
+    }
+    assert!(has_class_0, "labels must contain at least one instance of class 0");
+    assert!(has_class_1, "labels must contain at least one instance of class 1");
+
+    // Semantic assertions: all feature values must be finite (no NaN or Inf)
+    for row in 0..features.nrows() {
+        for col in 0..features.ncols() {
+            let val = features[[row, col]];
+            assert!(
+                val.is_finite(),
+                "feature[{}, {}] = {} is not finite",
+                row,
+                col,
+                val
+            );
+        }
+    }
 
     // Example: Modify feature values
     features_owned[[0, 0]] = 10.0;

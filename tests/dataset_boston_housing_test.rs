@@ -19,10 +19,49 @@ fn test_load_boston_housing() {
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
+    // Accessor consistency: data() returns the same arrays as features() and targets()
+    assert_eq!(features.shape(), &[506, 13]);
+    assert_eq!(targets.len(), 506);
+
     let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
     // you can use `.to_owned()` to get owned copies of the data
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
+
+    // Semantic assertions: all feature and target values must be finite (no NaN or Inf)
+    for row in 0..features.nrows() {
+        for col in 0..features.ncols() {
+            let val = features[[row, col]];
+            assert!(
+                val.is_finite(),
+                "feature[{}, {}] = {} is not finite",
+                row,
+                col,
+                val
+            );
+        }
+    }
+    for i in 0..targets.len() {
+        let val = targets[i];
+        assert!(
+            val.is_finite(),
+            "target[{}] = {} is not finite",
+            i,
+            val
+        );
+    }
+
+    // CHAS (Charles River dummy variable) is at column index 3
+    // and must only contain 0.0 or 1.0
+    for row in 0..features.nrows() {
+        let chas_val = features[[row, 3]];
+        assert!(
+            chas_val == 0.0 || chas_val == 1.0,
+            "CHAS[{}] = {} is not a binary value (expected 0.0 or 1.0)",
+            row,
+            chas_val
+        );
+    }
 
     // Example: Modify feature values
     features_owned[[0, 0]] = 0.1;

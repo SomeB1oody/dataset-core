@@ -5,6 +5,10 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.1.0] - 2026-4-13
+### Changed
+- Add comprehensive semantic tests for datasets, including value constraints, consistency checks
+
 ## [0.1.0] - 2026-4-12
 ### Changed
 - Add detailed module-level dataset descriptions for `datasets` submodules

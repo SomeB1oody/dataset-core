@@ -18,10 +18,35 @@ fn test_load_iris() {
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
+    // Accessor consistency: data() returns the same arrays as features() and labels()
+    assert_eq!(features.shape(), &[150, 4]);
+    assert_eq!(labels.len(), 150);
+
     let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
     // you can use `.to_owned()` to get owned copies of the data
     let mut features_owned = features.to_owned();
     let mut labels_owned = labels.to_owned();
+
+    // Semantic assertions: verify label values are valid Iris species
+    let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
+    assert_eq!(unique_labels.len(), 3, "Iris should have exactly 3 unique species");
+    assert!(unique_labels.contains(&"setosa"), "labels must contain 'setosa'");
+    assert!(unique_labels.contains(&"versicolor"), "labels must contain 'versicolor'");
+    assert!(unique_labels.contains(&"virginica"), "labels must contain 'virginica'");
+
+    // Semantic assertions: all feature values must be finite (no NaN or Inf)
+    for row in 0..features.nrows() {
+        for col in 0..features.ncols() {
+            let val = features[[row, col]];
+            assert!(
+                val.is_finite(),
+                "feature[{}, {}] = {} is not finite",
+                row,
+                col,
+                val
+            );
+        }
+    }
 
     // Example: Modify feature values
     features_owned[[0, 0]] = 5.5;
