@@ -152,7 +152,6 @@ impl Diabetes {
                         2,
                         record.len(),
                         line_num,
-                        &format!("{:?}", record),
                     ));
                 }
                 num_features = Some(record.len() - 1);
@@ -165,7 +164,6 @@ impl Diabetes {
                     n_features + 1,
                     record.len(),
                     line_num,
-                    &format!("{:?}", record),
                 ));
             }
 
@@ -177,7 +175,6 @@ impl Diabetes {
                         DIABETES_DATASET_NAME,
                         &field,
                         line_num,
-                        &format!("{:?}", record),
                         e,
                     )
                 })?);
@@ -188,7 +185,6 @@ impl Diabetes {
                     DIABETES_DATASET_NAME,
                     "label",
                     line_num,
-                    &format!("{:?}", record),
                     e,
                 )
             })?);

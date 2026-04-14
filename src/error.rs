@@ -24,7 +24,7 @@ pub enum DataFormatErrorKind {
     },
     /// The row has an unexpected number of columns
     #[error(
-        "[{dataset_name}] invalid column count at line {line_num}: expected {expected}, got {actual} (line: `{line}`)"
+        "[{dataset_name}] invalid column count at line {line_num}: expected {expected}, got {actual}"
     )]
     InvalidColumnCount {
         /// Dataset identifier
@@ -35,12 +35,10 @@ pub enum DataFormatErrorKind {
         actual: usize,
         /// Line number (1-based)
         line_num: usize,
-        /// The original input line
-        line: String,
     },
     /// Failed to parse a field value into the target type
     #[error(
-        "[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error} (line: `{line}`)"
+        "[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error}"
     )]
     ParseFailed {
         /// Dataset identifier
@@ -49,14 +47,12 @@ pub enum DataFormatErrorKind {
         field_name: String,
         /// Line number (1-based)
         line_num: usize,
-        /// The original input line
-        line: String,
         /// The underlying parse error message
         error: String,
     },
     /// The field value is syntactically valid but semantically incorrect
     #[error(
-        "[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}` (line: `{line}`)"
+        "[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}`"
     )]
     InvalidValue {
         /// Dataset identifier
@@ -67,8 +63,6 @@ pub enum DataFormatErrorKind {
         value: String,
         /// Line number (1-based)
         line_num: usize,
-        /// The original input line
-        line: String,
     },
     /// The total parsed data length doesn't match expected dimensions
     #[error("[{dataset_name}] invalid `{field_name}` length: expected {expected}, got {actual}")]
@@ -170,7 +164,6 @@ impl DatasetError {
     /// - `expected` - The expected number of columns.
     /// - `actual` - The actual number of columns found.
     /// - `line_num` - The line number (1-based) where the error occurred.
-    /// - `line` - The original input line that failed validation.
     ///
     /// # Returns
     ///
@@ -180,14 +173,12 @@ impl DatasetError {
         expected: usize,
         actual: usize,
         line_num: usize,
-        line: &str,
     ) -> Self {
         Self::DataFormatError(DataFormatErrorKind::InvalidColumnCount {
             dataset_name: dataset_name.to_string(),
             expected,
             actual,
             line_num,
-            line: line.to_string(),
         })
     }
 
@@ -208,14 +199,12 @@ impl DatasetError {
         dataset_name: &str,
         field_name: &str,
         line_num: usize,
-        line: &str,
         err: impl std::fmt::Display,
     ) -> Self {
         Self::DataFormatError(DataFormatErrorKind::ParseFailed {
             dataset_name: dataset_name.to_string(),
             field_name: field_name.to_string(),
             line_num,
-            line: line.to_string(),
             error: err.to_string(),
         })
     }
@@ -228,7 +217,6 @@ impl DatasetError {
     /// - `field_name` - The logical field name with an invalid value.
     /// - `value` - The invalid raw value.
     /// - `line_num` - The line number (1-based) where the error occurred.
-    /// - `line` - The original input line where the invalid value was found.
     ///
     /// # Returns
     ///
@@ -238,14 +226,12 @@ impl DatasetError {
         field_name: &str,
         value: &str,
         line_num: usize,
-        line: &str,
     ) -> Self {
         Self::DataFormatError(DataFormatErrorKind::InvalidValue {
             dataset_name: dataset_name.to_string(),
             field_name: field_name.to_string(),
             value: value.to_string(),
             line_num,
-            line: line.to_string(),
         })
     }
 

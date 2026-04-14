@@ -5,7 +5,11 @@ This change log records updates after 2026-2-13.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
-## [0.1.0] - 2026-4-13
+## [0.2.0] - 2026-4-14
+### Changed
+- Remove formatting of record data in error messages and dataset validations, simplify `DataFormatError` structures
+
+## [0.2.0] - 2026-4-13
 ### Changed
 - Add comprehensive semantic tests for datasets, including value constraints, consistency checks
 

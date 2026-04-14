@@ -154,7 +154,6 @@ impl Iris {
                         2,
                         record.len(),
                         line_num,
-                        &format!("{:?}", record),
                     ));
                 }
                 num_features = Some(record.len() - 1);
@@ -167,7 +166,6 @@ impl Iris {
                     n_features + 1,
                     record.len(),
                     line_num,
-                    &format!("{:?}", record),
                 ));
             }
 
@@ -178,7 +176,6 @@ impl Iris {
                         IRIS_DATASET_NAME,
                         &field,
                         line_num,
-                        &format!("{:?}", record),
                         e,
                     )
                 })?);
@@ -194,7 +191,6 @@ impl Iris {
                         "label",
                         other,
                         line_num,
-                        &format!("{:?}", record),
                     ));
                 }
             });

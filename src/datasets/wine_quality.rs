@@ -85,7 +85,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
                     2,
                     record.len(),
                     line_num,
-                    &format!("{:?}", record),
                 ));
             }
             num_features = Some(record.len() - 1);
@@ -98,7 +97,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
                 n_features + 1,
                 record.len(),
                 line_num,
-                &format!("{:?}", record),
             ));
         }
 
@@ -109,7 +107,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
                     dataset_name,
                     &field,
                     line_num,
-                    &format!("{:?}", record),
                     e,
                 )
             })?);
@@ -120,7 +117,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
                 dataset_name,
                 "target",
                 line_num,
-                &format!("{:?}", record),
                 e,
             )
         })?);

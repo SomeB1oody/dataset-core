@@ -172,7 +172,6 @@ impl Titanic {
                         12,
                         record.len(),
                         line_num,
-                        &format!("{:?}", record),
                     ));
                 }
                 num_string_features = Some(string_indices.len());
@@ -189,7 +188,6 @@ impl Titanic {
                             TITANIC_DATASET_NAME,
                             field_name,
                             line_num,
-                            &format!("{:?}", record),
                             e,
                         )
                     })
