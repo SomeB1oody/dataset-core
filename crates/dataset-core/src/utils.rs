@@ -51,7 +51,7 @@ pub fn download_to(
     filename: Option<&str>,
 ) -> Result<(), DatasetError> {
     // Get the filename: use provided name, or fall back to URL extraction
-    let filename = filename.or_else(|| url.split('/').last()).ok_or_else(|| {
+    let filename = filename.or_else(|| url.split('/').next_back()).ok_or_else(|| {
         DatasetError::ValidationError("Invalid URL: cannot extract filename from URL".to_string())
     })?;
 

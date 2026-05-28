@@ -16,11 +16,11 @@ repository = "https://github.com/SomeB1oody/dataset-core"
 dataset-core = { version = "0.2.0", path = "crates/dataset-core" }
 
 ndarray = "0.17.2"
-ureq = "3"
+ureq = "3.3.0"
 zip = "8.5.1"
 tempfile = "3.27.0"
 sha2 = "0.11.0"
-thiserror = "2.0"
+thiserror = "2.0.18"
 csv = "1.4.0"
 
 [profile.dev]
