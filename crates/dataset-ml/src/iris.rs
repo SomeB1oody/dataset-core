@@ -18,7 +18,7 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C56C76>
 
-use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
@@ -74,7 +74,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 ///
 /// # Example
 /// ```rust
-/// use dataset_core::datasets::iris::Iris;
+/// use dataset_ml::iris::Iris;
 ///
 /// let download_dir = "./iris"; // the code will create the directory if it doesn't exist
 ///

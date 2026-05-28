@@ -1,14 +1,14 @@
 //! White wine subset of the Wine Quality dataset.
 //!
-//! See [`crate::datasets::wine_quality`] for the full dataset description,
+//! See [`crate::wine_quality`] for the full dataset description,
 //! including features, target, application scenarios, and source.
 //!
 //! **Samples:** 4898
 //! **Feature shape:** `(4898, 11)`
 //! **Target shape:** `(4898,)`
 
-use crate::datasets::wine_quality::parse_wine_data_to_array;
-use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use crate::wine_quality::parse_wine_data_to_array;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -61,7 +61,7 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 ///
 /// # Example
 /// ```rust
-/// use dataset_core::datasets::WhiteWineQuality;
+/// use dataset_ml::WhiteWineQuality;
 ///
 /// let download_dir = "./white_wine"; // the code will create the directory if it doesn't exist
 ///

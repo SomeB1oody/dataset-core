@@ -1,0 +1,22 @@
+[package]
+name = "dataset-ml"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Built-in machine learning dataset loaders (Iris, Boston Housing, Diabetes, Titanic, Wine Quality) built on top of dataset-core"
+readme = "README.md"
+documentation = "https://docs.rs/dataset-ml"
+keywords = ["dataset", "machine-learning", "iris", "titanic", "ndarray"]
+categories = ["science"]
+
+[dependencies]
+dataset-core = { workspace = true, features = ["utils"] }
+ndarray = { workspace = true }
+csv = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

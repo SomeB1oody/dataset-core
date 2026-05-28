@@ -1,7 +1,5 @@
-#![cfg(feature = "datasets")]
-
-use dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality;
 use dataset_core::utils::{download_to, file_sha256_matches};
+use dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality;
 use std::collections::HashSet;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;

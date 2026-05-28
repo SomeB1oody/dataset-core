@@ -1,39 +1,30 @@
-[package]
-name = "dataset-core"
-version = "0.1.0"
+[workspace]
+resolver = "3"
+members = [
+    "crates/dataset-core",
+    "crates/dataset-ml",
+]
+
+[workspace.package]
 edition = "2024"
 rust-version = "1.88.0"
 authors = ["SomeB1oody <stanyin64@gmail.com>"]
-description = "A generic, thread-safe dataset container with lazy loading and caching, plus optional utilities and built-in dataset loaders"
 license = "MIT"
-readme = "README.md"
 repository = "https://github.com/SomeB1oody/dataset-core"
-documentation = "https://docs.rs/dataset-core"
-keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
-categories = ["caching", "data-structures", "science"]
 
-[features]
-utils = ["dep:ureq", "dep:zip", "dep:tempfile", "dep:sha2", "dep:thiserror"]
-datasets = ["utils", "dep:ndarray", "dep:csv"]
+[workspace.dependencies]
+dataset-core = { version = "0.2.0", path = "crates/dataset-core" }
 
-[dependencies]
-ndarray = { version = "0.17.2", optional = true }
-ureq = { version = "3", optional = true }
-zip = { version = "8.5.1", optional = true }
-tempfile = { version = "3.27.0", optional = true }
-sha2 = { version = "0.11.0", optional = true }
-thiserror = { version = "2.0", optional = true }
-csv = { version = "1.4.0", optional = true }
+ndarray = "0.17.2"
+ureq = "3"
+zip = "8.5.1"
+tempfile = "3.27.0"
+sha2 = "0.11.0"
+thiserror = "2.0"
+csv = "1.4.0"
 
 [profile.dev]
 opt-level = 0
 
 [profile.release]
 opt-level = 3
-
-[package.metadata.docs.rs]
-all-features = true
-rustdoc-args = ["--cfg", "docsrs"]
-
-[package.metadata.playground]
-features = []

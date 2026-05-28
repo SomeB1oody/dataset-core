@@ -34,7 +34,7 @@
 pub mod red_wine_quality;
 pub mod white_wine_quality;
 
-use crate::DatasetError;
+use dataset_core::DatasetError;
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 

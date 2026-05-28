@@ -6,22 +6,25 @@
 //! `Dataset<T>` suitable for any data source — local files, remote URLs, databases,
 //! or in-memory generation.
 //!
-//! On top of this core type, the crate offers **optional** feature-gated modules:
+//! On top of this core type, the crate offers an **optional** feature-gated module:
 //!
 //! - **`utils`** — helper functions for downloading files, extracting archives,
 //!   verifying SHA-256 hashes, and managing temporary directories.
-//! - **`datasets`** — ready-to-use loaders for classic ML datasets (Iris, Boston
-//!   Housing, Diabetes, Titanic, Wine Quality). These also serve as reference
-//!   implementations showing how to wrap `Dataset<T>` for a concrete use case.
+//!
+//! Ready-to-use loaders for classic ML datasets (Iris, Boston Housing, Diabetes,
+//! Titanic, Wine Quality) live in the companion crate
+//! [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends on
+//! `dataset-core` with the `utils` feature enabled and serves as the reference
+//! implementation for wrapping `Dataset<T>`.
 //!
 //! # Feature Flags
 //!
-//! | Feature    | What it enables                                                  |
-//! |------------|------------------------------------------------------------------|
-//! | `utils`    | `download_to`, `unzip`, `create_temp_dir`, `file_sha256_matches`, `acquire_dataset`, and the `error` module |
-//! | `datasets` | All built-in dataset loaders (implies `utils`)                   |
+//! | Feature | What it enables                                                  |
+//! |---------|------------------------------------------------------------------|
+//! | `utils` | `download_to`, `unzip`, `create_temp_dir`, `file_sha256_matches`, `acquire_dataset`, and the `error` module |
 //!
-//! With no features enabled, only `Dataset<T>` is available — only depend on `std::sync::OnceLock`.
+//! With no features enabled, only `Dataset<T>` is available — depending only on
+//! `std::sync::OnceLock`.
 //!
 //! # Quick Start — `Dataset<T>`
 //!
@@ -41,25 +44,6 @@
 //!
 //! let data_again = ds.load(my_loader).unwrap();
 //! assert!(std::ptr::eq(data, data_again)); // same reference, no reload
-//! ```
-//!
-//! # Built-in Datasets (feature `datasets`)
-//!
-//! | Dataset              | Samples | Features | Task Type      |
-//! |----------------------|---------|----------|----------------|
-//! | Iris                 | 150     | 4        | Classification |
-//! | Boston Housing       | 506     | 13       | Regression     |
-//! | Diabetes             | 768     | 8        | Classification |
-//! | Titanic              | 891     | 11       | Classification |
-//! | Wine Quality (Red)   | 1,599   | 11       | Regression     |
-//! | Wine Quality (White) | 4,898   | 11       | Regression     |
-//!
-//! ```rust,ignore
-//! use dataset_core::datasets::iris::Iris;
-//!
-//! let iris = Iris::new("./data");
-//! let (features, labels) = iris.data().unwrap();
-//! assert_eq!(features.shape(), &[150, 4]);
 //! ```
 //!
 //! # Utility Functions (feature `utils`)
@@ -229,11 +213,3 @@ pub mod error;
 /// SHA256 hashes, and managing the dataset acquisition workflow.
 #[cfg(feature = "utils")]
 pub mod utils;
-
-/// Built-in dataset implementations.
-///
-/// Contains ready-to-use loaders for common machine learning datasets.
-/// Each submodule also serves as an example of how to wrap [`Dataset<T>`]
-/// to implement a custom dataset loader.
-#[cfg(feature = "datasets")]
-pub mod datasets;

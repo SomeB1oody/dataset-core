@@ -1,0 +1,33 @@
+[package]
+name = "dataset-core"
+version = "0.2.0"
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "A generic, thread-safe dataset container with lazy loading and caching, plus optional utility helpers"
+readme = "README.md"
+documentation = "https://docs.rs/dataset-core"
+keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
+categories = ["caching", "data-structures", "science"]
+
+[features]
+utils = ["dep:ureq", "dep:zip", "dep:tempfile", "dep:sha2", "dep:thiserror"]
+
+[dependencies]
+ureq = { workspace = true, optional = true }
+zip = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+thiserror = { workspace = true, optional = true }
+
+[dev-dependencies]
+zip = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[package.metadata.playground]
+features = []

@@ -15,7 +15,7 @@
 //! **Source:** Kaggle competition
 //! <https://www.kaggle.com/c/titanic/data>
 
-use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
@@ -78,7 +78,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 ///
 /// # Example
 /// ```rust
-/// use dataset_core::datasets::titanic::Titanic;
+/// use dataset_ml::titanic::Titanic;
 ///
 /// let download_dir = "./titanic"; // the code will create the directory if it doesn't exist
 ///

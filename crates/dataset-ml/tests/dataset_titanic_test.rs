@@ -1,7 +1,5 @@
-#![cfg(feature = "datasets")]
-
-use dataset_core::datasets::titanic::*;
 use dataset_core::utils::{download_to, file_sha256_matches};
+use dataset_ml::titanic::*;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;

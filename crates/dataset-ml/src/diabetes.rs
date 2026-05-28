@@ -21,7 +21,7 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/34/diabetes>
 
-use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
@@ -71,7 +71,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 ///
 /// # Example
 /// ```rust
-/// use dataset_core::datasets::diabetes::Diabetes;
+/// use dataset_ml::diabetes::Diabetes;
 ///
 /// let download_dir = "./diabetes"; // the code will create the directory if it doesn't exist
 ///

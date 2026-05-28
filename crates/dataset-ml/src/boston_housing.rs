@@ -26,7 +26,7 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5C88K>
 
-use crate::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
 use ndarray::{Array1, Array2};
 use std::fs::File;
@@ -80,7 +80,7 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 ///
 /// # Example
 /// ```rust
-/// use dataset_core::datasets::boston_housing::BostonHousing;
+/// use dataset_ml::boston_housing::BostonHousing;
 ///
 /// let download_dir = "./boston_housing"; // the code will create the directory if it doesn't exist
 ///
