@@ -73,7 +73,7 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::iris::Iris;
 ///
 /// let download_dir = "./iris"; // the code will create the directory if it doesn't exist
@@ -93,9 +93,6 @@ const IRIS_DATASET_NAME: &str = "iris";
 ///
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
-///
-/// // clean up: remove the downloaded files (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct Iris {

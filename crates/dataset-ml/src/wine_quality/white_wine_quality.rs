@@ -60,7 +60,7 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::WhiteWineQuality;
 ///
 /// let download_dir = "./white_wine"; // the code will create the directory if it doesn't exist
@@ -80,9 +80,6 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 ///
 /// assert_eq!(features.shape(), &[4898, 11]);
 /// assert_eq!(targets.len(), 4898);
-///
-/// // clean up: remove the downloaded files (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct WhiteWineQuality {

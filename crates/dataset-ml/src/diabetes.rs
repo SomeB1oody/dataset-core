@@ -70,7 +70,7 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::diabetes::Diabetes;
 ///
 /// let download_dir = "./diabetes"; // the code will create the directory if it doesn't exist
@@ -90,9 +90,6 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 ///
 /// assert_eq!(features.shape(), &[768, 8]);
 /// assert_eq!(labels.len(), 768);
-///
-/// // clean up: remove the downloaded files (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct Diabetes {

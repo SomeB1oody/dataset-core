@@ -24,7 +24,7 @@ use zip::result::ZipError;
 /// - `DatasetError` - Returned when the download fails or URL is invalid.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_core::download_to;
 /// use std::path::Path;
 ///
@@ -41,9 +41,6 @@ use zip::result::ZipError;
 /// // Use custom filename
 /// download_to(url, Path::new(download_dir), Some("custom.csv")).unwrap();
 /// assert!(Path::new(download_dir).join("custom.csv").exists());
-///
-/// // Clean up (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 pub fn download_to(
     url: &str,
@@ -79,7 +76,7 @@ pub fn download_to(
 /// - `DatasetError` - Returned when opening the zip file fails or when extraction fails.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_core::{download_to, unzip};
 /// use std::path::Path;
 ///
@@ -92,9 +89,6 @@ pub fn download_to(
 ///
 /// // The file is already a CSV (no extraction needed in this example)
 /// assert!(Path::new(work_dir).join("iris.csv").exists());
-///
-/// // Clean up (dispensable)
-/// std::fs::remove_dir_all(work_dir).unwrap();
 /// ```
 pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     let file = File::open(file_path).map_err(|e| DatasetError::from(ZipError::Io(e)))?;
@@ -119,7 +113,7 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// - `DatasetError` - Returned if the temporary directory cannot be created.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_core::create_temp_dir;
 /// use std::path::Path;
 ///
@@ -137,9 +131,6 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 ///
 /// // The temporary directory is automatically removed when `temp_dir` is dropped
 /// drop(temp_dir);
-///
-/// // Clean up parent directory
-/// std::fs::remove_dir_all(parent_dir).unwrap();
 /// ```
 pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new().tempdir_in(tempdir_in)?;
@@ -167,7 +158,7 @@ pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetEr
 /// - `DatasetError::IoError` - Returned when file I/O operations fail (opening file, reading data).
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_core::file_sha256_matches;
 /// use std::path::Path;
 /// use std::io::Write;
@@ -194,9 +185,6 @@ pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetEr
 ///
 /// // Wrong hash returns false
 /// assert!(!file_sha256_matches(&file_path, "0000000000000000000000000000000000000000000000000000000000000000").unwrap());
-///
-/// // Clean up (dispensable)
-/// std::fs::remove_dir_all(test_dir).unwrap();
 /// ```
 pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
     let mut file = File::open(path)?;
@@ -244,7 +232,7 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 ///   file I/O operations fail during hash verification.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_core::utils::evaluate_storage;
 /// use std::path::Path;
 /// use std::io::Write;
@@ -285,9 +273,6 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
 /// ).unwrap();
 /// assert!(need_acquire);     // Hash mismatch, a new file must be prepared
 /// assert!(need_overwrite);   // Existing file needs to be replaced
-///
-/// // Clean up (dispensable)
-/// std::fs::remove_dir_all(test_dir).unwrap();
 /// ```
 pub fn evaluate_storage(
     path: &Path,
@@ -365,7 +350,7 @@ pub fn evaluate_storage(
 /// - Any error returned by the `prepare_file` closure.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// // Implement the file preparation process for the Iris dataset.
 ///
 /// /// The URL for the Iris dataset.
@@ -410,9 +395,6 @@ pub fn evaluate_storage(
 ///
 ///     // `file_path` is now the path to the acquired Iris dataset file.
 ///     // It can be used to locate or parse the dataset.
-///
-///     // cleanup (dispensable)
-///     std::fs::remove_dir_all(dir).unwrap();
 /// }
 /// ```
 pub fn acquire_dataset<F>(

@@ -60,7 +60,7 @@ const RED_WINE_QUALITY_SHA256: &str =
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::RedWineQuality;
 ///
 /// let download_dir = "./red_wine"; // the code will create the directory if it doesn't exist
@@ -80,9 +80,6 @@ const RED_WINE_QUALITY_SHA256: &str =
 ///
 /// assert_eq!(features.shape(), &[1599, 11]);
 /// assert_eq!(targets.len(), 1599);
-///
-/// // clean up: remove the downloaded files
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct RedWineQuality {

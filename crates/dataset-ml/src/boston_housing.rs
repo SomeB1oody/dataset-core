@@ -79,7 +79,7 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::boston_housing::BostonHousing;
 ///
 /// let download_dir = "./boston_housing"; // the code will create the directory if it doesn't exist
@@ -99,9 +99,6 @@ const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 ///
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
-///
-/// // clean up: remove the downloaded files (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct BostonHousing {

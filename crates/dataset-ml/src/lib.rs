@@ -19,7 +19,7 @@
 //!
 //! # Example
 //!
-//! ```rust,ignore
+//! ```no_run
 //! use dataset_ml::iris::Iris;
 //!
 //! let iris = Iris::new("./data");

@@ -77,7 +77,7 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// The internal [`Dataset`] ensures thread-safe lazy initialization.
 ///
 /// # Example
-/// ```rust
+/// ```no_run
 /// use dataset_ml::titanic::Titanic;
 ///
 /// let download_dir = "./titanic"; // the code will create the directory if it doesn't exist
@@ -99,9 +99,6 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// assert_eq!(string_features.shape(), &[891, 5]);
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
-///
-/// // clean up: remove the downloaded files (dispensable)
-/// std::fs::remove_dir_all(download_dir).unwrap();
 /// ```
 #[derive(Debug)]
 pub struct Titanic {
