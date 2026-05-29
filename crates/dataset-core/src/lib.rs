@@ -36,7 +36,7 @@
 //!     Ok(vec!["hello".to_string(), "world".to_string()])
 //! }
 //!
-//! let ds: Dataset<Vec<String>> = Dataset::new("./my_data");
+//! let mut ds: Dataset<Vec<String>> = Dataset::new("./my_data");
 //!
 //! // First call runs the loader; subsequent calls return the cached reference.
 //! let data = ds.load(my_loader).unwrap();
@@ -44,6 +44,16 @@
 //!
 //! let data_again = ds.load(my_loader).unwrap();
 //! assert!(std::ptr::eq(data, data_again)); // same reference, no reload
+//!
+//! // Move the cached value out without cloning. `take` leaves `ds` reusable
+//! // (a later `load` re-runs the loader); `into_inner` consumes `ds`.
+//! let owned = ds.take().unwrap();
+//! assert_eq!(owned.len(), 2);
+//! assert!(!ds.is_loaded());
+//!
+//! ds.load(my_loader).unwrap(); // `take` reset the cache, so this reloads
+//! let owned = ds.into_inner().unwrap();
+//! assert_eq!(owned.len(), 2);
 //! ```
 //!
 //! # Utility Functions (feature `utils`)
@@ -96,7 +106,7 @@ pub use utils::{acquire_dataset, create_temp_dir, download_to, file_sha256_match
 ///     Ok(vec!["hello".to_string(), "world".to_string()])
 /// }
 ///
-/// let dataset: Dataset<Vec<String>> = Dataset::new("./my_data");
+/// let mut dataset: Dataset<Vec<String>> = Dataset::new("./my_data");
 ///
 /// // The first call to `load` triggers the loader
 /// let data = dataset.load(my_loader).unwrap();
@@ -108,6 +118,16 @@ pub use utils::{acquire_dataset, create_temp_dir, download_to, file_sha256_match
 ///
 /// // Check whether data has been loaded
 /// assert!(dataset.is_loaded());
+///
+/// // Move the cached value out without cloning.
+/// // `take` leaves `dataset` reusable; `into_inner` consumes it.
+/// let owned = dataset.take().unwrap();
+/// assert_eq!(owned.len(), 2);
+/// assert!(!dataset.is_loaded()); // `take` reset it to unloaded
+///
+/// dataset.load(my_loader).unwrap(); // reloads, since `take` cleared the cache
+/// let owned = dataset.into_inner().unwrap();
+/// assert_eq!(owned.len(), 2);
 /// ```
 pub struct Dataset<T> {
     storage_dir: String,
@@ -187,6 +207,101 @@ impl<T> Dataset<T> {
     /// The storage directory path as a string slice.
     pub fn storage_dir(&self) -> &str {
         &self.storage_dir
+    }
+
+    /// Consume the `Dataset` and return the cached value, if any.
+    ///
+    /// This **moves** the cached `T` out of the container — there is no clone.
+    /// Because it takes `self` by value, the `Dataset` is consumed and cannot be
+    /// used afterwards.
+    ///
+    /// This method does **not** trigger loading (there is no loader to call): it
+    /// returns `None` if the dataset was never loaded. Call [`Dataset::load`]
+    /// first if you need to ensure the value is present.
+    ///
+    /// # `into_inner` vs [`take`](Dataset::take)
+    ///
+    /// Both move the cached value out without cloning; the difference is what
+    /// happens to the container:
+    ///
+    /// - [`into_inner`](Dataset::into_inner) takes `self` and **consumes** the
+    ///   `Dataset`. Use it when you are done with the container.
+    /// - [`take`](Dataset::take) takes `&mut self`, leaving the `Dataset`
+    ///   **reusable** in its unloaded state (a later [`load`](Dataset::load)
+    ///   re-runs the loader).
+    ///
+    /// # Returns
+    ///
+    /// - `Some(T)` - the cached value, if the dataset had been loaded.
+    /// - `None` - if the dataset was never loaded.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dataset_core::Dataset;
+    ///
+    /// let ds: Dataset<Vec<i32>> = Dataset::new("./data");
+    /// ds.load(|_| Ok::<_, std::convert::Infallible>(vec![1, 2, 3]))
+    ///     .unwrap();
+    ///
+    /// let owned: Vec<i32> = ds.into_inner().unwrap();
+    /// assert_eq!(owned, vec![1, 2, 3]);
+    /// // `ds` has been consumed and can no longer be used.
+    ///
+    /// // A dataset that was never loaded yields `None`.
+    /// let empty: Dataset<Vec<i32>> = Dataset::new("./data");
+    /// assert!(empty.into_inner().is_none());
+    /// ```
+    #[must_use = "this consumes the Dataset; discarding the returned value drops the loaded data"]
+    pub fn into_inner(self) -> Option<T> {
+        self.data.into_inner()
+    }
+
+    /// Take the cached value out of the `Dataset`, leaving it reusable.
+    ///
+    /// This **moves** the cached `T` out — there is no clone — and resets the
+    /// `Dataset` to its unloaded state. Unlike [`into_inner`](Dataset::into_inner),
+    /// the container is left intact: it can be used again, and a later
+    /// [`Dataset::load`] will run the loader from scratch.
+    ///
+    /// This method does **not** trigger loading: it returns `None` if the dataset
+    /// was not loaded.
+    ///
+    /// # `take` vs [`into_inner`](Dataset::into_inner)
+    ///
+    /// Both move the cached value out without cloning; the difference is what
+    /// happens to the container:
+    ///
+    /// - [`take`](Dataset::take) takes `&mut self` and keeps the `Dataset`
+    ///   **reusable** (reset to unloaded) after extracting the value.
+    /// - [`into_inner`](Dataset::into_inner) takes `self` and **consumes** the
+    ///   container entirely.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(T)` - the cached value, if the dataset had been loaded.
+    /// - `None` - if the dataset was not loaded.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dataset_core::Dataset;
+    ///
+    /// let mut ds: Dataset<i32> = Dataset::new("./data");
+    /// ds.load(|_| Ok::<_, std::convert::Infallible>(1)).unwrap();
+    /// assert!(ds.is_loaded());
+    ///
+    /// let taken = ds.take().unwrap();
+    /// assert_eq!(taken, 1);
+    /// assert!(!ds.is_loaded()); // reset to unloaded, but `ds` is still usable
+    ///
+    /// // Because it was reset, `load` runs the loader again:
+    /// let reloaded = ds.load(|_| Ok::<_, std::convert::Infallible>(2)).unwrap();
+    /// assert_eq!(*reloaded, 2);
+    /// ```
+    #[must_use = "discarding the returned value drops the data taken out of the Dataset"]
+    pub fn take(&mut self) -> Option<T> {
+        self.data.take()
     }
 }
 

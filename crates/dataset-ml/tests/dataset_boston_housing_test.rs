@@ -118,3 +118,49 @@ fn test_boston_housing_overwrite() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that into_data() returns owned features and targets, consuming the dataset.
+fn test_boston_housing_into_data() {
+    let download_dir = "./test_boston_housing_into_data";
+
+    let dataset = BostonHousing::new(download_dir);
+    let (mut features, targets) = dataset.into_data().unwrap();
+    // `dataset` has been consumed; `features`/`targets` are fully owned.
+
+    assert_eq!(features.shape(), &[506, 13]);
+    assert_eq!(targets.len(), 506);
+
+    // Owned targets are correct: all finite.
+    for i in 0..targets.len() {
+        assert!(targets[i].is_finite(), "target[{}] is not finite", i);
+    }
+
+    // Owned data can be mutated directly, with no `to_owned()` clone.
+    features[[0, 0]] = 0.1;
+    assert_eq!(features[[0, 0]], 0.1);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that take_data() returns owned data and leaves the dataset reusable.
+fn test_boston_housing_take_data() {
+    let download_dir = "./test_boston_housing_take_data";
+
+    let mut dataset = BostonHousing::new(download_dir);
+    let (features, targets) = dataset.take_data().unwrap();
+
+    assert_eq!(features.shape(), &[506, 13]);
+    assert_eq!(targets.len(), 506);
+
+    // After take_data the instance is reset to unloaded but still usable: the next
+    // access reloads it (from the cached file) and yields the same shapes.
+    let (reloaded_features, reloaded_targets) = dataset.data().unwrap();
+    assert_eq!(reloaded_features.shape(), &[506, 13]);
+    assert_eq!(reloaded_targets.len(), 506);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

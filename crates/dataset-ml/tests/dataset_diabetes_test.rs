@@ -125,3 +125,55 @@ fn test_diabetes_overwrite() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that into_data() returns owned features and labels, consuming the dataset.
+fn test_diabetes_into_data() {
+    let download_dir = "./test_diabetes_into_data";
+
+    let dataset = Diabetes::new(download_dir);
+    let (mut features, labels) = dataset.into_data().unwrap();
+    // `dataset` has been consumed; `features`/`labels` are fully owned.
+
+    assert_eq!(features.shape(), &[768, 8]);
+    assert_eq!(labels.len(), 768);
+
+    // Owned labels are correct: binary 0.0 / 1.0.
+    for i in 0..labels.len() {
+        let val = labels[i];
+        assert!(
+            val == 0.0 || val == 1.0,
+            "labels[{}] = {} is not a binary value",
+            i,
+            val
+        );
+    }
+
+    // Owned data can be mutated directly, with no `to_owned()` clone.
+    features[[0, 0]] = 10.0;
+    assert_eq!(features[[0, 0]], 10.0);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that take_data() returns owned data and leaves the dataset reusable.
+fn test_diabetes_take_data() {
+    let download_dir = "./test_diabetes_take_data";
+
+    let mut dataset = Diabetes::new(download_dir);
+    let (features, labels) = dataset.take_data().unwrap();
+
+    assert_eq!(features.shape(), &[768, 8]);
+    assert_eq!(labels.len(), 768);
+
+    // After take_data the instance is reset to unloaded but still usable: the next
+    // access reloads it (from the cached file) and yields the same shapes.
+    let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
+    assert_eq!(reloaded_features.shape(), &[768, 8]);
+    assert_eq!(reloaded_labels.len(), 768);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

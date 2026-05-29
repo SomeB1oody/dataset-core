@@ -135,3 +135,58 @@ fn test_titanic_no_need_download() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that into_data() returns owned string/numeric features and labels, consuming the dataset.
+fn test_titanic_into_data() {
+    let download_dir = "./test_titanic_into_data";
+
+    let dataset = Titanic::new(download_dir);
+    let (string_features, mut numeric_features, labels) = dataset.into_data().unwrap();
+    // `dataset` has been consumed; all three arrays are fully owned.
+
+    assert_eq!(string_features.shape(), &[891, 5]);
+    assert_eq!(numeric_features.shape(), &[891, 6]);
+    assert_eq!(labels.len(), 891);
+
+    // Owned labels are correct: binary 0.0/1.0, or NaN for missing values.
+    for i in 0..labels.len() {
+        let val = labels[i];
+        assert!(
+            val.is_nan() || val == 0.0 || val == 1.0,
+            "labels[{}] = {} is not binary or NaN",
+            i,
+            val
+        );
+    }
+
+    // Owned data can be mutated directly, with no `to_owned()` clone.
+    numeric_features[[0, 0]] = 999.0;
+    assert_eq!(numeric_features[[0, 0]], 999.0);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that take_data() returns owned data and leaves the dataset reusable.
+fn test_titanic_take_data() {
+    let download_dir = "./test_titanic_take_data";
+
+    let mut dataset = Titanic::new(download_dir);
+    let (string_features, numeric_features, labels) = dataset.take_data().unwrap();
+
+    assert_eq!(string_features.shape(), &[891, 5]);
+    assert_eq!(numeric_features.shape(), &[891, 6]);
+    assert_eq!(labels.len(), 891);
+
+    // After take_data the instance is reset to unloaded but still usable: the next
+    // access reloads it (from the cached file) and yields the same shapes.
+    let (re_string, re_numeric, re_labels) = dataset.data().unwrap();
+    assert_eq!(re_string.shape(), &[891, 5]);
+    assert_eq!(re_numeric.shape(), &[891, 6]);
+    assert_eq!(re_labels.len(), 891);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

@@ -119,3 +119,52 @@ fn test_iris_overwrite() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that into_data() returns owned features and labels, consuming the dataset.
+fn test_iris_into_data() {
+    let download_dir = "./test_iris_into_data";
+
+    let dataset = Iris::new(download_dir);
+    let (mut features, labels) = dataset.into_data().unwrap();
+    // `dataset` has been consumed; `features`/`labels` are fully owned.
+
+    assert_eq!(features.shape(), &[150, 4]);
+    assert_eq!(labels.len(), 150);
+
+    // Owned labels are correct: exactly the three Iris species.
+    let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
+    assert_eq!(
+        unique_labels.len(),
+        3,
+        "Iris should have exactly 3 unique species"
+    );
+
+    // Owned data can be mutated directly, with no `to_owned()` clone.
+    features[[0, 0]] = 5.5;
+    assert_eq!(features[[0, 0]], 5.5);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that take_data() returns owned data and leaves the dataset reusable.
+fn test_iris_take_data() {
+    let download_dir = "./test_iris_take_data";
+
+    let mut dataset = Iris::new(download_dir);
+    let (features, labels) = dataset.take_data().unwrap();
+
+    assert_eq!(features.shape(), &[150, 4]);
+    assert_eq!(labels.len(), 150);
+
+    // After take_data the instance is reset to unloaded but still usable: the next
+    // access reloads it (from the cached file) and yields the same shapes.
+    let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
+    assert_eq!(reloaded_features.shape(), &[150, 4]);
+    assert_eq!(reloaded_labels.len(), 150);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

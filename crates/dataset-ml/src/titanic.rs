@@ -110,7 +110,7 @@ struct TitanicRecord {
 ///
 /// let download_dir = "./titanic"; // the code will create the directory if it doesn't exist
 ///
-/// let dataset = Titanic::new(download_dir);
+/// let mut dataset = Titanic::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
@@ -127,6 +127,20 @@ struct TitanicRecord {
 /// assert_eq!(string_features.shape(), &[891, 5]);
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
+///
+/// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
+/// // the instance reusable — the next access reloads from the cached file.
+/// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
+/// assert_eq!(owned_strings.shape(), &[891, 5]);
+/// assert_eq!(owned_numerics.shape(), &[891, 6]);
+/// assert_eq!(owned_labels.len(), 891);
+///
+/// // `into_data()` also returns the owned arrays with no clone, but consumes the
+/// // instance (use it when you are done with the dataset).
+/// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
+/// assert_eq!(owned_strings.shape(), &[891, 5]);
+/// assert_eq!(owned_numerics.shape(), &[891, 6]);
+/// assert_eq!(owned_labels.len(), 891);
 /// ```
 #[derive(Debug)]
 pub struct Titanic {
@@ -328,5 +342,64 @@ impl Titanic {
     pub fn data(&self) -> Result<TitanicDataRef<'_>, DatasetError> {
         let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1, &data.2))
+    }
+
+    /// Consume the dataset and return **owned** string features, numeric features,
+    /// and labels.
+    ///
+    /// Unlike [`Titanic::data`], which borrows the cached data, this moves it out
+    /// and returns owned arrays directly — no `to_owned()` clone needed. The dataset
+    /// is loaded on first access if it has not been loaded yet.
+    ///
+    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
+    /// want owned data but need to keep using the instance, use
+    /// [`Titanic::take_data`] instead — it takes `&mut self` and leaves the instance
+    /// reusable.
+    ///
+    /// # Returns
+    ///
+    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
+    ///   `(891, 5)`, owned numeric feature matrix `(891, 6)`, and owned label vector
+    ///   `(891,)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
+    /// dimension mismatch).
+    pub fn into_data(self) -> Result<TitanicData, DatasetError> {
+        self.dataset.load(Self::load_data)?;
+        Ok(self
+            .dataset
+            .into_inner()
+            .expect("data is present after a successful load"))
+    }
+
+    /// Take **owned** string features, numeric features, and labels out of the
+    /// dataset, leaving it reusable.
+    ///
+    /// Like [`Titanic::into_data`], this returns owned arrays with no `to_owned()`
+    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
+    /// the cached data out, resetting the instance to its unloaded state: the next
+    /// accessor call (e.g. [`Titanic::features`] or [`Titanic::data`]) loads the
+    /// dataset again.
+    ///
+    /// Use [`Titanic::into_data`] instead if you are done with the instance.
+    ///
+    /// # Returns
+    ///
+    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
+    ///   `(891, 5)`, owned numeric feature matrix `(891, 6)`, and owned label vector
+    ///   `(891,)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
+    /// dimension mismatch).
+    pub fn take_data(&mut self) -> Result<TitanicData, DatasetError> {
+        self.dataset.load(Self::load_data)?;
+        Ok(self
+            .dataset
+            .take()
+            .expect("data is present after a successful load"))
     }
 }

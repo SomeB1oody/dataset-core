@@ -95,7 +95,7 @@ struct DiabetesRecord {
 ///
 /// let download_dir = "./diabetes"; // the code will create the directory if it doesn't exist
 ///
-/// let dataset = Diabetes::new(download_dir);
+/// let mut dataset = Diabetes::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
@@ -110,6 +110,18 @@ struct DiabetesRecord {
 ///
 /// assert_eq!(features.shape(), &[768, 8]);
 /// assert_eq!(labels.len(), 768);
+///
+/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
+/// // instance reusable — the next access reloads from the cached file.
+/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
+/// assert_eq!(owned_features.shape(), &[768, 8]);
+/// assert_eq!(owned_labels.len(), 768);
+///
+/// // `into_data()` also returns owned arrays with no clone, but consumes the
+/// // instance (use it when you are done with the dataset).
+/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
+/// assert_eq!(owned_features.shape(), &[768, 8]);
+/// assert_eq!(owned_labels.len(), 768);
 /// ```
 #[derive(Debug)]
 pub struct Diabetes {
@@ -275,5 +287,60 @@ impl Diabetes {
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
         let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
+    }
+
+    /// Consume the dataset and return **owned** features and labels.
+    ///
+    /// Unlike [`Diabetes::data`], which borrows the cached data, this moves it out
+    /// and returns owned arrays directly — no `to_owned()` clone needed. The dataset
+    /// is loaded on first access if it has not been loaded yet.
+    ///
+    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
+    /// want owned data but need to keep using the instance, use
+    /// [`Diabetes::take_data`] instead — it takes `&mut self` and leaves the
+    /// instance reusable.
+    ///
+    /// # Returns
+    ///
+    /// - `(Array2<f64>, Array1<f64>)` - owned feature matrix with shape `(768, 8)`
+    ///   and owned label vector with shape `(768,)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
+    /// dimension mismatch).
+    pub fn into_data(self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        self.dataset.load(Self::load_data)?;
+        Ok(self
+            .dataset
+            .into_inner()
+            .expect("data is present after a successful load"))
+    }
+
+    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    ///
+    /// Like [`Diabetes::into_data`], this returns owned arrays with no `to_owned()`
+    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
+    /// the cached data out, resetting the instance to its unloaded state: the next
+    /// accessor call (e.g. [`Diabetes::features`] or [`Diabetes::data`]) loads the
+    /// dataset again.
+    ///
+    /// Use [`Diabetes::into_data`] instead if you are done with the instance.
+    ///
+    /// # Returns
+    ///
+    /// - `(Array2<f64>, Array1<f64>)` - owned feature matrix with shape `(768, 8)`
+    ///   and owned label vector with shape `(768,)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
+    /// dimension mismatch).
+    pub fn take_data(&mut self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+        self.dataset.load(Self::load_data)?;
+        Ok(self
+            .dataset
+            .take()
+            .expect("data is present after a successful load"))
     }
 }
