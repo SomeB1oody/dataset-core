@@ -110,6 +110,13 @@ struct IrisRecord {
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
+/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
+/// // edits them in place (no clone, no reload — the change stays cached).
+/// if let Some((features, _labels)) = dataset.get_data_mut() {
+///     features[[0, 0]] = 4.9;
+/// }
+/// assert!(dataset.get_data().is_some());
+///
 /// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
 /// // instance reusable — the next access reloads from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
@@ -282,6 +289,44 @@ impl Iris {
     pub fn data(&self) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
         let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1))
+    }
+
+    /// Get both features and labels as references **without** triggering loading.
+    ///
+    /// Unlike [`Iris::data`], which loads the dataset on first call, this never
+    /// runs the loader: if the data has not been loaded yet, it returns `None`
+    /// instead of downloading and parsing. Use it when you only want the data if
+    /// it is already cached and want to avoid paying the download/parse cost
+    /// otherwise.
+    ///
+    /// # Returns
+    ///
+    /// - `Some((&Array2<f64>, &Array1<&'static str>))` - references to the cached
+    ///   feature matrix `(150, 4)` and label vector `(150,)`, if loaded.
+    /// - `None` - if the dataset has not been loaded yet.
+    pub fn get_data(&self) -> Option<(&Array2<f64>, &Array1<&'static str>)> {
+        self.dataset.get().map(|(f, l)| (f, l))
+    }
+
+    /// Get mutable references to features and labels for **in-place** editing.
+    ///
+    /// This lets you modify the cached arrays directly (e.g. normalize features,
+    /// replace label values) with no `to_owned()` clone and without removing them
+    /// from the cache: the changes persist, so later [`Iris::features`],
+    /// [`Iris::data`], or [`Iris::get_data`] calls observe them.
+    ///
+    /// Like [`Iris::get_data`], this does **not** trigger loading: it returns
+    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
+    /// [`Iris::data`]) first if you need to ensure the data is present.
+    ///
+    /// # Returns
+    ///
+    /// - `Some((&mut Array2<f64>, &mut Array1<&'static str>))` - mutable references
+    ///   to the cached feature matrix `(150, 4)` and label vector `(150,)`, if
+    ///   loaded.
+    /// - `None` - if the dataset has not been loaded yet.
+    pub fn get_data_mut(&mut self) -> Option<(&mut Array2<f64>, &mut Array1<&'static str>)> {
+        self.dataset.get_mut().map(|(f, l)| (f, l))
     }
 
     /// Consume the dataset and return **owned** features and labels.

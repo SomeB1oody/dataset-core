@@ -28,6 +28,14 @@ type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 /// numeric features, labels).
 type TitanicDataRef<'a> = (&'a Array2<String>, &'a Array2<f64>, &'a Array1<f64>);
 
+/// Type alias for mutably-borrowed Titanic dataset: mutable references to
+/// (string features, numeric features, labels).
+type TitanicDataMut<'a> = (
+    &'a mut Array2<String>,
+    &'a mut Array2<f64>,
+    &'a mut Array1<f64>,
+);
+
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str =
     "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
@@ -127,6 +135,13 @@ struct TitanicRecord {
 /// assert_eq!(string_features.shape(), &[891, 5]);
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
+///
+/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
+/// // edits them in place (no clone, no reload — the change stays cached).
+/// if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
+///     numerics[[0, 0]] = 1.0;
+/// }
+/// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
 /// // the instance reusable — the next access reloads from the cached file.
@@ -342,6 +357,48 @@ impl Titanic {
     pub fn data(&self) -> Result<TitanicDataRef<'_>, DatasetError> {
         let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1, &data.2))
+    }
+
+    /// Get string features, numeric features and labels as references
+    /// **without** triggering loading.
+    ///
+    /// Unlike [`Titanic::data`], which loads the dataset on first call, this never
+    /// runs the loader: if the data has not been loaded yet, it returns `None`
+    /// instead of downloading and parsing. Use it when you only want the data if
+    /// it is already cached and want to avoid paying the download/parse cost
+    /// otherwise.
+    ///
+    /// # Returns
+    ///
+    /// - `Some((&Array2<String>, &Array2<f64>, &Array1<f64>))` - references to the
+    ///   cached string feature matrix `(891, 5)`, numeric feature matrix
+    ///   `(891, 6)`, and label vector `(891,)`, if loaded.
+    /// - `None` - if the dataset has not been loaded yet.
+    pub fn get_data(&self) -> Option<TitanicDataRef<'_>> {
+        self.dataset.get().map(|(s, n, l)| (s, n, l))
+    }
+
+    /// Get mutable references to string features, numeric features, and labels
+    /// for **in-place** editing.
+    ///
+    /// This lets you modify the cached arrays directly (e.g. normalize numeric
+    /// features, replace missing values) with no `to_owned()` clone and without
+    /// removing them from the cache: the changes persist, so later
+    /// [`Titanic::features`], [`Titanic::data`], or [`Titanic::get_data`] calls
+    /// observe them.
+    ///
+    /// Like [`Titanic::get_data`], this does **not** trigger loading: it returns
+    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
+    /// [`Titanic::data`]) first if you need to ensure the data is present.
+    ///
+    /// # Returns
+    ///
+    /// - `Some((&mut Array2<String>, &mut Array2<f64>, &mut Array1<f64>))` -
+    ///   mutable references to the cached string feature matrix `(891, 5)`,
+    ///   numeric feature matrix `(891, 6)`, and label vector `(891,)`, if loaded.
+    /// - `None` - if the dataset has not been loaded yet.
+    pub fn get_data_mut(&mut self) -> Option<TitanicDataMut<'_>> {
+        self.dataset.get_mut().map(|(s, n, l)| (s, n, l))
     }
 
     /// Consume the dataset and return **owned** string features, numeric features,

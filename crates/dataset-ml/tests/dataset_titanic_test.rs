@@ -190,3 +190,46 @@ fn test_titanic_take_data() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that get_data() returns None before loading and the cached references after.
+fn test_titanic_get_data() {
+    let download_dir = "./test_titanic_get_data";
+
+    let dataset = Titanic::new(download_dir);
+    // Before loading, get_data() returns None and triggers no download.
+    assert!(dataset.get_data().is_none());
+
+    // Trigger loading, then get_data() hands back the cached references.
+    dataset.data().unwrap();
+    let (string_features, numeric_features, labels) = dataset.get_data().unwrap();
+    assert_eq!(string_features.shape(), &[891, 5]);
+    assert_eq!(numeric_features.shape(), &[891, 6]);
+    assert_eq!(labels.len(), 891);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that get_data_mut() edits the cached data in place and the change persists.
+fn test_titanic_get_data_mut() {
+    let download_dir = "./test_titanic_get_data_mut";
+
+    let mut dataset = Titanic::new(download_dir);
+    // Before loading, get_data_mut() returns None and triggers no download.
+    assert!(dataset.get_data_mut().is_none());
+
+    // Load, then mutate the cached numeric features in place (no clone, no reload).
+    dataset.data().unwrap();
+    if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
+        numerics[[0, 0]] = 999.0;
+    }
+
+    // The change persisted in the cache: a later access observes it.
+    let (_strings, numerics, _labels) = dataset.data().unwrap();
+    assert_eq!(numerics[[0, 0]], 999.0);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

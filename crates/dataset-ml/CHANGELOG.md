@@ -13,6 +13,7 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 ### Added
 - `into_data(self)` and `take_data(&mut self)` on every dataset loader (`Iris`, `BostonHousing`, `Diabetes`, `Titanic`, `RedWineQuality`, `WhiteWineQuality`), returning **owned** arrays instead of borrows — no `to_owned()` clone needed. `into_data` consumes the loader; `take_data` leaves it reusable (a later accessor call reloads). Built on the new `Dataset::into_inner` / `Dataset::take` in `dataset-core`.
+- `get_data(&self)` and `get_data_mut(&mut self)` on every dataset loader, returning the cached arrays as references **without** triggering loading (they return `None` if the data has not been loaded yet). `get_data` borrows the arrays; `get_data_mut` allows editing them in place — no `to_owned()` clone, no reload, and the change persists in the cache. Built on the new `Dataset::get` / `Dataset::get_mut` in `dataset-core`.
 - `serde` (with the `derive` feature) as a direct dependency, used for record deserialization.
 
 ## [0.1.0] - 2026-5-27

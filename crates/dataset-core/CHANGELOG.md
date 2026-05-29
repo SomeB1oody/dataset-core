@@ -9,6 +9,7 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 ## [Unreleased]
 ### Added
 - `Dataset::into_inner(self) -> Option<T>` and `Dataset::take(&mut self) -> Option<T>` for moving the cached value out of a `Dataset` without cloning. `into_inner` consumes the container; `take` leaves it reusable, resetting it to the unloaded state so a later `load` re-runs the loader. Both return `None` if the dataset was never loaded, and neither triggers loading.
+- `Dataset::get(&self) -> Option<&T>` and `Dataset::get_mut(&mut self) -> Option<&mut T>` for accessing the cached value without triggering loading. `get` borrows it (the reference-returning companion of `is_loaded`); `get_mut` allows editing it in place — no clone, no reload, and the change persists in the cache. Both return `None` if the dataset was never loaded.
 
 ## [0.2.0] - 2026-5-27
 ### Changed

@@ -178,3 +178,45 @@ fn test_white_wine_quality_take_data() {
     // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
+
+#[test]
+// Verifies that get_data() returns None before loading and the cached references after.
+fn test_white_wine_quality_get_data() {
+    let download_dir = "./test_white_wine_quality_get_data";
+
+    let dataset = WhiteWineQuality::new(download_dir);
+    // Before loading, get_data() returns None and triggers no download.
+    assert!(dataset.get_data().is_none());
+
+    // Trigger loading, then get_data() hands back the cached references.
+    dataset.data().unwrap();
+    let (features, targets) = dataset.get_data().unwrap();
+    assert_eq!(features.shape(), &[4898, 11]);
+    assert_eq!(targets.len(), 4898);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that get_data_mut() edits the cached data in place and the change persists.
+fn test_white_wine_quality_get_data_mut() {
+    let download_dir = "./test_white_wine_quality_get_data_mut";
+
+    let mut dataset = WhiteWineQuality::new(download_dir);
+    // Before loading, get_data_mut() returns None and triggers no download.
+    assert!(dataset.get_data_mut().is_none());
+
+    // Load, then mutate the cached features in place (no clone, no reload).
+    dataset.data().unwrap();
+    if let Some((features, _targets)) = dataset.get_data_mut() {
+        features[[0, 0]] = 99.0;
+    }
+
+    // The change persisted in the cache: a later access observes it.
+    let (features, _targets) = dataset.data().unwrap();
+    assert_eq!(features[[0, 0]], 99.0);
+
+    // clean up: remove the downloaded files
+    remove_dir_all(download_dir).unwrap();
+}

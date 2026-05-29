@@ -45,6 +45,14 @@
 //! let data_again = ds.load(my_loader).unwrap();
 //! assert!(std::ptr::eq(data, data_again)); // same reference, no reload
 //!
+//! // `get` borrows the cached value without ever running the loader;
+//! // `get_mut` edits it in place (no clone, no reload — the change stays cached).
+//! assert!(ds.get().is_some());
+//! if let Some(v) = ds.get_mut() {
+//!     v[0] = "HELLO".to_string();
+//! }
+//! assert_eq!(ds.get().unwrap()[0], "HELLO");
+//!
 //! // Move the cached value out without cloning. `take` leaves `ds` reusable
 //! // (a later `load` re-runs the loader); `into_inner` consumes `ds`.
 //! let owned = ds.take().unwrap();
@@ -118,6 +126,12 @@ pub use utils::{acquire_dataset, create_temp_dir, download_to, file_sha256_match
 ///
 /// // Check whether data has been loaded
 /// assert!(dataset.is_loaded());
+///
+/// // Borrow the cached value without reloading, or edit it in place via `get_mut`.
+/// if let Some(v) = dataset.get_mut() {
+///     v[0] = "HELLO".to_string();
+/// }
+/// assert_eq!(dataset.get().unwrap()[0], "HELLO");
 ///
 /// // Move the cached value out without cloning.
 /// // `take` leaves `dataset` reusable; `into_inner` consumes it.
@@ -207,6 +221,80 @@ impl<T> Dataset<T> {
     /// The storage directory path as a string slice.
     pub fn storage_dir(&self) -> &str {
         &self.storage_dir
+    }
+
+    /// Get a reference to the cached value **without** triggering loading.
+    ///
+    /// Unlike [`Dataset::load`], this never runs the loader: if the dataset has
+    /// not been loaded yet, it returns `None` rather than downloading/parsing.
+    /// Use it when you only want the data if it is already in memory and want to
+    /// avoid paying the loader's I/O cost otherwise — for example a fast path
+    /// that falls back to other work when the dataset is not yet cached.
+    ///
+    /// This is the reference-returning companion of [`Dataset::is_loaded`]:
+    /// `is_loaded()` answers *whether* the value is cached, `get()` hands you the
+    /// cached reference when it is.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(&T)` - a reference to the cached value, if the dataset had been loaded.
+    /// - `None` - if the dataset has not been loaded.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dataset_core::Dataset;
+    ///
+    /// let ds: Dataset<Vec<i32>> = Dataset::new("./data");
+    /// assert!(ds.get().is_none()); // not loaded yet — no loader is run
+    ///
+    /// ds.load(|_| Ok::<_, std::convert::Infallible>(vec![1, 2, 3]))
+    ///     .unwrap();
+    /// assert_eq!(ds.get(), Some(&vec![1, 2, 3]));
+    /// ```
+    pub fn get(&self) -> Option<&T> {
+        self.data.get()
+    }
+
+    /// Get a mutable reference to the cached value for **in-place** editing.
+    ///
+    /// This is the only way to mutate the cached value without moving it out:
+    /// you can tweak the loaded data (e.g. normalize features, fill in missing
+    /// entries, augment samples) and the changes persist in the cache, so later
+    /// [`Dataset::load`] / [`Dataset::get`] calls observe them.
+    ///
+    /// Because it requires unique access (`&mut self`), there is no aliasing or
+    /// race concern. And unlike [`take`](Dataset::take) /
+    /// [`into_inner`](Dataset::into_inner), it neither clones nor removes the
+    /// value — the `Dataset` stays loaded.
+    ///
+    /// Like [`Dataset::get`], this does **not** trigger loading: it returns
+    /// `None` if the dataset has not been loaded. Call [`Dataset::load`] first if
+    /// you need to ensure the value is present.
+    ///
+    /// # Returns
+    ///
+    /// - `Some(&mut T)` - a mutable reference to the cached value, if the dataset
+    ///   had been loaded.
+    /// - `None` - if the dataset has not been loaded.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dataset_core::Dataset;
+    ///
+    /// let mut ds: Dataset<Vec<i32>> = Dataset::new("./data");
+    /// assert!(ds.get_mut().is_none()); // not loaded yet — no loader is run
+    ///
+    /// ds.load(|_| Ok::<_, std::convert::Infallible>(vec![1, 2, 3]))
+    ///     .unwrap();
+    /// if let Some(data) = ds.get_mut() {
+    ///     data.push(4); // edit the cached value in place, no clone, no reload
+    /// }
+    /// assert_eq!(ds.get(), Some(&vec![1, 2, 3, 4])); // the change persisted
+    /// ```
+    pub fn get_mut(&mut self) -> Option<&mut T> {
+        self.data.get_mut()
     }
 
     /// Consume the `Dataset` and return the cached value, if any.
