@@ -47,27 +47,28 @@ const BOSTON_HOUSING_SHA256: &str =
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 
 /// One CSV record of the Boston Housing dataset: 13 `f64` feature columns
-/// followed by the `MEDV` target.
+/// followed by the `medv` target.
 ///
-/// Records are deserialized **positionally** (by column order), so this struct
-/// is independent of the exact header spelling.
+/// Fields are declared in CSV column order and deserialized **positionally**
+/// (the loader disables csv's header handling), so this struct is independent
+/// of the exact header spelling.
 #[derive(Deserialize)]
-struct BostonHousingRecord(
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-    f64,
-);
+struct BostonHousingRecord {
+    crim: f64,
+    zn: f64,
+    indus: f64,
+    chas: f64,
+    nox: f64,
+    rm: f64,
+    age: f64,
+    dis: f64,
+    rad: f64,
+    tax: f64,
+    ptratio: f64,
+    b: f64,
+    lstat: f64,
+    medv: f64,
+}
 
 /// A struct representing the Boston Housing dataset with lazy loading.
 ///
@@ -163,14 +164,18 @@ impl BostonHousing {
         )?;
 
         // Stream the cached file through csv, deserializing one record at a time.
+        // `has_headers(false)` makes csv deserialize into the named struct
+        // *positionally* (by column order) rather than by header name, keeping
+        // parsing independent of the exact header spelling. We skip the header
+        // row ourselves with `.skip(1)`.
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features = Vec::new();
         let mut targets = Vec::new();
 
-        for result in rdr.deserialize::<BostonHousingRecord>() {
-            let BostonHousingRecord(
+        for result in rdr.deserialize::<BostonHousingRecord>().skip(1) {
+            let BostonHousingRecord {
                 crim,
                 zn,
                 indus,
@@ -185,9 +190,9 @@ impl BostonHousing {
                 b,
                 lstat,
                 medv,
-            ) = result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
+            } = result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
 
-            // Features are every column except the last; the target is `MEDV`.
+            // Features are every column except the last; the target is `medv`.
             features.extend_from_slice(&[
                 crim, zn, indus, chas, nox, rm, age, dis, rad, tax, ptratio, b, lstat,
             ]);

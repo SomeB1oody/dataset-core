@@ -43,10 +43,21 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 /// One CSV record of the Diabetes dataset: 8 `f64` feature columns followed by
 /// the binary `Outcome` label.
 ///
-/// Records are deserialized **positionally** (by column order), so this struct
-/// is independent of the exact header spelling.
+/// Fields are declared in CSV column order and deserialized **positionally**
+/// (the loader disables csv's header handling), so this struct is independent
+/// of the exact header spelling.
 #[derive(Deserialize)]
-struct DiabetesRecord(f64, f64, f64, f64, f64, f64, f64, f64, f64);
+struct DiabetesRecord {
+    pregnancies: f64,
+    glucose: f64,
+    blood_pressure: f64,
+    skin_thickness: f64,
+    insulin: f64,
+    bmi: f64,
+    diabetes_pedigree_function: f64,
+    age: f64,
+    outcome: f64,
+}
 
 /// A struct representing the Diabetes dataset with lazy loading.
 ///
@@ -139,14 +150,18 @@ impl Diabetes {
         )?;
 
         // Stream the cached file through csv, deserializing one record at a time.
+        // `has_headers(false)` makes csv deserialize into the named struct
+        // *positionally* (by column order) rather than by header name, keeping
+        // parsing independent of the exact header spelling. We skip the header
+        // row ourselves with `.skip(1)`.
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
 
-        for result in rdr.deserialize::<DiabetesRecord>() {
-            let DiabetesRecord(
+        for result in rdr.deserialize::<DiabetesRecord>().skip(1) {
+            let DiabetesRecord {
                 pregnancies,
                 glucose,
                 blood_pressure,
@@ -156,7 +171,7 @@ impl Diabetes {
                 diabetes_pedigree_function,
                 age,
                 outcome,
-            ) = result.map_err(|e| DatasetError::csv_read_error(DIABETES_DATASET_NAME, e))?;
+            } = result.map_err(|e| DatasetError::csv_read_error(DIABETES_DATASET_NAME, e))?;
 
             features.extend_from_slice(&[
                 pregnancies,

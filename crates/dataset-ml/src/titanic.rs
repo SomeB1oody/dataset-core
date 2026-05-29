@@ -41,27 +41,28 @@ const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c5
 /// The name of the dataset
 const TITANIC_DATASET_NAME: &str = "titanic";
 
-/// One CSV record of the Titanic dataset, in source column order.
+/// One CSV record of the Titanic dataset, with fields in source column order.
 ///
 /// Numeric columns are `Option<f64>` so that empty fields deserialize to `None`
 /// (later mapped to `NaN`); text columns are `String` (empty fields become `""`).
-/// Records are deserialized **positionally**, so this struct is independent of
+/// Fields are declared in CSV column order and deserialized **positionally**
+/// (the loader disables csv's header handling), so this struct is independent of
 /// the exact header spelling.
 #[derive(Deserialize)]
-struct TitanicRecord(
-    Option<f64>, // PassengerId
-    Option<f64>, // Survived
-    Option<f64>, // Pclass
-    String,      // Name
-    String,      // Sex
-    Option<f64>, // Age
-    Option<f64>, // SibSp
-    Option<f64>, // Parch
-    String,      // Ticket
-    Option<f64>, // Fare
-    String,      // Cabin
-    String,      // Embarked
-);
+struct TitanicRecord {
+    passenger_id: Option<f64>,
+    survived: Option<f64>,
+    pclass: Option<f64>,
+    name: String,
+    sex: String,
+    age: Option<f64>,
+    sib_sp: Option<f64>,
+    parch: Option<f64>,
+    ticket: String,
+    fare: Option<f64>,
+    cabin: String,
+    embarked: String,
+}
 
 /// A struct representing the Titanic dataset with lazy loading.
 ///
@@ -166,15 +167,19 @@ impl Titanic {
         )?;
 
         // Stream the cached file through csv, deserializing one record at a time.
+        // `has_headers(false)` makes csv deserialize into the named struct
+        // *positionally* (by column order) rather than by header name, keeping
+        // parsing independent of the exact header spelling. We skip the header
+        // row ourselves with `.skip(1)`.
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut string_features = Vec::new();
         let mut numeric_features = Vec::new();
         let mut labels = Vec::new();
 
-        for result in rdr.deserialize::<TitanicRecord>() {
-            let TitanicRecord(
+        for result in rdr.deserialize::<TitanicRecord>().skip(1) {
+            let TitanicRecord {
                 passenger_id,
                 survived,
                 pclass,
@@ -187,7 +192,7 @@ impl Titanic {
                 fare,
                 cabin,
                 embarked,
-            ) = result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
+            } = result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
 
             // Missing numeric fields (`None`) become `NaN`.
             // Label: Survived.

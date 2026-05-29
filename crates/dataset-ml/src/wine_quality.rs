@@ -42,10 +42,24 @@ use serde::Deserialize;
 /// One CSV record of a Wine Quality file (red or white): 11 `f64` feature
 /// columns followed by the `quality` target.
 ///
-/// Records are deserialized **positionally** (by column order), so this struct
-/// is independent of the exact header spelling.
+/// Fields are declared in CSV column order and deserialized **positionally**
+/// (the parser disables csv's header handling), so this struct is independent
+/// of the exact header spelling.
 #[derive(Deserialize)]
-struct WineRecord(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64);
+struct WineRecord {
+    fixed_acidity: f64,
+    volatile_acidity: f64,
+    citric_acid: f64,
+    residual_sugar: f64,
+    chlorides: f64,
+    free_sulfur_dioxide: f64,
+    total_sulfur_dioxide: f64,
+    density: f64,
+    ph: f64,
+    sulphates: f64,
+    alcohol: f64,
+    quality: f64,
+}
 
 /// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
 ///
@@ -74,16 +88,20 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
     reader: R,
 ) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    // `has_headers(false)` makes csv deserialize into the named struct
+    // *positionally* (by column order) rather than by header name, keeping
+    // parsing independent of the exact header spelling. We skip the header row
+    // ourselves with `.skip(1)`.
     let mut rdr = ReaderBuilder::new()
         .delimiter(b';')
-        .has_headers(true)
+        .has_headers(false)
         .from_reader(reader);
 
     let mut features_array = Vec::new();
     let mut target_array = Vec::new();
 
-    for result in rdr.deserialize::<WineRecord>() {
-        let WineRecord(
+    for result in rdr.deserialize::<WineRecord>().skip(1) {
+        let WineRecord {
             fixed_acidity,
             volatile_acidity,
             citric_acid,
@@ -96,7 +114,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
             sulphates,
             alcohol,
             quality,
-        ) = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
+        } = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
 
         features_array.extend_from_slice(&[
             fixed_acidity,

@@ -44,11 +44,17 @@ const IRIS_DATASET_NAME: &str = "iris";
 /// One CSV record of the Iris dataset: four `f64` measurements followed by the
 /// species label.
 ///
-/// Records are deserialized **positionally** (by column order), so this struct
-/// is independent of the exact header spelling and of any byte-order mark on the
-/// header row.
+/// Fields are declared in CSV column order and deserialized **positionally**
+/// (the loader disables csv's header handling), so this struct is independent
+/// of the exact header spelling and of any byte-order mark on the header row.
 #[derive(Deserialize)]
-struct IrisRecord(f64, f64, f64, f64, String);
+struct IrisRecord {
+    sepal_length: f64,
+    sepal_width: f64,
+    petal_length: f64,
+    petal_width: f64,
+    species: String,
+}
 
 /// A struct representing the Iris dataset with lazy loading.
 ///
@@ -143,15 +149,24 @@ impl Iris {
         )?;
 
         // Stream the cached file through csv, deserializing one record at a time.
+        // `has_headers(false)` makes csv deserialize into the named struct
+        // *positionally* (by column order) rather than by header name, keeping
+        // parsing independent of the exact header spelling/BOM. We skip the
+        // header row ourselves with `.skip(1)`.
         let file = File::open(&file_path)?;
-        let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
+        let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
 
-        for (idx, result) in rdr.deserialize::<IrisRecord>().enumerate() {
-            let IrisRecord(sepal_length, sepal_width, petal_length, petal_width, species) =
-                result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
+        for (idx, result) in rdr.deserialize::<IrisRecord>().skip(1).enumerate() {
+            let IrisRecord {
+                sepal_length,
+                sepal_width,
+                petal_length,
+                petal_width,
+                species,
+            } = result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
             features.push(sepal_length);
