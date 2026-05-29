@@ -18,9 +18,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C56C76>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
+use serde::Deserialize;
 use std::fs::File;
 
 /// The URL for the Iris dataset.
@@ -39,6 +40,15 @@ const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a4707
 
 /// The name of the dataset
 const IRIS_DATASET_NAME: &str = "iris";
+
+/// One CSV record of the Iris dataset: four `f64` measurements followed by the
+/// species label.
+///
+/// Records are deserialized **positionally** (by column order), so this struct
+/// is independent of the exact header spelling and of any byte-order mark on the
+/// header row.
+#[derive(Deserialize)]
+struct IrisRecord(f64, f64, f64, f64, String);
 
 /// A struct representing the Iris dataset with lazy loading.
 ///
@@ -132,53 +142,24 @@ impl Iris {
             },
         )?;
 
-        // Parse the file
+        // Stream the cached file through csv, deserializing one record at a time.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
-        let mut num_features: Option<usize> = None;
 
-        for (idx, result) in rdr.records().enumerate() {
-            let record = result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
+        for (idx, result) in rdr.deserialize::<IrisRecord>().enumerate() {
+            let IrisRecord(sepal_length, sepal_width, petal_length, petal_width, species) =
+                result.map_err(|e| DatasetError::csv_read_error(IRIS_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for 0-indexed, +1 for header
 
-            if num_features.is_none() {
-                if record.len() < 2 {
-                    return Err(DatasetError::invalid_column_count(
-                        IRIS_DATASET_NAME,
-                        2,
-                        record.len(),
-                        line_num,
-                    ));
-                }
-                num_features = Some(record.len() - 1);
-            }
+            features.push(sepal_length);
+            features.push(sepal_width);
+            features.push(petal_length);
+            features.push(petal_width);
 
-            let n_features = num_features.unwrap();
-            if record.len() != n_features + 1 {
-                return Err(DatasetError::invalid_column_count(
-                    IRIS_DATASET_NAME,
-                    n_features + 1,
-                    record.len(),
-                    line_num,
-                ));
-            }
-
-            for i in 0..n_features {
-                features.push(record[i].parse::<f64>().map_err(|e| {
-                    let field = format!("feature[{i}]");
-                    DatasetError::parse_failed(
-                        IRIS_DATASET_NAME,
-                        &field,
-                        line_num,
-                        e,
-                    )
-                })?);
-            }
-
-            labels.push(match &record[n_features] {
+            labels.push(match species.as_str() {
                 "setosa" => "setosa",
                 "versicolor" => "versicolor",
                 "virginica" => "virginica",
@@ -198,8 +179,8 @@ impl Iris {
             return Err(DatasetError::empty_dataset(IRIS_DATASET_NAME));
         }
 
-        let n_features = num_features.unwrap();
-        let features_array = Array2::from_shape_vec((n_samples, n_features), features)
+        // Iris has a fixed schema of 4 numeric features per sample.
+        let features_array = Array2::from_shape_vec((n_samples, 4), features)
             .map_err(|e| DatasetError::array_shape_error(IRIS_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 

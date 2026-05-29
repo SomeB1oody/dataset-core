@@ -21,9 +21,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/34/diabetes>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
+use serde::Deserialize;
 use std::fs::File;
 
 /// The URL for the Diabetes dataset.
@@ -38,6 +39,14 @@ const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba
 
 /// The name of the dataset
 const DIABETES_DATASET_NAME: &str = "diabetes";
+
+/// One CSV record of the Diabetes dataset: 8 `f64` feature columns followed by
+/// the binary `Outcome` label.
+///
+/// Records are deserialized **positionally** (by column order), so this struct
+/// is independent of the exact header spelling.
+#[derive(Deserialize)]
+struct DiabetesRecord(f64, f64, f64, f64, f64, f64, f64, f64, f64);
 
 /// A struct representing the Diabetes dataset with lazy loading.
 ///
@@ -129,62 +138,37 @@ impl Diabetes {
             },
         )?;
 
-        // Parse the file
+        // Stream the cached file through csv, deserializing one record at a time.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut features = Vec::new();
         let mut labels = Vec::new();
-        let mut num_features: Option<usize> = None;
 
-        for (idx, result) in rdr.records().enumerate() {
-            let record =
-                result.map_err(|e| DatasetError::csv_read_error(DIABETES_DATASET_NAME, e))?;
-            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
+        for result in rdr.deserialize::<DiabetesRecord>() {
+            let DiabetesRecord(
+                pregnancies,
+                glucose,
+                blood_pressure,
+                skin_thickness,
+                insulin,
+                bmi,
+                diabetes_pedigree_function,
+                age,
+                outcome,
+            ) = result.map_err(|e| DatasetError::csv_read_error(DIABETES_DATASET_NAME, e))?;
 
-            if num_features.is_none() {
-                if record.len() < 2 {
-                    return Err(DatasetError::invalid_column_count(
-                        DIABETES_DATASET_NAME,
-                        2,
-                        record.len(),
-                        line_num,
-                    ));
-                }
-                num_features = Some(record.len() - 1);
-            }
-
-            let n_features = num_features.unwrap();
-            if record.len() != n_features + 1 {
-                return Err(DatasetError::invalid_column_count(
-                    DIABETES_DATASET_NAME,
-                    n_features + 1,
-                    record.len(),
-                    line_num,
-                ));
-            }
-
-            for i in 0..n_features {
-                features.push(record[i].parse::<f64>().map_err(|e| {
-                    let field = format!("feature[{i}]");
-
-                    DatasetError::parse_failed(
-                        DIABETES_DATASET_NAME,
-                        &field,
-                        line_num,
-                        e,
-                    )
-                })?);
-            }
-
-            labels.push(record[n_features].parse::<f64>().map_err(|e| {
-                DatasetError::parse_failed(
-                    DIABETES_DATASET_NAME,
-                    "label",
-                    line_num,
-                    e,
-                )
-            })?);
+            features.extend_from_slice(&[
+                pregnancies,
+                glucose,
+                blood_pressure,
+                skin_thickness,
+                insulin,
+                bmi,
+                diabetes_pedigree_function,
+                age,
+            ]);
+            labels.push(outcome);
         }
 
         let n_samples = labels.len();
@@ -192,8 +176,8 @@ impl Diabetes {
             return Err(DatasetError::empty_dataset(DIABETES_DATASET_NAME));
         }
 
-        let n_features = num_features.unwrap();
-        let features_array = Array2::from_shape_vec((n_samples, n_features), features)
+        // Diabetes has a fixed schema of 8 numeric features per sample.
+        let features_array = Array2::from_shape_vec((n_samples, 8), features)
             .map_err(|e| DatasetError::array_shape_error(DIABETES_DATASET_NAME, "features", e))?;
         let labels_array = Array1::from_vec(labels);
 

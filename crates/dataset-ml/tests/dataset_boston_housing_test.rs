@@ -41,12 +41,7 @@ fn test_load_boston_housing() {
     }
     for i in 0..targets.len() {
         let val = targets[i];
-        assert!(
-            val.is_finite(),
-            "target[{}] = {} is not finite",
-            i,
-            val
-        );
+        assert!(val.is_finite(), "target[{}] = {} is not finite", i, val);
     }
 
     // CHAS (Charles River dummy variable) is at column index 3

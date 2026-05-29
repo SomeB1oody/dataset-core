@@ -16,6 +16,7 @@ categories = ["science"]
 dataset-core = { workspace = true, features = ["utils"] }
 ndarray = { workspace = true }
 csv = { workspace = true }
+serde = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

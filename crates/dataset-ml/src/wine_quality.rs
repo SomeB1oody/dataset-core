@@ -34,9 +34,18 @@
 pub mod red_wine_quality;
 pub mod white_wine_quality;
 
-use dataset_core::DatasetError;
 use csv::ReaderBuilder;
+use dataset_core::DatasetError;
 use ndarray::{Array1, Array2};
+use serde::Deserialize;
+
+/// One CSV record of a Wine Quality file (red or white): 11 `f64` feature
+/// columns followed by the `quality` target.
+///
+/// Records are deserialized **positionally** (by column order), so this struct
+/// is independent of the exact header spelling.
+#[derive(Deserialize)]
+struct WineRecord(f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64, f64);
 
 /// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
 ///
@@ -72,54 +81,37 @@ fn parse_wine_data_to_array<R: std::io::Read>(
 
     let mut features_array = Vec::new();
     let mut target_array = Vec::new();
-    let mut num_features: Option<usize> = None;
 
-    for (idx, result) in rdr.records().enumerate() {
-        let record = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
-        let line_num = idx + 2; // +1 for 0-indexed, +1 for header
+    for result in rdr.deserialize::<WineRecord>() {
+        let WineRecord(
+            fixed_acidity,
+            volatile_acidity,
+            citric_acid,
+            residual_sugar,
+            chlorides,
+            free_sulfur_dioxide,
+            total_sulfur_dioxide,
+            density,
+            ph,
+            sulphates,
+            alcohol,
+            quality,
+        ) = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
 
-        if num_features.is_none() {
-            if record.len() < 2 {
-                return Err(DatasetError::invalid_column_count(
-                    dataset_name,
-                    2,
-                    record.len(),
-                    line_num,
-                ));
-            }
-            num_features = Some(record.len() - 1);
-        }
-
-        let n_features = num_features.unwrap();
-        if record.len() != n_features + 1 {
-            return Err(DatasetError::invalid_column_count(
-                dataset_name,
-                n_features + 1,
-                record.len(),
-                line_num,
-            ));
-        }
-
-        for i in 0..n_features {
-            let field = format!("feature[{i}]");
-            features_array.push(record[i].parse::<f64>().map_err(|e| {
-                DatasetError::parse_failed(
-                    dataset_name,
-                    &field,
-                    line_num,
-                    e,
-                )
-            })?);
-        }
-
-        target_array.push(record[n_features].parse::<f64>().map_err(|e| {
-            DatasetError::parse_failed(
-                dataset_name,
-                "target",
-                line_num,
-                e,
-            )
-        })?);
+        features_array.extend_from_slice(&[
+            fixed_acidity,
+            volatile_acidity,
+            citric_acid,
+            residual_sugar,
+            chlorides,
+            free_sulfur_dioxide,
+            total_sulfur_dioxide,
+            density,
+            ph,
+            sulphates,
+            alcohol,
+        ]);
+        target_array.push(quality);
     }
 
     let n_samples = target_array.len();
@@ -127,8 +119,8 @@ fn parse_wine_data_to_array<R: std::io::Read>(
         return Err(DatasetError::empty_dataset(dataset_name));
     }
 
-    let n_features = num_features.unwrap();
-    let features_array = Array2::from_shape_vec((n_samples, n_features), features_array)
+    // Wine Quality has a fixed schema of 11 numeric features per sample.
+    let features_array = Array2::from_shape_vec((n_samples, 11), features_array)
         .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
     let target_array = Array1::from_vec(target_array);
 

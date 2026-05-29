@@ -40,8 +40,14 @@ fn test_load_diabetes() {
             has_class_1 = true;
         }
     }
-    assert!(has_class_0, "labels must contain at least one instance of class 0");
-    assert!(has_class_1, "labels must contain at least one instance of class 1");
+    assert!(
+        has_class_0,
+        "labels must contain at least one instance of class 0"
+    );
+    assert!(
+        has_class_1,
+        "labels must contain at least one instance of class 1"
+    );
 
     // Semantic assertions: all feature values must be finite (no NaN or Inf)
     for row in 0..features.nrows() {

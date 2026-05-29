@@ -27,10 +27,23 @@ fn test_load_iris() {
 
     // Semantic assertions: verify label values are valid Iris species
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
-    assert_eq!(unique_labels.len(), 3, "Iris should have exactly 3 unique species");
-    assert!(unique_labels.contains(&"setosa"), "labels must contain 'setosa'");
-    assert!(unique_labels.contains(&"versicolor"), "labels must contain 'versicolor'");
-    assert!(unique_labels.contains(&"virginica"), "labels must contain 'virginica'");
+    assert_eq!(
+        unique_labels.len(),
+        3,
+        "Iris should have exactly 3 unique species"
+    );
+    assert!(
+        unique_labels.contains(&"setosa"),
+        "labels must contain 'setosa'"
+    );
+    assert!(
+        unique_labels.contains(&"versicolor"),
+        "labels must contain 'versicolor'"
+    );
+    assert!(
+        unique_labels.contains(&"virginica"),
+        "labels must contain 'virginica'"
+    );
 
     // Semantic assertions: all feature values must be finite (no NaN or Inf)
     for row in 0..features.nrows() {

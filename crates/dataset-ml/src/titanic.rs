@@ -15,13 +15,18 @@
 //! **Source:** Kaggle competition
 //! <https://www.kaggle.com/c/titanic/data>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
+use serde::Deserialize;
 use std::fs::File;
 
 /// Type alias for Titanic dataset: (string features, numeric features, labels)
 type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
+
+/// Type alias for borrowed Titanic dataset: references to (string features,
+/// numeric features, labels).
+type TitanicDataRef<'a> = (&'a Array2<String>, &'a Array2<f64>, &'a Array1<f64>);
 
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str =
@@ -35,6 +40,28 @@ const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c5
 
 /// The name of the dataset
 const TITANIC_DATASET_NAME: &str = "titanic";
+
+/// One CSV record of the Titanic dataset, in source column order.
+///
+/// Numeric columns are `Option<f64>` so that empty fields deserialize to `None`
+/// (later mapped to `NaN`); text columns are `String` (empty fields become `""`).
+/// Records are deserialized **positionally**, so this struct is independent of
+/// the exact header spelling.
+#[derive(Deserialize)]
+struct TitanicRecord(
+    Option<f64>, // PassengerId
+    Option<f64>, // Survived
+    Option<f64>, // Pclass
+    String,      // Name
+    String,      // Sex
+    Option<f64>, // Age
+    Option<f64>, // SibSp
+    Option<f64>, // Parch
+    String,      // Ticket
+    Option<f64>, // Fare
+    String,      // Cabin
+    String,      // Embarked
+);
 
 /// A struct representing the Titanic dataset with lazy loading.
 ///
@@ -138,7 +165,7 @@ impl Titanic {
             },
         )?;
 
-        // Parse the file
+        // Stream the cached file through csv, deserializing one record at a time.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
@@ -146,72 +173,43 @@ impl Titanic {
         let mut numeric_features = Vec::new();
         let mut labels = Vec::new();
 
-        // CSV columns: PassengerId(0), Survived(1), Pclass(2), Name(3), Sex(4), Age(5), SibSp(6), Parch(7), Ticket(8), Fare(9), Cabin(10), Embarked(11)
-        // Numeric indices: [0, 2, 5, 6, 7, 9]
-        // String indices: [3, 4, 8, 10, 11]
-        // Label index: 1
-        let numeric_indices = vec![0, 2, 5, 6, 7, 9];
-        let string_indices = vec![3, 4, 8, 10, 11];
-        let label_index = 1;
+        for result in rdr.deserialize::<TitanicRecord>() {
+            let TitanicRecord(
+                passenger_id,
+                survived,
+                pclass,
+                name,
+                sex,
+                age,
+                sib_sp,
+                parch,
+                ticket,
+                fare,
+                cabin,
+                embarked,
+            ) = result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
 
-        let mut num_string_features: Option<usize> = None;
-        let mut num_numeric_features: Option<usize> = None;
+            // Missing numeric fields (`None`) become `NaN`.
+            // Label: Survived.
+            labels.push(survived.unwrap_or(f64::NAN));
 
-        for (idx, result) in rdr.records().enumerate() {
-            let record =
-                result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
-            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
+            // Numeric features, in column order:
+            // PassengerId, Pclass, Age, SibSp, Parch, Fare.
+            numeric_features.extend_from_slice(&[
+                passenger_id.unwrap_or(f64::NAN),
+                pclass.unwrap_or(f64::NAN),
+                age.unwrap_or(f64::NAN),
+                sib_sp.unwrap_or(f64::NAN),
+                parch.unwrap_or(f64::NAN),
+                fare.unwrap_or(f64::NAN),
+            ]);
 
-            if num_string_features.is_none() {
-                if record.len() < 12 {
-                    return Err(DatasetError::invalid_column_count(
-                        TITANIC_DATASET_NAME,
-                        12,
-                        record.len(),
-                        line_num,
-                    ));
-                }
-                num_string_features = Some(string_indices.len());
-                num_numeric_features = Some(numeric_indices.len());
-            }
-
-            let parse_numeric = |index: usize, field_name: &str| -> Result<f64, DatasetError> {
-                let val = record[index].trim();
-                if val.is_empty() {
-                    Ok(f64::NAN)
-                } else {
-                    val.parse::<f64>().map_err(|e| {
-                        DatasetError::parse_failed(
-                            TITANIC_DATASET_NAME,
-                            field_name,
-                            line_num,
-                            e,
-                        )
-                    })
-                }
-            };
-
-            // Label: Survived (index 1)
-            labels.push(parse_numeric(label_index, "survived")?);
-
-            // Numeric features: PassengerId(0), Pclass(2), Age(5), SibSp(6), Parch(7), Fare(9)
-            for (i, &col_idx) in numeric_indices.iter().enumerate() {
-                let field_name = match i {
-                    0 => "passenger_id",
-                    1 => "pclass",
-                    2 => "age",
-                    3 => "sib_sp",
-                    4 => "parch",
-                    5 => "fare",
-                    _ => "numeric_feature",
-                };
-                numeric_features.push(parse_numeric(col_idx, field_name)?);
-            }
-
-            // String features: Name(3), Sex(4), Ticket(8), Cabin(10), Embarked(11)
-            for &col_idx in string_indices.iter() {
-                string_features.push(record[col_idx].to_string());
-            }
+            // String features, in column order: Name, Sex, Ticket, Cabin, Embarked.
+            string_features.push(name);
+            string_features.push(sex);
+            string_features.push(ticket);
+            string_features.push(cabin);
+            string_features.push(embarked);
         }
 
         let n_samples = labels.len();
@@ -219,18 +217,16 @@ impl Titanic {
             return Err(DatasetError::empty_dataset(TITANIC_DATASET_NAME));
         }
 
-        let n_string_features = num_string_features.unwrap();
-        let n_numeric_features = num_numeric_features.unwrap();
-
-        let string_array = Array2::from_shape_vec((n_samples, n_string_features), string_features)
-            .map_err(|e| {
+        // Titanic has a fixed schema of 5 string and 6 numeric features per sample.
+        let string_array =
+            Array2::from_shape_vec((n_samples, 5), string_features).map_err(|e| {
                 DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e)
             })?;
 
         let numeric_array =
-            Array2::from_shape_vec((n_samples, n_numeric_features), numeric_features).map_err(
-                |e| DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e),
-            )?;
+            Array2::from_shape_vec((n_samples, 6), numeric_features).map_err(|e| {
+                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
+            })?;
 
         let labels_array = Array1::from_vec(labels);
 
@@ -324,7 +320,7 @@ impl Titanic {
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
-    pub fn data(&self) -> Result<(&Array2<String>, &Array2<f64>, &Array1<f64>), DatasetError> {
+    pub fn data(&self) -> Result<TitanicDataRef<'_>, DatasetError> {
         let data = self.dataset.load(Self::load_data)?;
         Ok((&data.0, &data.1, &data.2))
     }

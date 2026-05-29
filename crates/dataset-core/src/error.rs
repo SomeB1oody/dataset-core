@@ -37,9 +37,7 @@ pub enum DataFormatErrorKind {
         line_num: usize,
     },
     /// Failed to parse a field value into the target type
-    #[error(
-        "[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error}"
-    )]
+    #[error("[{dataset_name}] failed to parse `{field_name}` at line {line_num}: {error}")]
     ParseFailed {
         /// Dataset identifier
         dataset_name: String,
@@ -51,9 +49,7 @@ pub enum DataFormatErrorKind {
         error: String,
     },
     /// The field value is syntactically valid but semantically incorrect
-    #[error(
-        "[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}`"
-    )]
+    #[error("[{dataset_name}] invalid value for `{field_name}` at line {line_num}: `{value}`")]
     InvalidValue {
         /// Dataset identifier
         dataset_name: String,

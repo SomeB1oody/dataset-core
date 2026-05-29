@@ -26,9 +26,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5C88K>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use csv::ReaderBuilder;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
+use serde::Deserialize;
 use std::fs::File;
 
 /// The URL for the Boston Housing dataset.
@@ -44,6 +45,29 @@ const BOSTON_HOUSING_SHA256: &str =
 
 /// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
+
+/// One CSV record of the Boston Housing dataset: 13 `f64` feature columns
+/// followed by the `MEDV` target.
+///
+/// Records are deserialized **positionally** (by column order), so this struct
+/// is independent of the exact header spelling.
+#[derive(Deserialize)]
+struct BostonHousingRecord(
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+    f64,
+);
 
 /// A struct representing the Boston Housing dataset with lazy loading.
 ///
@@ -138,64 +162,36 @@ impl BostonHousing {
             },
         )?;
 
-        // Parse the file
+        // Stream the cached file through csv, deserializing one record at a time.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(true).from_reader(file);
 
         let mut features = Vec::new();
         let mut targets = Vec::new();
-        let mut num_features: Option<usize> = None;
 
-        for (idx, result) in rdr.records().enumerate() {
-            let record =
-                result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
-            let line_num = idx + 2; // +1 for 0-indexed, +1 for header
+        for result in rdr.deserialize::<BostonHousingRecord>() {
+            let BostonHousingRecord(
+                crim,
+                zn,
+                indus,
+                chas,
+                nox,
+                rm,
+                age,
+                dis,
+                rad,
+                tax,
+                ptratio,
+                b,
+                lstat,
+                medv,
+            ) = result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
 
-            // Infer number of features from the first row
-            if num_features.is_none() {
-                if record.len() < 2 {
-                    return Err(DatasetError::invalid_column_count(
-                        BOSTON_HOUSING_DATASET_NAME,
-                        2,
-                        record.len(),
-                        line_num,
-                    ));
-                }
-                num_features = Some(record.len() - 1);
-            }
-
-            let n_features = num_features.unwrap();
-            if record.len() != n_features + 1 {
-                return Err(DatasetError::invalid_column_count(
-                    BOSTON_HOUSING_DATASET_NAME,
-                    n_features + 1,
-                    record.len(),
-                    line_num,
-                ));
-            }
-
-            // Features are all columns except the last one
-            for i in 0..n_features {
-                features.push(record[i].parse::<f64>().map_err(|e| {
-                    let field = format!("feature[{i}]");
-                    DatasetError::parse_failed(
-                        BOSTON_HOUSING_DATASET_NAME,
-                        &field,
-                        line_num,
-                        e,
-                    )
-                })?);
-            }
-
-            // Target is the last column
-            targets.push(record[n_features].parse::<f64>().map_err(|e| {
-                DatasetError::parse_failed(
-                    BOSTON_HOUSING_DATASET_NAME,
-                    "target",
-                    line_num,
-                    e,
-                )
-            })?);
+            // Features are every column except the last; the target is `MEDV`.
+            features.extend_from_slice(&[
+                crim, zn, indus, chas, nox, rm, age, dis, rad, tax, ptratio, b, lstat,
+            ]);
+            targets.push(medv);
         }
 
         // Verify the dataset is not empty
@@ -204,11 +200,10 @@ impl BostonHousing {
             return Err(DatasetError::empty_dataset(BOSTON_HOUSING_DATASET_NAME));
         }
 
-        let n_features = num_features.unwrap();
-        let features_array =
-            Array2::from_shape_vec((n_samples, n_features), features).map_err(|e| {
-                DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e)
-            })?;
+        // Boston Housing has a fixed schema of 13 numeric features per sample.
+        let features_array = Array2::from_shape_vec((n_samples, 13), features).map_err(|e| {
+            DatasetError::array_shape_error(BOSTON_HOUSING_DATASET_NAME, "features", e)
+        })?;
         let targets_array = Array1::from_vec(targets);
 
         Ok((features_array, targets_array))

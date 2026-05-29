@@ -37,12 +37,7 @@ fn test_load_red_wine_quality() {
     }
     for i in 0..targets.len() {
         let val = targets[i];
-        assert!(
-            val.is_finite(),
-            "target[{}] = {} is not finite",
-            i,
-            val
-        );
+        assert!(val.is_finite(), "target[{}] = {} is not finite", i, val);
     }
 
     // Semantic assertions: quality scores must be integer-valued and within the valid range [0, 10]

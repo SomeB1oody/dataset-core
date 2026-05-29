@@ -48,9 +48,13 @@ pub fn download_to(
     filename: Option<&str>,
 ) -> Result<(), DatasetError> {
     // Get the filename: use provided name, or fall back to URL extraction
-    let filename = filename.or_else(|| url.split('/').next_back()).ok_or_else(|| {
-        DatasetError::ValidationError("Invalid URL: cannot extract filename from URL".to_string())
-    })?;
+    let filename = filename
+        .or_else(|| url.split('/').next_back())
+        .ok_or_else(|| {
+            DatasetError::ValidationError(
+                "Invalid URL: cannot extract filename from URL".to_string(),
+            )
+        })?;
 
     let save_path = storage_path.join(filename);
 
@@ -419,14 +423,14 @@ where
         let src = prepare_file(temp_path)?;
 
         // Validate SHA256 hash if provided
-        if let Some(hash) = expected_sha256 {
-            if !file_sha256_matches(&src, hash)? {
-                drop(temp_dir); // Clean up temporary directory
-                return Err(DatasetError::sha256_validation_failed(
-                    dataset_name,
-                    filename,
-                ));
-            }
+        if let Some(hash) = expected_sha256
+            && !file_sha256_matches(&src, hash)?
+        {
+            drop(temp_dir); // Clean up temporary directory
+            return Err(DatasetError::sha256_validation_failed(
+                dataset_name,
+                filename,
+            ));
         }
 
         // Move file to final destination

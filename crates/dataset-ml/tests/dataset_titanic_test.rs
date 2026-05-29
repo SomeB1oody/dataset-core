@@ -58,7 +58,10 @@ fn test_load_titanic() {
         .iter()
         .map(|&v| if v.is_nan() { 1 } else { 0 })
         .sum();
-    assert!(nan_count > 0, "numeric features should contain at least one NaN (missing Age values)");
+    assert!(
+        nan_count > 0,
+        "numeric features should contain at least one NaN (missing Age values)"
+    );
 
     let empty_string_count: usize = string_features
         .iter()
