@@ -39,6 +39,9 @@ use dataset_core::DatasetError;
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 
+/// Type alias shared by both Wine Quality subsets: (features, targets).
+pub(crate) type WineData = (Array2<f64>, Array1<f64>);
+
 /// One CSV record of a Wine Quality file (red or white): 11 `f64` feature
 /// columns followed by the `quality` target.
 ///
@@ -87,7 +90,7 @@ struct WineRecord {
 fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
     reader: R,
-) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+) -> Result<WineData, DatasetError> {
     // `has_headers(false)` makes csv deserialize into the named struct
     // *positionally* (by column order) rather than by header name, keeping
     // parsing independent of the exact header spelling. We skip the header row

@@ -41,6 +41,9 @@ const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a4707
 /// The name of the dataset
 const IRIS_DATASET_NAME: &str = "iris";
 
+/// Type alias for the Iris dataset: (features, labels).
+type IrisData = (Array2<f64>, Array1<&'static str>);
+
 /// One CSV record of the Iris dataset: four `f64` measurements followed by the
 /// species label.
 ///
@@ -131,7 +134,7 @@ struct IrisRecord {
 /// ```
 #[derive(Debug)]
 pub struct Iris {
-    dataset: Dataset<(Array2<f64>, Array1<&'static str>)>,
+    dataset: Dataset<IrisData>,
 }
 
 impl Iris {
@@ -154,7 +157,7 @@ impl Iris {
     }
 
     /// Acquire and parse the Iris dataset.
-    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    fn load_data(dir: &str) -> Result<IrisData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
@@ -272,12 +275,10 @@ impl Iris {
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(150, 4)` containing:
-    ///     - sepal length in cm
-    ///     - sepal width in cm
-    ///     - petal length in cm
-    ///     - petal width in cm
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(150,)` containing species names (`"setosa"`, `"versicolor"`, `"virginica"`)
+    /// - `&IrisData` - reference to the cached `(features, labels)` tuple: the
+    ///   feature matrix has shape `(150, 4)` (sepal length/width, petal
+    ///   length/width, all in cm) and the label vector has shape `(150,)`
+    ///   containing species names (`"setosa"`, `"versicolor"`, `"virginica"`).
     ///
     /// # Errors
     ///
@@ -286,9 +287,8 @@ impl Iris {
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
-    pub fn data(&self) -> Result<(&Array2<f64>, &Array1<&'static str>), DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
-        Ok((&data.0, &data.1))
+    pub fn data(&self) -> Result<&IrisData, DatasetError> {
+        self.dataset.load(Self::load_data)
     }
 
     /// Get both features and labels as references **without** triggering loading.
@@ -301,11 +301,11 @@ impl Iris {
     ///
     /// # Returns
     ///
-    /// - `Some((&Array2<f64>, &Array1<&'static str>))` - references to the cached
-    ///   feature matrix `(150, 4)` and label vector `(150,)`, if loaded.
+    /// - `Some(&IrisData)` - reference to the cached `(features, labels)` tuple
+    ///   (feature matrix `(150, 4)`, label vector `(150,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data(&self) -> Option<(&Array2<f64>, &Array1<&'static str>)> {
-        self.dataset.get().map(|(f, l)| (f, l))
+    pub fn get_data(&self) -> Option<&IrisData> {
+        self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
@@ -321,12 +321,12 @@ impl Iris {
     ///
     /// # Returns
     ///
-    /// - `Some((&mut Array2<f64>, &mut Array1<&'static str>))` - mutable references
-    ///   to the cached feature matrix `(150, 4)` and label vector `(150,)`, if
-    ///   loaded.
+    /// - `Some(&mut IrisData)` - mutable reference to the cached
+    ///   `(features, labels)` tuple (feature matrix `(150, 4)`, label vector
+    ///   `(150,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<(&mut Array2<f64>, &mut Array1<&'static str>)> {
-        self.dataset.get_mut().map(|(f, l)| (f, l))
+    pub fn get_data_mut(&mut self) -> Option<&mut IrisData> {
+        self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and labels.
@@ -348,7 +348,7 @@ impl Iris {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
     /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    pub fn into_data(self) -> Result<IrisData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset
@@ -375,7 +375,7 @@ impl Iris {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
     /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<(Array2<f64>, Array1<&'static str>), DatasetError> {
+    pub fn take_data(&mut self) -> Result<IrisData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset

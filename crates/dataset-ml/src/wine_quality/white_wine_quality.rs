@@ -7,7 +7,7 @@
 //! **Feature shape:** `(4898, 11)`
 //! **Target shape:** `(4898,)`
 
-use crate::wine_quality::parse_wine_data_to_array;
+use crate::wine_quality::{WineData, parse_wine_data_to_array};
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
 use ndarray::{Array1, Array2};
 use std::fs::File;
@@ -102,7 +102,7 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// ```
 #[derive(Debug)]
 pub struct WhiteWineQuality {
-    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<WineData>,
 }
 
 impl WhiteWineQuality {
@@ -125,7 +125,7 @@ impl WhiteWineQuality {
     }
 
     /// Acquire and parse the White Wine Quality dataset.
-    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data(dir: &str) -> Result<WineData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
@@ -201,19 +201,9 @@ impl WhiteWineQuality {
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(4898, 11)` containing:
-    ///     - fixed acidity
-    ///     - volatile acidity
-    ///     - citric acid
-    ///     - residual sugar
-    ///     - chlorides
-    ///     - free sulfur dioxide
-    ///     - total sulfur dioxide
-    ///     - density
-    ///     - pH
-    ///     - sulphates
-    ///     - alcohol
-    /// - `&Array1<f64>` - Reference to target vector with shape `(4898,)` containing quality scores (0-10)
+    /// - `&WineData` - reference to the cached `(features, targets)` tuple: feature
+    ///   matrix with shape `(4898, 11)` (the 11 physicochemical properties) and
+    ///   target vector with shape `(4898,)` (quality scores, 0-10).
     ///
     /// # Errors
     ///
@@ -222,9 +212,8 @@ impl WhiteWineQuality {
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
-    pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
-        Ok((&data.0, &data.1))
+    pub fn data(&self) -> Result<&WineData, DatasetError> {
+        self.dataset.load(Self::load_data)
     }
 
     /// Get both features and targets as references **without** triggering loading.
@@ -237,11 +226,11 @@ impl WhiteWineQuality {
     ///
     /// # Returns
     ///
-    /// - `Some((&Array2<f64>, &Array1<f64>))` - references to the cached feature
-    ///   matrix `(4898, 11)` and target vector `(4898,)`, if loaded.
+    /// - `Some(&WineData)` - reference to the cached `(features, targets)` tuple
+    ///   (feature matrix `(4898, 11)`, target vector `(4898,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data(&self) -> Option<(&Array2<f64>, &Array1<f64>)> {
-        self.dataset.get().map(|(f, t)| (f, t))
+    pub fn get_data(&self) -> Option<&WineData> {
+        self.dataset.get()
     }
 
     /// Get mutable references to features and targets for **in-place** editing.
@@ -259,11 +248,12 @@ impl WhiteWineQuality {
     ///
     /// # Returns
     ///
-    /// - `Some((&mut Array2<f64>, &mut Array1<f64>))` - mutable references to the
-    ///   cached feature matrix `(4898, 11)` and target vector `(4898,)`, if loaded.
+    /// - `Some(&mut WineData)` - mutable reference to the cached `(features,
+    ///   targets)` tuple (feature matrix `(4898, 11)`, target vector `(4898,)`),
+    ///   if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<(&mut Array2<f64>, &mut Array1<f64>)> {
-        self.dataset.get_mut().map(|(f, t)| (f, t))
+    pub fn get_data_mut(&mut self) -> Option<&mut WineData> {
+        self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and targets.
@@ -286,7 +276,7 @@ impl WhiteWineQuality {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn into_data(self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn into_data(self) -> Result<WineData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset
@@ -314,7 +304,7 @@ impl WhiteWineQuality {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn take_data(&mut self) -> Result<WineData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset

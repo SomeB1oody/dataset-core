@@ -40,6 +40,9 @@ const DIABETES_SHA256: &str = "698c203a14aa31941d2251175330c9199f3ccdb31597abbba
 /// The name of the dataset
 const DIABETES_DATASET_NAME: &str = "diabetes";
 
+/// Type alias for the Diabetes dataset: (features, labels).
+type DiabetesData = (Array2<f64>, Array1<f64>);
+
 /// One CSV record of the Diabetes dataset: 8 `f64` feature columns followed by
 /// the binary `Outcome` label.
 ///
@@ -132,7 +135,7 @@ struct DiabetesRecord {
 /// ```
 #[derive(Debug)]
 pub struct Diabetes {
-    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<DiabetesData>,
 }
 
 impl Diabetes {
@@ -155,7 +158,7 @@ impl Diabetes {
     }
 
     /// Acquire and parse the Diabetes dataset.
-    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data(dir: &str) -> Result<DiabetesData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
@@ -273,16 +276,10 @@ impl Diabetes {
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(768, 8)` containing:
-    ///     - Pregnancies: Number of times pregnant
-    ///     - Glucose: Plasma glucose concentration at 2 hours in an oral glucose tolerance test
-    ///     - BloodPressure: Diastolic blood pressure (mm Hg)
-    ///     - SkinThickness: Triceps skin fold thickness (mm)
-    ///     - Insulin: 2-Hour serum insulin (mu U/ml)
-    ///     - BMI: Body mass index (weight in kg/(height in m)^2)
-    ///     - DiabetesPedigreeFunction: Diabetes pedigree function
-    ///     - Age: Age (years)
-    /// - `&Array1<f64>` - Reference to label vector with shape `(768,)` containing class variable (0 or 1)
+    /// - `&DiabetesData` - reference to the cached `(features, labels)` tuple:
+    ///   feature matrix with shape `(768, 8)` (Pregnancies, Glucose,
+    ///   BloodPressure, SkinThickness, Insulin, BMI, DiabetesPedigreeFunction,
+    ///   Age) and label vector with shape `(768,)` (class variable, 0 or 1).
     ///
     /// # Errors
     ///
@@ -291,9 +288,8 @@ impl Diabetes {
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (768 samples, 8 features)
-    pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
-        Ok((&data.0, &data.1))
+    pub fn data(&self) -> Result<&DiabetesData, DatasetError> {
+        self.dataset.load(Self::load_data)
     }
 
     /// Get both features and labels as references **without** triggering loading.
@@ -306,11 +302,11 @@ impl Diabetes {
     ///
     /// # Returns
     ///
-    /// - `Some((&Array2<f64>, &Array1<f64>))` - references to the cached feature
-    ///   matrix `(768, 8)` and label vector `(768,)`, if loaded.
+    /// - `Some(&DiabetesData)` - reference to the cached `(features, labels)` tuple
+    ///   (feature matrix `(768, 8)`, label vector `(768,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data(&self) -> Option<(&Array2<f64>, &Array1<f64>)> {
-        self.dataset.get().map(|(f, l)| (f, l))
+    pub fn get_data(&self) -> Option<&DiabetesData> {
+        self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
@@ -326,11 +322,12 @@ impl Diabetes {
     ///
     /// # Returns
     ///
-    /// - `Some((&mut Array2<f64>, &mut Array1<f64>))` - mutable references to the
-    ///   cached feature matrix `(768, 8)` and label vector `(768,)`, if loaded.
+    /// - `Some(&mut DiabetesData)` - mutable reference to the cached
+    ///   `(features, labels)` tuple (feature matrix `(768, 8)`, label vector
+    ///   `(768,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<(&mut Array2<f64>, &mut Array1<f64>)> {
-        self.dataset.get_mut().map(|(f, l)| (f, l))
+    pub fn get_data_mut(&mut self) -> Option<&mut DiabetesData> {
+        self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and labels.
@@ -353,7 +350,7 @@ impl Diabetes {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn into_data(self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn into_data(self) -> Result<DiabetesData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset
@@ -380,7 +377,7 @@ impl Diabetes {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn take_data(&mut self) -> Result<DiabetesData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset

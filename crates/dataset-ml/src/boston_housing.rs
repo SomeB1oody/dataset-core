@@ -46,6 +46,9 @@ const BOSTON_HOUSING_SHA256: &str =
 /// The name of the dataset
 const BOSTON_HOUSING_DATASET_NAME: &str = "boston_housing";
 
+/// Type alias for the Boston Housing dataset: (features, targets).
+type BostonHousingData = (Array2<f64>, Array1<f64>);
+
 /// One CSV record of the Boston Housing dataset: 13 `f64` feature columns
 /// followed by the `medv` target.
 ///
@@ -146,7 +149,7 @@ struct BostonHousingRecord {
 /// ```
 #[derive(Debug)]
 pub struct BostonHousing {
-    dataset: Dataset<(Array2<f64>, Array1<f64>)>,
+    dataset: Dataset<BostonHousingData>,
 }
 
 impl BostonHousing {
@@ -169,7 +172,7 @@ impl BostonHousing {
     }
 
     /// Acquire and parse the Boston Housing dataset.
-    fn load_data(dir: &str) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    fn load_data(dir: &str) -> Result<BostonHousingData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
@@ -293,21 +296,10 @@ impl BostonHousing {
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(506, 13)` containing:
-    ///     - CRIM - per capita crime rate by town
-    ///     - ZN - proportion of residential land zoned for lots over 25,000 sq.ft.
-    ///     - INDUS - proportion of non-retail business acres per town
-    ///     - CHAS - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
-    ///     - NOX - nitric oxides concentration (parts per 10 million)
-    ///     - RM - average number of rooms per dwelling
-    ///     - AGE - proportion of owner-occupied units built prior to 1940
-    ///     - DIS - weighted distances to five Boston employment centres
-    ///     - RAD - index of accessibility to radial highways
-    ///     - TAX - full-value property-tax rate per $10,000
-    ///     - PTRATIO - pupil-teacher ratio by town
-    ///     - B - 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
-    ///     - LSTAT - % lower status of the population
-    /// - `&Array1<f64>` - Reference to target vector with shape `(506,)` containing median value of owner-occupied homes in $1000's (MEDV)
+    /// - `&BostonHousingData` - reference to the cached `(features, targets)`
+    ///   tuple: feature matrix with shape `(506, 13)` (CRIM, ZN, INDUS, CHAS, NOX,
+    ///   RM, AGE, DIS, RAD, TAX, PTRATIO, B, LSTAT) and target vector with shape
+    ///   `(506,)` (MEDV, median home value in $1000's).
     ///
     /// # Errors
     ///
@@ -316,9 +308,8 @@ impl BostonHousing {
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
-    pub fn data(&self) -> Result<(&Array2<f64>, &Array1<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
-        Ok((&data.0, &data.1))
+    pub fn data(&self) -> Result<&BostonHousingData, DatasetError> {
+        self.dataset.load(Self::load_data)
     }
 
     /// Get both features and targets as references **without** triggering loading.
@@ -331,11 +322,11 @@ impl BostonHousing {
     ///
     /// # Returns
     ///
-    /// - `Some((&Array2<f64>, &Array1<f64>))` - references to the cached feature
-    ///   matrix `(506, 13)` and target vector `(506,)`, if loaded.
+    /// - `Some(&BostonHousingData)` - reference to the cached `(features, targets)`
+    ///   tuple (feature matrix `(506, 13)`, target vector `(506,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data(&self) -> Option<(&Array2<f64>, &Array1<f64>)> {
-        self.dataset.get().map(|(f, t)| (f, t))
+    pub fn get_data(&self) -> Option<&BostonHousingData> {
+        self.dataset.get()
     }
 
     /// Get mutable references to features and targets for **in-place** editing.
@@ -352,11 +343,12 @@ impl BostonHousing {
     ///
     /// # Returns
     ///
-    /// - `Some((&mut Array2<f64>, &mut Array1<f64>))` - mutable references to the
-    ///   cached feature matrix `(506, 13)` and target vector `(506,)`, if loaded.
+    /// - `Some(&mut BostonHousingData)` - mutable reference to the cached
+    ///   `(features, targets)` tuple (feature matrix `(506, 13)`, target vector
+    ///   `(506,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<(&mut Array2<f64>, &mut Array1<f64>)> {
-        self.dataset.get_mut().map(|(f, t)| (f, t))
+    pub fn get_data_mut(&mut self) -> Option<&mut BostonHousingData> {
+        self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and targets.
@@ -379,7 +371,7 @@ impl BostonHousing {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn into_data(self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn into_data(self) -> Result<BostonHousingData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset
@@ -406,7 +398,7 @@ impl BostonHousing {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<(Array2<f64>, Array1<f64>), DatasetError> {
+    pub fn take_data(&mut self) -> Result<BostonHousingData, DatasetError> {
         self.dataset.load(Self::load_data)?;
         Ok(self
             .dataset

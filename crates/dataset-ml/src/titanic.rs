@@ -24,18 +24,6 @@ use std::fs::File;
 /// Type alias for Titanic dataset: (string features, numeric features, labels)
 type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 
-/// Type alias for borrowed Titanic dataset: references to (string features,
-/// numeric features, labels).
-type TitanicDataRef<'a> = (&'a Array2<String>, &'a Array2<f64>, &'a Array1<f64>);
-
-/// Type alias for mutably-borrowed Titanic dataset: mutable references to
-/// (string features, numeric features, labels).
-type TitanicDataMut<'a> = (
-    &'a mut Array2<String>,
-    &'a mut Array2<f64>,
-    &'a mut Array1<f64>,
-);
-
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str =
     "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
@@ -332,20 +320,11 @@ impl Titanic {
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to string feature matrix with shape `(891, 5)` containing:
-    ///     - `Name`
-    ///     - `Sex`
-    ///     - `Ticket`
-    ///     - `Cabin`
-    ///     - `Embarked`
-    /// - `&Array2<f64>` - Reference to numeric feature matrix with shape `(891, 6)` containing:
-    ///     - `PassengerId`
-    ///     - `Pclass`
-    ///     - `Age`
-    ///     - `SibSp`
-    ///     - `Parch`
-    ///     - `Fare`
-    /// - `&Array1<f64>` - Reference to label vector with shape `(891,)` containing `Survived` values
+    /// - `&TitanicData` - reference to the cached `(string features, numeric
+    ///   features, labels)` tuple: string feature matrix `(891, 5)` (Name, Sex,
+    ///   Ticket, Cabin, Embarked), numeric feature matrix `(891, 6)`
+    ///   (PassengerId, Pclass, Age, SibSp, Parch, Fare), and label vector
+    ///   `(891,)` (Survived).
     ///
     /// # Errors
     ///
@@ -354,9 +333,8 @@ impl Titanic {
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
-    pub fn data(&self) -> Result<TitanicDataRef<'_>, DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
-        Ok((&data.0, &data.1, &data.2))
+    pub fn data(&self) -> Result<&TitanicData, DatasetError> {
+        self.dataset.load(Self::load_data)
     }
 
     /// Get string features, numeric features and labels as references
@@ -370,12 +348,11 @@ impl Titanic {
     ///
     /// # Returns
     ///
-    /// - `Some((&Array2<String>, &Array2<f64>, &Array1<f64>))` - references to the
-    ///   cached string feature matrix `(891, 5)`, numeric feature matrix
-    ///   `(891, 6)`, and label vector `(891,)`, if loaded.
+    /// - `Some(&TitanicData)` - reference to the cached `(string features, numeric
+    ///   features, labels)` tuple (`(891, 5)`, `(891, 6)`, `(891,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data(&self) -> Option<TitanicDataRef<'_>> {
-        self.dataset.get().map(|(s, n, l)| (s, n, l))
+    pub fn get_data(&self) -> Option<&TitanicData> {
+        self.dataset.get()
     }
 
     /// Get mutable references to string features, numeric features, and labels
@@ -393,12 +370,12 @@ impl Titanic {
     ///
     /// # Returns
     ///
-    /// - `Some((&mut Array2<String>, &mut Array2<f64>, &mut Array1<f64>))` -
-    ///   mutable references to the cached string feature matrix `(891, 5)`,
-    ///   numeric feature matrix `(891, 6)`, and label vector `(891,)`, if loaded.
+    /// - `Some(&mut TitanicData)` - mutable reference to the cached `(string
+    ///   features, numeric features, labels)` tuple (`(891, 5)`, `(891, 6)`,
+    ///   `(891,)`), if loaded.
     /// - `None` - if the dataset has not been loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<TitanicDataMut<'_>> {
-        self.dataset.get_mut().map(|(s, n, l)| (s, n, l))
+    pub fn get_data_mut(&mut self) -> Option<&mut TitanicData> {
+        self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** string features, numeric features,

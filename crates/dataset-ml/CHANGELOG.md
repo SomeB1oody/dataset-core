@@ -9,11 +9,13 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 ## [Unreleased]
 ### Changed
 - Refactored CSV parsing in every dataset loader to use Serde. Each loader now defines a `#[derive(Deserialize)]` record struct and parses with `csv::Reader::deserialize()`, replacing the manual per-field `record[i].parse()` loops, the `num_features` inference, and the explicit column-count checks (the `csv` reader now enforces a consistent column count). Records are deserialized **positionally**, so parsing is independent of the exact CSV header spelling and of any byte-order mark on the header row. Missing Titanic numeric fields deserialize to `None` and are mapped to `NaN` exactly as before.
-- The public API, return types, error type, and the download → SHA-256 verify → cache → reuse workflow are all unchanged; this is an internal parsing refactor.
+- The error type and the download → SHA-256 verify → cache → reuse workflow are unchanged; the Serde change is an internal parsing refactor.
+- Each loader's content type now has a named alias (`IrisData`, `BostonHousingData`, `DiabetesData`, `TitanicData`, and the shared `WineData` for both wine subsets), used for the `Dataset<…>` field and the owned/borrowed accessor return types.
+- `data()` on every loader now returns a reference to the cached data tuple (`&IrisData`, `&TitanicData`, …) instead of a tuple of references (`(&Array2, &Array1)`). Call-site destructuring (`let (features, labels) = ds.data()?`) is unchanged thanks to match ergonomics.
 
 ### Added
 - `into_data(self)` and `take_data(&mut self)` on every dataset loader (`Iris`, `BostonHousing`, `Diabetes`, `Titanic`, `RedWineQuality`, `WhiteWineQuality`), returning **owned** arrays instead of borrows — no `to_owned()` clone needed. `into_data` consumes the loader; `take_data` leaves it reusable (a later accessor call reloads). Built on the new `Dataset::into_inner` / `Dataset::take` in `dataset-core`.
-- `get_data(&self)` and `get_data_mut(&mut self)` on every dataset loader, returning the cached arrays as references **without** triggering loading (they return `None` if the data has not been loaded yet). `get_data` borrows the arrays; `get_data_mut` allows editing them in place — no `to_owned()` clone, no reload, and the change persists in the cache. Built on the new `Dataset::get` / `Dataset::get_mut` in `dataset-core`.
+- `get_data(&self) -> Option<&XData>` and `get_data_mut(&mut self) -> Option<&mut XData>` on every dataset loader, returning a reference to the cached data tuple **without** triggering loading (they return `None` if the data has not been loaded yet). `get_data` borrows it; `get_data_mut` allows editing it in place — no `to_owned()` clone, no reload, and the change persists in the cache. Built on the new `Dataset::get` / `Dataset::get_mut` in `dataset-core`.
 - `serde` (with the `derive` feature) as a direct dependency, used for record deserialization.
 
 ## [0.1.0] - 2026-5-27
