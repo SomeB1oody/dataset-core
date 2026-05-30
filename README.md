@@ -1,4 +1,4 @@
-[简体中文](README.zh-CN.md) | English
+[简体中文](https://github.com/SomeB1oody/dataset-core/blob/master/README.zh-CN.md) | English
 
 # dataset-core workspace
 
