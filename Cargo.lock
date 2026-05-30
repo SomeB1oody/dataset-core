@@ -191,7 +191,7 @@ dependencies = [
 
 [[package]]
 name = "dataset-core"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "sha2 0.11.0",
  "tempfile",
@@ -202,7 +202,7 @@ dependencies = [
 
 [[package]]
 name = "dataset-ml"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "csv",
  "dataset-core",
