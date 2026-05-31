@@ -102,21 +102,15 @@ struct IrisRecord {
 /// let labels = dataset.labels().unwrap();
 ///
 /// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
-/// // you can use `.to_owned()` to get owned copies of the data
-/// let mut features_owned = features.to_owned();
-/// let mut labels_owned = labels.to_owned();
-///
-/// // Example: Modify feature values
-/// features_owned[[0, 0]] = 5.5;
-/// labels_owned[0] = "setosa-modified";
-///
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
 /// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place (no clone, no reload — the change stays cached).
-/// if let Some((features, _labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 4.9;
+/// // edits them in place — no clone, no reload, the change stays cached. Prefer
+/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// if let Some((features, labels)) = dataset.get_data_mut() {
+///     features[[0, 0]] = 5.5;
+///     labels[0] = "setosa-modified";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///

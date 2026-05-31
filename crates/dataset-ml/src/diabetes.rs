@@ -103,21 +103,15 @@ struct DiabetesRecord {
 /// let labels = dataset.labels().unwrap();
 ///
 /// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
-/// // you can use `.to_owned()` to get owned copies of the data
-/// let mut features_owned = features.to_owned();
-/// let mut labels_owned = labels.to_owned();
-///
-/// // Example: Modify feature values
-/// features_owned[[0, 0]] = 10.0;
-/// labels_owned[0] = 1.0;
-///
 /// assert_eq!(features.shape(), &[768, 8]);
 /// assert_eq!(labels.len(), 768);
 ///
 /// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place (no clone, no reload — the change stays cached).
-/// if let Some((features, _labels)) = dataset.get_data_mut() {
+/// // edits them in place — no clone, no reload, the change stays cached. Prefer
+/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 10.0;
+///     labels[0] = 1.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///

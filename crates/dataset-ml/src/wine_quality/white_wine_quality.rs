@@ -70,21 +70,15 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// let targets = dataset.targets().unwrap();
 ///
 /// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
-/// // you can use `.to_owned()` to get owned copies of the data
-/// let mut features_owned = features.to_owned();
-/// let mut targets_owned = targets.to_owned();
-///
-/// // Example: Modify feature values
-/// features_owned[[0, 0]] = 10.0;
-/// targets_owned[0] = 7.0;
-///
 /// assert_eq!(features.shape(), &[4898, 11]);
 /// assert_eq!(targets.len(), 4898);
 ///
 /// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place (no clone, no reload — the change stays cached).
-/// if let Some((features, _targets)) = dataset.get_data_mut() {
+/// // edits them in place — no clone, no reload, the change stays cached. Prefer
+/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 10.0;
+///     targets[0] = 7.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///

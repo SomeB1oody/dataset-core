@@ -111,23 +111,16 @@ struct TitanicRecord {
 /// let labels = dataset.labels().unwrap();
 ///
 /// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
-/// // you can use `.to_owned()` to get owned copies of the data
-/// let mut string_features_owned = string_features.to_owned();
-/// let mut numeric_features_owned = numeric_features.to_owned();
-/// let mut labels_owned = labels.to_owned();
-///
-/// // Example: Modify feature values
-/// numeric_features_owned[[0, 0]] = 1.0;
-/// labels_owned[0] = 1.0;
-///
 /// assert_eq!(string_features.shape(), &[891, 5]);
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
 ///
 /// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place (no clone, no reload — the change stays cached).
-/// if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
+/// // edits them in place — no clone, no reload, the change stays cached. Prefer
+/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 1.0;
+///     labels[0] = 1.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///

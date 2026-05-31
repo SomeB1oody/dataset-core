@@ -117,21 +117,15 @@ struct BostonHousingRecord {
 /// let targets = dataset.targets().unwrap();
 ///
 /// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
-/// // you can use `.to_owned()` to get owned copies of the data
-/// let mut features_owned = features.to_owned();
-/// let mut targets_owned = targets.to_owned();
-///
-/// // Example: Modify feature values
-/// features_owned[[0, 0]] = 0.1;
-/// targets_owned[0] = 25.5;
-///
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
 ///
 /// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place (no clone, no reload — the change stays cached).
-/// if let Some((features, _targets)) = dataset.get_data_mut() {
+/// // edits them in place — no clone, no reload, the change stays cached. Prefer
+/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.1;
+///     targets[0] = 25.5;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
