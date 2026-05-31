@@ -15,9 +15,9 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
 - Parses the CSV into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
-- Caches the parsed result in memory via `dataset_core::Dataset<T>` — subsequent accesses return a `&` reference with zero I/O.
+- Caches the parsed result in memory via `dataset_core::Dataset<T, E>` — subsequent accesses return a `&` reference with zero I/O.
 
-Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T>` for a concrete data source.
+Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
 
 ## Installation
 

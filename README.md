@@ -11,13 +11,13 @@ A Cargo workspace for building and consuming Rust dataset loaders. The architect
 
 | Crate                                        | Path                       | What it provides                                                                                                  |
 |----------------------------------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------|
-| [`dataset-core`](crates/dataset-core)        | `crates/dataset-core`      | The `Dataset<T>` type (thread-safe, lazy, cached) and the optional `utils` module (download, unzip, SHA-256, etc.) |
+| [`dataset-core`](crates/dataset-core)        | `crates/dataset-core`      | The `Dataset<T, E>` type (thread-safe, lazy, cached) and the optional `utils` module (download, unzip, SHA-256, etc.) |
 | [`dataset-ml`](crates/dataset-ml)            | `crates/dataset-ml`        | Ready-to-use loaders for Iris, Boston Housing, Diabetes, Titanic, Red/White Wine Quality, built on `dataset-core` |
 
 ```
 dataset-core (workspace root)
 ├── crates/
-│   ├── dataset-core/    architecture: Dataset<T>, utils, error
+│   ├── dataset-core/    architecture: Dataset<T, E>, utils, error
 │   └── dataset-ml/      implementations: Iris, Titanic, Wine Quality, ...
 ├── Cargo.toml           workspace manifest
 └── README.md            this file
@@ -29,7 +29,7 @@ dataset-core (workspace root)
 - **Want the classic ML datasets out of the box?** Depend on [`dataset-ml`](crates/dataset-ml) — it pulls in `dataset-core` automatically.
 
 ``` toml
-# Minimal: just Dataset<T>
+# Minimal: just Dataset<T, E>
 [dependencies]
 dataset-core = "0.2"
 

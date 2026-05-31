@@ -10,7 +10,7 @@ A generic, thread-safe dataset container with lazy loading and caching for Rust.
 
 ## Overview
 
-`dataset-core` provides `Dataset<T>`, a lightweight wrapper that pairs a storage directory with a lazily-initialized value of any type `T`. The actual loading logic is supplied by the caller through a closure, so `Dataset<T>` works with any data source — local files, remote URLs, databases, or in-memory generation.
+`dataset-core` provides `Dataset<T, E>`, a lightweight wrapper that pairs a storage directory with a lazily-initialized value of any type `T`. The actual loading logic is supplied by the caller through a closure stored at construction time, so `Dataset<T, E>` works with any data source — local files, remote URLs, databases, or in-memory generation. (`E` is the loader's error type, chosen freely by the caller.)
 
 The first call to `load()` executes the closure and caches the result via `OnceLock`; every subsequent call returns a reference to the cached value with zero overhead, even across threads.
 
@@ -40,7 +40,7 @@ dataset-core = { version = "0.2", features = ["utils"] }
 
 | Feature  | What it enables                                              | Extra dependencies               |
 |----------|--------------------------------------------------------------|----------------------------------|
-| *(none)* | `Dataset<T>` only                                            | none                             |
+| *(none)* | `Dataset<T, E>` only                                         | none                             |
 | `utils`  | Download, unzip, temp dirs, SHA-256 validation, error types  | ureq, zip, tempfile, sha2, thiserror |
 
 ## Core Usage
@@ -54,26 +54,29 @@ fn my_loader(dir: &str) -> Result<Vec<String>, std::io::Error> {
 }
 
 fn main() {
-    let ds: Dataset<Vec<String>> = Dataset::new("./my_data");
+    // The loader is supplied once, at construction time.
+    let ds: Dataset<Vec<String>, std::io::Error> = Dataset::new("./my_data", my_loader);
 
     // First call runs the loader and caches the result.
-    let data = ds.load(my_loader).unwrap();
+    let data = ds.load().unwrap();
     assert_eq!(data.len(), 2);
 
     // Subsequent calls return the cached reference instantly.
-    let data_again = ds.load(my_loader).unwrap();
+    let data_again = ds.load().unwrap();
     assert!(std::ptr::eq(data, data_again)); // same reference, no reload
 }
 ```
 
-### `Dataset<T>` API
+### `Dataset<T, E>` API
 
-| Method          | Returns         | Description                                               |
-|-----------------|-----------------|-----------------------------------------------------------|
-| `new(dir)`      | `Dataset<T>`    | Create an instance (no I/O)                               |
-| `load(loader)`  | `Result<&T, E>` | Run `loader` on first call, return cached `&T` thereafter |
-| `is_loaded()`   | `bool`          | Whether data has been loaded                              |
-| `storage_dir()` | `&str`          | The storage directory path                                |
+| Method               | Returns         | Description                                                         |
+|----------------------|-----------------|--------------------------------------------------------------------|
+| `new(dir, loader)`   | `Dataset<T, E>` | Create an instance, storing the loader (no I/O)                    |
+| `load()`             | `Result<&T, E>` | Run the stored loader on first call, return cached `&T` thereafter |
+| `set_loader(loader)` | `()`            | Replace the loader and invalidate the cache (lazy re-parse)        |
+| `invalidate()`       | `()`            | Drop the cached value, keep the loader (next `load` re-runs it)    |
+| `is_loaded()`        | `bool`          | Whether data has been loaded                                       |
+| `storage_dir()`      | `&str`          | The storage directory path                                         |
 
 ## Utility Functions (feature `utils`)
 
@@ -93,19 +96,21 @@ fn main() {
 use dataset_core::Dataset;
 
 pub struct MyDataset {
-    inner: Dataset<(Vec<f64>, Vec<String>)>,
+    inner: Dataset<(Vec<f64>, Vec<String>), MyError>,
 }
 
 impl MyDataset {
     pub fn new(storage_dir: &str) -> Self {
-        Self { inner: Dataset::new(storage_dir) }
+        Self {
+            inner: Dataset::new(storage_dir, |dir| {
+                // Download / read / parse files from `dir` ...
+                Ok((vec![1.0, 2.0], vec!["a".into(), "b".into()]))
+            }),
+        }
     }
 
     pub fn data(&self) -> Result<&(Vec<f64>, Vec<String>), MyError> {
-        self.inner.load(|dir| {
-            // Download / read / parse files from `dir` ...
-            Ok((vec![1.0, 2.0], vec!["a".into(), "b".into()]))
-        })
+        self.inner.load()
     }
 }
 ```
@@ -116,7 +121,7 @@ See the [`dataset-ml`](https://crates.io/crates/dataset-ml) source for complete,
 
 - **First access**: runs the loader once (potentially network + parse), caches the result.
 - **Subsequent accesses**: return a reference to the cached data — zero allocation, zero I/O.
-- **Cross-thread safety**: `Dataset<T>` is `Send + Sync` whenever `T` is; the internal `OnceLock` guarantees the loader runs at most once even under concurrent calls.
+- **Cross-thread safety**: `Dataset<T, E>` is `Send + Sync` whenever `T` is (the stored loader is always `Send + Sync`); the internal `OnceLock` guarantees the loader runs at most once even under concurrent calls.
 
 ## License
 

@@ -149,7 +149,7 @@ struct BostonHousingRecord {
 /// ```
 #[derive(Debug)]
 pub struct BostonHousing {
-    dataset: Dataset<BostonHousingData>,
+    dataset: Dataset<BostonHousingData, DatasetError>,
 }
 
 impl BostonHousing {
@@ -167,7 +167,7 @@ impl BostonHousing {
     /// - `Self` - `BostonHousing` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         BostonHousing {
-            dataset: Dataset::new(storage_dir),
+            dataset: Dataset::new(storage_dir, Self::load_data),
         }
     }
 
@@ -266,7 +266,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.0)
+        Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
@@ -286,7 +286,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.1)
+        Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
@@ -309,7 +309,7 @@ impl BostonHousing {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
     pub fn data(&self) -> Result<&BostonHousingData, DatasetError> {
-        self.dataset.load(Self::load_data)
+        self.dataset.load()
     }
 
     /// Get both features and targets as references **without** triggering loading.
@@ -372,7 +372,7 @@ impl BostonHousing {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn into_data(self) -> Result<BostonHousingData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .into_inner()
@@ -399,7 +399,7 @@ impl BostonHousing {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn take_data(&mut self) -> Result<BostonHousingData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .take()

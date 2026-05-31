@@ -134,7 +134,7 @@ struct IrisRecord {
 /// ```
 #[derive(Debug)]
 pub struct Iris {
-    dataset: Dataset<IrisData>,
+    dataset: Dataset<IrisData, DatasetError>,
 }
 
 impl Iris {
@@ -152,7 +152,7 @@ impl Iris {
     /// - `Self` - `Iris` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Iris {
-            dataset: Dataset::new(storage_dir),
+            dataset: Dataset::new(storage_dir, Self::load_data),
         }
     }
 
@@ -245,7 +245,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.0)
+        Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the labels vector.
@@ -265,7 +265,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.1)
+        Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
@@ -288,7 +288,7 @@ impl Iris {
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
     /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
     pub fn data(&self) -> Result<&IrisData, DatasetError> {
-        self.dataset.load(Self::load_data)
+        self.dataset.load()
     }
 
     /// Get both features and labels as references **without** triggering loading.
@@ -349,7 +349,7 @@ impl Iris {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
     /// labels, or a dimension mismatch).
     pub fn into_data(self) -> Result<IrisData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .into_inner()
@@ -376,7 +376,7 @@ impl Iris {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
     /// labels, or a dimension mismatch).
     pub fn take_data(&mut self) -> Result<IrisData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .take()

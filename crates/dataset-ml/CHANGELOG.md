@@ -8,6 +8,7 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 ## [0.2.0] - 2026-5-29
 ### Changed
+- Adapted to `dataset-core`'s loader-on-construction API: the loader is now stored on the `Dataset` and supplied at construction. Every loader's `Dataset<XData>` field becomes `Dataset<XData, DatasetError>`, `new` passes `Self::load_data` to `Dataset::new`, and the accessor methods call `self.dataset.load()` (no argument). The public API of each loader (`Iris::new(dir)`, `features()`, `labels()`, `data()`, etc.) is unchanged.
 - Refactored CSV parsing in every dataset loader to use Serde. Each loader now defines a `#[derive(Deserialize)]` record struct and parses with `csv::Reader::deserialize()`, replacing the manual per-field `record[i].parse()` loops, the `num_features` inference, and the explicit column-count checks (the `csv` reader now enforces a consistent column count). Records are deserialized **positionally**, so parsing is independent of the exact CSV header spelling and of any byte-order mark on the header row. Missing Titanic numeric fields deserialize to `None` and are mapped to `NaN` exactly as before.
 - The error type and the download → SHA-256 verify → cache → reuse workflow are unchanged; the Serde change is an internal parsing refactor.
 - Each loader's content type now has a named alias (`IrisData`, `BostonHousingData`, `DiabetesData`, `TitanicData`, and the shared `WineData` for both wine subsets), used for the `Dataset<…>` field and the owned/borrowed accessor return types.

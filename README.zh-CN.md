@@ -11,13 +11,13 @@
 
 | Crate                                     | 路径                       | 提供的内容                                                                                                          |
 |-------------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------|
-| [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压、SHA-256 等）                          |
+| [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T, E>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压、SHA-256 等）                       |
 | [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的开箱即用加载器：Iris、Boston Housing、Diabetes、Titanic、红/白葡萄酒质量数据集                |
 
 ```
 dataset-core （工作区根目录）
 ├── crates/
-│   ├── dataset-core/    架构层：Dataset<T>、utils、error
+│   ├── dataset-core/    架构层：Dataset<T, E>、utils、error
 │   └── dataset-ml/      实现层：Iris、Titanic、Wine Quality 等
 ├── Cargo.toml           工作区清单
 └── README.md            本文件
@@ -29,7 +29,7 @@ dataset-core （工作区根目录）
 - **想直接使用经典 ML 数据集？** 依赖 [`dataset-ml`](crates/dataset-ml)——它会自动引入 `dataset-core`。
 
 ``` toml
-# 最小依赖：仅 Dataset<T>
+# 最小依赖：仅 Dataset<T, E>
 [dependencies]
 dataset-core = "0.2"
 

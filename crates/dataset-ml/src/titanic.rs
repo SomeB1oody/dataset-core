@@ -147,7 +147,7 @@ struct TitanicRecord {
 /// ```
 #[derive(Debug)]
 pub struct Titanic {
-    dataset: Dataset<TitanicData>,
+    dataset: Dataset<TitanicData, DatasetError>,
 }
 
 impl Titanic {
@@ -165,7 +165,7 @@ impl Titanic {
     /// - `Self` - `Titanic` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Titanic {
-            dataset: Dataset::new(storage_dir),
+            dataset: Dataset::new(storage_dir, Self::load_data),
         }
     }
 
@@ -289,7 +289,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load(Self::load_data)?;
+        let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
     }
 
@@ -310,7 +310,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.2)
+        Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and labels as references.
@@ -334,7 +334,7 @@ impl Titanic {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (891 samples)
     pub fn data(&self) -> Result<&TitanicData, DatasetError> {
-        self.dataset.load(Self::load_data)
+        self.dataset.load()
     }
 
     /// Get string features, numeric features and labels as references
@@ -401,7 +401,7 @@ impl Titanic {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn into_data(self) -> Result<TitanicData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .into_inner()
@@ -430,7 +430,7 @@ impl Titanic {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn take_data(&mut self) -> Result<TitanicData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .take()

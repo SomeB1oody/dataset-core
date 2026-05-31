@@ -102,7 +102,7 @@ const RED_WINE_QUALITY_SHA256: &str =
 /// ```
 #[derive(Debug)]
 pub struct RedWineQuality {
-    dataset: Dataset<WineData>,
+    dataset: Dataset<WineData, DatasetError>,
 }
 
 impl RedWineQuality {
@@ -120,7 +120,7 @@ impl RedWineQuality {
     /// - `Self` - `RedWineQuality` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         RedWineQuality {
-            dataset: Dataset::new(storage_dir),
+            dataset: Dataset::new(storage_dir, Self::load_data),
         }
     }
 
@@ -171,7 +171,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.0)
+        Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
@@ -191,7 +191,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load(Self::load_data)?.1)
+        Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
@@ -213,7 +213,7 @@ impl RedWineQuality {
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size doesn't match expected dimensions (1599 samples, 11 features)
     pub fn data(&self) -> Result<&WineData, DatasetError> {
-        self.dataset.load(Self::load_data)
+        self.dataset.load()
     }
 
     /// Get both features and targets as references **without** triggering loading.
@@ -277,7 +277,7 @@ impl RedWineQuality {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn into_data(self) -> Result<WineData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .into_inner()
@@ -304,7 +304,7 @@ impl RedWineQuality {
     /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
     /// dimension mismatch).
     pub fn take_data(&mut self) -> Result<WineData, DatasetError> {
-        self.dataset.load(Self::load_data)?;
+        self.dataset.load()?;
         Ok(self
             .dataset
             .take()

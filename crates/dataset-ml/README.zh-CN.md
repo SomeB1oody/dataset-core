@@ -15,9 +15,9 @@
 - 在首次访问时下载源文件（通过 `ureq`）。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
 - 使用 [`ndarray`](https://crates.io/crates/ndarray) 将 CSV 解析为 `Array1` / `Array2`。
-- 通过 `dataset_core::Dataset<T>` 在内存中缓存解析结果——后续访问会直接返回 `&` 引用，零 I/O。
+- 通过 `dataset_core::Dataset<T, E>` 在内存中缓存解析结果——后续访问会直接返回 `&` 引用，零 I/O。
 
-每个模块同时也是封装 `Dataset<T>` 处理具体数据源的完整参考实现。
+每个模块同时也是封装 `Dataset<T, E>` 处理具体数据源的完整参考实现。
 
 ## 安装
 

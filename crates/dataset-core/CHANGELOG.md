@@ -2,12 +2,17 @@
 
 All notable changes to the `dataset-core` crate will be documented in this file.
 
-This crate provides `Dataset<T>` plus the optional `utils` feature (download / unzip / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
+This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
 ## [0.3.0] - 2026-5-29
+### Changed
+- **Breaking:** the loader is now stored on the container and supplied once at construction. `Dataset<T>` becomes `Dataset<T, E>` (the loader's error type `E` is now a type parameter), `new` takes the loader (`new(dir, loader)`), and `load()` no longer takes a loader argument. The stored loader is `Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>`, so it must be `Send + Sync + 'static` (capture by value/clone, not by borrow). `Dataset<T, E>` remains `Send + Sync` whenever `T` is.
+
 ### Added
+- `Dataset::set_loader(&mut self, loader)` to replace the stored loader and invalidate the cache, so the next `load` lazily re-parses with the new loader (no immediate I/O).
+- `Dataset::invalidate(&mut self)` to drop the cached value while keeping the current loader, so the next `load` re-runs it (e.g. after the underlying files change on disk).
 - `Dataset::into_inner(self) -> Option<T>` and `Dataset::take(&mut self) -> Option<T>` for moving the cached value out of a `Dataset` without cloning. `into_inner` consumes the container; `take` leaves it reusable, resetting it to the unloaded state so a later `load` re-runs the loader. Both return `None` if the dataset was never loaded, and neither triggers loading.
 - `Dataset::get(&self) -> Option<&T>` and `Dataset::get_mut(&mut self) -> Option<&mut T>` for accessing the cached value without triggering loading. `get` borrows it (the reference-returning companion of `is_loaded`); `get_mut` allows editing it in place — no clone, no reload, and the change persists in the cache. Both return `None` if the dataset was never loaded.
 
