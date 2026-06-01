@@ -165,11 +165,7 @@ impl Diabetes {
             },
         )?;
 
-        // Stream the cached file through csv, deserializing one record at a time.
-        // `has_headers(false)` makes csv deserialize into the named struct
-        // *positionally* (by column order) rather than by header name, keeping
-        // parsing independent of the exact header spelling. We skip the header
-        // row ourselves with `.skip(1)`.
+        // csv deserializes into the struct
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 

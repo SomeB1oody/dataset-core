@@ -1,8 +1,6 @@
 #![cfg(feature = "utils")]
 
-use dataset_core::utils::{
-    acquire_dataset, create_temp_dir, download_to, file_sha256_matches, unzip,
-};
+use dataset_core::utils::{acquire_dataset, download_to, unzip};
 use std::fs::{self, File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -12,130 +10,8 @@ use zip::write::SimpleFileOptions;
 /// SHA256 of "hello world"
 const HELLO_WORLD_SHA256: &str = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
 
-/// SHA256 of an empty file
-const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
-
 /// All-zero hash (always wrong)
 const ZERO_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
-
-#[test]
-// Verifies that create_temp_dir returns a path that exists within the given parent directory.
-fn test_create_temp_dir_returns_existing_path() {
-    let parent = "./test_create_temp_dir_returns_existing_path";
-    create_dir_all(parent).unwrap();
-
-    let temp_dir = create_temp_dir(Path::new(parent)).unwrap();
-    let temp_path = temp_dir.path().to_path_buf();
-
-    assert!(temp_path.exists());
-
-    remove_dir_all(parent).unwrap();
-}
-
-#[test]
-// Verifies that the temp directory is automatically deleted when the TempDir handle is dropped.
-fn test_create_temp_dir_cleanup_on_drop() {
-    let parent = "./test_create_temp_dir_cleanup_on_drop";
-    create_dir_all(parent).unwrap();
-
-    let temp_dir = create_temp_dir(Path::new(parent)).unwrap();
-    let temp_path = temp_dir.path().to_path_buf();
-
-    assert!(temp_path.exists());
-    drop(temp_dir);
-    assert!(!temp_path.exists());
-
-    remove_dir_all(parent).unwrap();
-}
-
-#[test]
-// Verifies that files written inside the temp directory are accessible while it exists.
-fn test_create_temp_dir_files_written_inside() {
-    let parent = "./test_create_temp_dir_files_written_inside";
-    create_dir_all(parent).unwrap();
-
-    let temp_dir = create_temp_dir(Path::new(parent)).unwrap();
-    let temp_file = temp_dir.path().join("data.txt");
-    fs::write(&temp_file, b"content").unwrap();
-    assert!(temp_file.exists());
-
-    remove_dir_all(parent).unwrap();
-}
-
-#[test]
-// Verifies that create_temp_dir returns an error when the parent directory does not exist.
-fn test_create_temp_dir_nonexistent_parent_errors() {
-    let result = create_temp_dir(Path::new("./nonexistent_parent_xyz_abc_123"));
-    assert!(result.is_err());
-}
-
-#[test]
-// Verifies that file_sha256_matches returns true when the file's hash matches the expected value.
-fn test_file_sha256_matches_correct_hash() {
-    let dir = "./test_file_sha256_matches_correct_hash";
-    create_dir_all(dir).unwrap();
-    let path = Path::new(dir).join("f.txt");
-    File::create(&path)
-        .unwrap()
-        .write_all(b"hello world")
-        .unwrap();
-
-    assert!(file_sha256_matches(&path, HELLO_WORLD_SHA256).unwrap());
-
-    remove_dir_all(dir).unwrap();
-}
-
-#[test]
-// Verifies that hash comparison is case-insensitive (uppercase hex string is accepted).
-fn test_file_sha256_matches_uppercase_hash() {
-    let dir = "./test_file_sha256_matches_uppercase_hash";
-    create_dir_all(dir).unwrap();
-    let path = Path::new(dir).join("f.txt");
-    File::create(&path)
-        .unwrap()
-        .write_all(b"hello world")
-        .unwrap();
-
-    assert!(file_sha256_matches(&path, &HELLO_WORLD_SHA256.to_uppercase()).unwrap());
-
-    remove_dir_all(dir).unwrap();
-}
-
-#[test]
-// Verifies that file_sha256_matches returns false when the hash does not match the file's actual hash.
-fn test_file_sha256_matches_wrong_hash_returns_false() {
-    let dir = "./test_file_sha256_matches_wrong_hash_returns_false";
-    create_dir_all(dir).unwrap();
-    let path = Path::new(dir).join("f.txt");
-    File::create(&path)
-        .unwrap()
-        .write_all(b"hello world")
-        .unwrap();
-
-    assert!(!file_sha256_matches(&path, ZERO_SHA256).unwrap());
-
-    remove_dir_all(dir).unwrap();
-}
-
-#[test]
-// Verifies that file_sha256_matches correctly computes and matches the hash of an empty file.
-fn test_file_sha256_matches_empty_file() {
-    let dir = "./test_file_sha256_matches_empty_file";
-    create_dir_all(dir).unwrap();
-    let path = Path::new(dir).join("empty.txt");
-    File::create(&path).unwrap();
-
-    assert!(file_sha256_matches(&path, EMPTY_SHA256).unwrap());
-
-    remove_dir_all(dir).unwrap();
-}
-
-#[test]
-// Verifies that file_sha256_matches returns an error when the target file does not exist.
-fn test_file_sha256_matches_nonexistent_file_errors() {
-    let result = file_sha256_matches(Path::new("./no_such_file_sha256_test.txt"), ZERO_SHA256);
-    assert!(result.is_err());
-}
 
 fn create_zip(zip_path: &Path, entries: &[(&str, &[u8])]) {
     let file = File::create(zip_path).unwrap();

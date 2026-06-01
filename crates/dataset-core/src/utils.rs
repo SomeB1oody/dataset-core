@@ -1,5 +1,6 @@
 use crate::DatasetError;
 use sha2::{Digest, Sha256};
+use std::fmt::Write;
 use std::fs::File;
 use std::io;
 use std::io::Read;
@@ -12,6 +13,10 @@ use zip::result::ZipError;
 /// It downloads the content at `url` (using [`ureq`] crate) into `storage_path` using the file name
 /// extracted from the last segment of the URL, unless a custom filename is provided.
 ///
+/// When the filename is derived from the URL, any trailing `?query` or `#fragment` is stripped
+/// (e.g. `.../iris.csv?raw=1` yields `iris.csv`). A URL that ends in `/` has no final segment, so
+/// a custom `filename` must be supplied in that case.
+///
 /// # Parameters
 ///
 /// - `url` - The URL to download.
@@ -21,7 +26,7 @@ use zip::result::ZipError;
 ///
 /// # Errors
 ///
-/// - `DatasetError` - Returned when the download fails or URL is invalid.
+/// - `DatasetError` - Returned when the download fails or the filename cannot be derived from the URL.
 ///
 /// # Example
 /// ```no_run
@@ -48,13 +53,14 @@ pub fn download_to(
     filename: Option<&str>,
 ) -> Result<(), DatasetError> {
     // Get the filename: use provided name, or fall back to URL extraction
-    let filename = filename
-        .or_else(|| url.split('/').next_back())
-        .ok_or_else(|| {
+    let filename = match filename {
+        Some(name) => name,
+        None => filename_from_url(url).ok_or_else(|| {
             DatasetError::ValidationError(
                 "Invalid URL: cannot extract filename from URL".to_string(),
             )
-        })?;
+        })?,
+    };
 
     let save_path = storage_path.join(filename);
 
@@ -66,6 +72,20 @@ pub fn download_to(
     io::copy(&mut body, &mut file)?;
 
     Ok(())
+}
+
+/// Derive a filename from the last path segment of a URL.
+///
+/// Strips any `?query` / `#fragment` suffix and returns `None` when the resulting
+/// segment is empty (e.g. the URL ends in `/`).
+fn filename_from_url(url: &str) -> Option<&str> {
+    // `rsplit('/').next()` yields the whole string when there is no '/'.
+    let last_segment = url.rsplit('/').next()?;
+    let name = last_segment
+        .split(['?', '#'])
+        .next()
+        .unwrap_or(last_segment);
+    (!name.is_empty()).then_some(name)
 }
 
 /// Extract a zip archive into a target directory using [`ZipArchive`] in [`zip`] crate.
@@ -104,93 +124,24 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 
 /// Create a temporary directory under the given parent directory.
 ///
-/// This is a small wrapper around [`tempfile::Builder`] used by dataset loaders to
-/// keep intermediate download/extraction artifacts isolated. The created directory
-/// is removed automatically when the returned [`tempfile::TempDir`] is dropped.
-///
-/// # Parameters
-///
-/// - `tempdir_in` - The parent directory in which the temporary directory will be created.
-///
-/// # Errors
-///
-/// - `DatasetError` - Returned if the temporary directory cannot be created.
-///
-/// # Example
-/// ```no_run
-/// use dataset_core::create_temp_dir;
-/// use std::path::Path;
-///
-/// let parent_dir = "./temp_dir_example";
-/// std::fs::create_dir_all(parent_dir).unwrap();
-///
-/// // Create a temporary directory
-/// let temp_dir = create_temp_dir(Path::new(parent_dir)).unwrap();
-/// let temp_path = temp_dir.path();
-///
-/// // Use the temporary directory for intermediate operations
-/// let temp_file = temp_path.join("temp_file.txt");
-/// std::fs::write(&temp_file, "temporary content").unwrap();
-/// assert!(temp_file.exists());
-///
-/// // The temporary directory is automatically removed when `temp_dir` is dropped
-/// drop(temp_dir);
-/// ```
-pub fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
+/// A small wrapper around [`tempfile::Builder`] used internally by [`acquire_dataset`] to keep
+/// intermediate download/extraction artifacts isolated. The created directory is removed
+/// automatically when the returned [`tempfile::TempDir`] is dropped.
+fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new().tempdir_in(tempdir_in)?;
 
     Ok(temp_dir)
 }
 
-/// Verify that a file's SHA256 hash matches an expected value.
+/// Verify that a file's SHA256 hash matches an expected value (case-insensitive).
 ///
-/// This function computes the SHA256 hash of the file at the given path and compares
-/// it with the expected hexadecimal hash string (case-insensitive). It is used by
-/// dataset loaders to validate downloaded files before parsing.
-///
-/// # Parameters
-///
-/// - `path` - Path to the file to verify.
-/// - `expected_hex` - Expected SHA256 hash as a hexadecimal string.
-///
-/// # Returns
-///
-/// - `bool` - true if the computed hash matches the expected hash, false if the hashes don't match
+/// Used internally by [`acquire_dataset`] to validate cached and freshly prepared files.
+/// Returns `true` when the computed hash matches `expected_hex`.
 ///
 /// # Errors
 ///
 /// - `DatasetError::IoError` - Returned when file I/O operations fail (opening file, reading data).
-///
-/// # Example
-/// ```no_run
-/// use dataset_core::file_sha256_matches;
-/// use std::path::Path;
-/// use std::io::Write;
-///
-/// let test_dir = "./sha256_example";
-/// std::fs::create_dir_all(test_dir).unwrap();
-///
-/// // Create a test file with known content
-/// let file_path = Path::new(test_dir).join("test.txt");
-/// let mut file = std::fs::File::create(&file_path).unwrap();
-/// file.write_all(b"hello world").unwrap();
-/// drop(file);
-///
-/// // SHA256 of "hello world" is:
-/// // b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
-/// let expected_hash = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
-///
-/// // Verify the hash matches
-/// assert!(file_sha256_matches(&file_path, expected_hash).unwrap());
-///
-/// // Case-insensitive comparison also works
-/// let upper_hash = "B94D27B9934D3E08A52E52D7DA7DABFAC484EFE37A5380EE9088F7ACE2EFCDE9";
-/// assert!(file_sha256_matches(&file_path, upper_hash).unwrap());
-///
-/// // Wrong hash returns false
-/// assert!(!file_sha256_matches(&file_path, "0000000000000000000000000000000000000000000000000000000000000000").unwrap());
-/// ```
-pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
+fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
     let mut file = File::open(path)?;
 
     let mut hasher = Sha256::new();
@@ -205,115 +156,53 @@ pub fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, Data
     }
 
     let digest = hasher.finalize();
-    let actual_hex = digest
-        .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<String>();
+    let mut actual_hex = String::with_capacity(digest.len() * 2);
+    for b in digest {
+        // Writing formatted bytes into a `String` is infallible.
+        let _ = write!(actual_hex, "{:02x}", b);
+    }
     Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
 }
 
-/// Evaluate the storage state for a dataset file.
+/// State of the destination file relative to the dataset we want to cache.
+enum CacheState {
+    /// Destination exists and (if a hash was given) matches — reuse it as-is.
+    Fresh,
+    /// Destination exists but its hash does not match — it must be replaced.
+    Stale,
+    /// Destination does not exist — a new file must be prepared.
+    Missing,
+}
+
+/// Ensure `dir` exists, then classify the destination file `dst`.
 ///
-/// This helper ensures the target directory exists and checks whether the destination
-/// file is already present and valid. If `expected_sha256` is `None`, any existing
-/// file at `dst` is accepted without validation.
-///
-/// # Parameters
-///
-/// - `path` - Directory path where the dataset will be stored.
-/// - `dst` - Destination file path for the dataset.
-/// - `expected_sha256` - Optional expected SHA256 hash for the dataset file. If `None`,
-///   any existing file at `dst` is accepted without validation.
-///
-/// # Returns
-///
-/// - `(need_acquire, need_overwrite)` - Flags indicating whether a new file needs to be
-///   prepared and whether an existing file should be overwritten.
-///
-/// # Errors
-///
-/// - `DatasetError::IoError` - Returned when creating the directory fails or when
-///   file I/O operations fail during hash verification.
-///
-/// # Example
-/// ```no_run
-/// use dataset_core::utils::evaluate_storage;
-/// use std::path::Path;
-/// use std::io::Write;
-///
-/// let test_dir = "./evaluate_storage_example";
-/// let dir_path = Path::new(test_dir);
-/// let file_path = dir_path.join("data.txt");
-///
-/// // Case 1: Directory doesn't exist yet
-/// let (need_acquire, need_overwrite) = evaluate_storage(
-///     dir_path,
-///     &file_path,
-///     None,
-/// ).unwrap();
-/// assert!(need_acquire);     // File doesn't exist, a new file must be prepared
-/// assert!(!need_overwrite);  // Nothing to overwrite
-///
-/// // Case 2: File exists with correct hash
-/// let mut file = std::fs::File::create(&file_path).unwrap();
-/// file.write_all(b"hello world").unwrap();
-/// drop(file);
-///
-/// let correct_hash = "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
-/// let (need_acquire, need_overwrite) = evaluate_storage(
-///     dir_path,
-///     &file_path,
-///     Some(correct_hash),
-/// ).unwrap();
-/// assert!(!need_acquire);    // File exists with correct hash
-/// assert!(!need_overwrite);
-///
-/// // Case 3: File exists but hash doesn't match
-/// let wrong_hash = "0000000000000000000000000000000000000000000000000000000000000000";
-/// let (need_acquire, need_overwrite) = evaluate_storage(
-///     dir_path,
-///     &file_path,
-///     Some(wrong_hash),
-/// ).unwrap();
-/// assert!(need_acquire);     // Hash mismatch, a new file must be prepared
-/// assert!(need_overwrite);   // Existing file needs to be replaced
-/// ```
-pub fn evaluate_storage(
-    path: &Path,
+/// When `expected_sha256` is `None`, any existing file counts as [`CacheState::Fresh`].
+fn inspect_cache(
+    dir: &Path,
     dst: &Path,
     expected_sha256: Option<&str>,
-) -> Result<(bool, bool), DatasetError> {
-    let mut need_acquire = true;
-    let mut need_overwrite = false;
-
-    if !path.exists() {
-        std::fs::create_dir_all(path)?;
+) -> Result<CacheState, DatasetError> {
+    if !dir.exists() {
+        std::fs::create_dir_all(dir)?;
     }
 
-    if dst.exists() {
-        if let Some(hash) = expected_sha256 {
-            // SHA256 validation enabled
-            if file_sha256_matches(dst, hash)? {
-                need_acquire = false;
-            } else {
-                need_overwrite = true;
-            }
-        } else {
-            // No SHA256 validation: accept existing file
-            need_acquire = false;
-        }
+    if !dst.exists() {
+        return Ok(CacheState::Missing);
     }
 
-    Ok((need_acquire, need_overwrite))
+    match expected_sha256 {
+        Some(hash) if !file_sha256_matches(dst, hash)? => Ok(CacheState::Stale),
+        _ => Ok(CacheState::Fresh),
+    }
 }
 
 /// Acquire a dataset file using a caller-provided preparation closure.
 ///
-/// This function orchestrates the dataset acquisition workflow: it checks whether
-/// the destination file can be reused, creates a temporary directory when a new
-/// file is needed, delegates file preparation to a user-provided closure,
-/// optionally validates the prepared file with SHA256, and moves it to the final
-/// destination.
+/// This is the single entry point for the dataset acquisition workflow and the
+/// recommended way to populate a storage directory. It checks whether the destination
+/// file can be reused, creates a temporary directory when a new file is needed,
+/// delegates file preparation to a user-provided closure, optionally validates the
+/// prepared file with SHA256, and atomically moves it to the final destination.
 ///
 /// The function itself does not perform network I/O. The `prepare_file` closure
 /// is responsible for preparing the dataset file, which may include downloading,
@@ -413,32 +302,210 @@ where
 {
     let dir_path = Path::new(dir);
     let dst = dir_path.join(filename);
-    let (need_acquire, need_overwrite) = evaluate_storage(dir_path, &dst, expected_sha256)?;
 
-    if need_acquire {
-        let temp_dir = create_temp_dir(dir_path)?;
-        let temp_path = temp_dir.path();
-
-        // Call user closure: prepare the dataset file in temporary directory
-        let src = prepare_file(temp_path)?;
-
-        // Validate SHA256 hash if provided
-        if let Some(hash) = expected_sha256
-            && !file_sha256_matches(&src, hash)?
-        {
-            drop(temp_dir); // Clean up temporary directory
-            return Err(DatasetError::sha256_validation_failed(
-                dataset_name,
-                filename,
-            ));
-        }
-
-        // Move file to final destination
-        if need_overwrite {
-            std::fs::remove_file(&dst)?;
-        }
-        std::fs::rename(&src, &dst)?;
+    // Reuse a valid cached file without invoking the preparation closure.
+    let state = inspect_cache(dir_path, &dst, expected_sha256)?;
+    if matches!(state, CacheState::Fresh) {
+        return Ok(dst);
     }
 
+    // Prepare the new file inside a temp dir that is cleaned up on drop (including
+    // on the early `return` below).
+    let temp_dir = create_temp_dir(dir_path)?;
+    let src = prepare_file(temp_dir.path())?;
+
+    // Validate the freshly prepared file before it lands at the final path.
+    if let Some(hash) = expected_sha256
+        && !file_sha256_matches(&src, hash)?
+    {
+        return Err(DatasetError::sha256_validation_failed(
+            dataset_name,
+            filename,
+        ));
+    }
+
+    // A stale file must be removed first: `fs::rename` does not overwrite on all platforms.
+    if matches!(state, CacheState::Stale) {
+        std::fs::remove_file(&dst)?;
+    }
+    std::fs::rename(&src, &dst)?;
+
     Ok(dst)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File, create_dir_all, remove_dir_all};
+    use std::io::Write;
+
+    /// SHA256 of "hello world"
+    const HELLO_WORLD_SHA256: &str =
+        "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9";
+
+    /// SHA256 of an empty file
+    const EMPTY_SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+    /// All-zero hash (always wrong)
+    const ZERO_SHA256: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+    #[test]
+    fn create_temp_dir_returns_existing_path() {
+        let parent = "./test_create_temp_dir_returns_existing_path";
+        create_dir_all(parent).unwrap();
+
+        let temp_dir = create_temp_dir(Path::new(parent)).unwrap();
+        assert!(temp_dir.path().exists());
+
+        remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn create_temp_dir_cleanup_on_drop() {
+        let parent = "./test_create_temp_dir_cleanup_on_drop";
+        create_dir_all(parent).unwrap();
+
+        let temp_dir = create_temp_dir(Path::new(parent)).unwrap();
+        let temp_path = temp_dir.path().to_path_buf();
+
+        assert!(temp_path.exists());
+        drop(temp_dir);
+        assert!(!temp_path.exists());
+
+        remove_dir_all(parent).unwrap();
+    }
+
+    #[test]
+    fn create_temp_dir_nonexistent_parent_errors() {
+        let result = create_temp_dir(Path::new("./nonexistent_parent_xyz_abc_123"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn file_sha256_matches_correct_hash() {
+        let dir = "./test_file_sha256_matches_correct_hash";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("f.txt");
+        File::create(&path)
+            .unwrap()
+            .write_all(b"hello world")
+            .unwrap();
+
+        assert!(file_sha256_matches(&path, HELLO_WORLD_SHA256).unwrap());
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn file_sha256_matches_uppercase_hash() {
+        let dir = "./test_file_sha256_matches_uppercase_hash";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("f.txt");
+        File::create(&path)
+            .unwrap()
+            .write_all(b"hello world")
+            .unwrap();
+
+        assert!(file_sha256_matches(&path, &HELLO_WORLD_SHA256.to_uppercase()).unwrap());
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn file_sha256_matches_wrong_hash_returns_false() {
+        let dir = "./test_file_sha256_matches_wrong_hash_returns_false";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("f.txt");
+        File::create(&path)
+            .unwrap()
+            .write_all(b"hello world")
+            .unwrap();
+
+        assert!(!file_sha256_matches(&path, ZERO_SHA256).unwrap());
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn file_sha256_matches_empty_file() {
+        let dir = "./test_file_sha256_matches_empty_file";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("empty.txt");
+        File::create(&path).unwrap();
+
+        assert!(file_sha256_matches(&path, EMPTY_SHA256).unwrap());
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn file_sha256_matches_nonexistent_file_errors() {
+        let result = file_sha256_matches(Path::new("./no_such_file_sha256_test.txt"), ZERO_SHA256);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn filename_from_url_plain_segment() {
+        assert_eq!(
+            filename_from_url("https://x.test/a/iris.csv"),
+            Some("iris.csv")
+        );
+    }
+
+    #[test]
+    fn filename_from_url_strips_query_and_fragment() {
+        assert_eq!(
+            filename_from_url("https://x.test/a/iris.csv?raw=1"),
+            Some("iris.csv")
+        );
+        assert_eq!(
+            filename_from_url("https://x.test/a/iris.csv#section"),
+            Some("iris.csv")
+        );
+    }
+
+    #[test]
+    fn filename_from_url_trailing_slash_is_none() {
+        assert_eq!(filename_from_url("https://x.test/a/"), None);
+    }
+
+    #[test]
+    fn filename_from_url_no_slash() {
+        assert_eq!(filename_from_url("iris.csv"), Some("iris.csv"));
+    }
+
+    #[test]
+    fn inspect_cache_missing_then_fresh_and_stale() {
+        let dir = "./test_inspect_cache_states";
+        let dir_path = Path::new(dir);
+        let dst = dir_path.join("data.txt");
+        let _ = remove_dir_all(dir);
+
+        // Missing: directory is created on demand, file absent.
+        assert!(matches!(
+            inspect_cache(dir_path, &dst, None).unwrap(),
+            CacheState::Missing
+        ));
+        assert!(dir_path.exists());
+
+        // Fresh: file present, hash matches.
+        fs::write(&dst, b"hello world").unwrap();
+        assert!(matches!(
+            inspect_cache(dir_path, &dst, Some(HELLO_WORLD_SHA256)).unwrap(),
+            CacheState::Fresh
+        ));
+        // Fresh: no hash requested.
+        assert!(matches!(
+            inspect_cache(dir_path, &dst, None).unwrap(),
+            CacheState::Fresh
+        ));
+
+        // Stale: file present but hash mismatches.
+        assert!(matches!(
+            inspect_cache(dir_path, &dst, Some(ZERO_SHA256)).unwrap(),
+            CacheState::Stale
+        ));
+
+        remove_dir_all(dir).unwrap();
+    }
 }

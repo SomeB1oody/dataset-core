@@ -18,6 +18,9 @@ ndarray = { workspace = true }
 csv = { workspace = true }
 serde = { workspace = true }
 
+[dev-dependencies]
+sha2 = { workspace = true }
+
 [package.metadata.docs.rs]
 all-features = true
 rustdoc-args = ["--cfg", "docsrs"]

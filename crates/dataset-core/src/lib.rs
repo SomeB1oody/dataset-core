@@ -21,7 +21,7 @@
 //!
 //! | Feature | What it enables                                                  |
 //! |---------|------------------------------------------------------------------|
-//! | `utils` | `download_to`, `unzip`, `create_temp_dir`, `file_sha256_matches`, `acquire_dataset`, and the `error` module |
+//! | `utils` | `download_to`, `unzip`, `acquire_dataset`, and the `error` module |
 //!
 //! With no features enabled, only `Dataset<T, E>` is available — depending only on
 //! `std::sync::OnceLock`.
@@ -87,16 +87,17 @@
 //!
 //! - `download_to` — download a remote file into a directory
 //! - `unzip` — extract a ZIP archive
-//! - `create_temp_dir` — create a self-cleaning temporary directory
-//! - `file_sha256_matches` — verify a file's SHA-256 hash
 //! - `acquire_dataset` — cache-aware dataset acquisition workflow
 //!   (temp dir → prepare → optional hash check → move to final location)
+//!
+//! `acquire_dataset` is the single entry point for caching a dataset file; temp-dir
+//! creation and SHA-256 verification are internal steps it performs for you.
 
 #[cfg(feature = "utils")]
 pub use error::{DataFormatErrorKind, DatasetError};
 use std::sync::OnceLock;
 #[cfg(feature = "utils")]
-pub use utils::{acquire_dataset, create_temp_dir, download_to, file_sha256_matches, unzip};
+pub use utils::{acquire_dataset, download_to, unzip};
 
 /// The boxed loader stored inside a [`Dataset`].
 ///

@@ -1,4 +1,7 @@
-use dataset_core::utils::{download_to, file_sha256_matches};
+mod common;
+
+use common::file_sha256_matches;
+use dataset_core::utils::download_to;
 use dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality;
 use std::collections::HashSet;
 use std::fs::{File, create_dir_all, remove_dir_all};

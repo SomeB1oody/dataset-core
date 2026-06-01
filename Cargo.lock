@@ -208,6 +208,7 @@ dependencies = [
  "dataset-core",
  "ndarray",
  "serde",
+ "sha2 0.11.0",
 ]
 
 [[package]]

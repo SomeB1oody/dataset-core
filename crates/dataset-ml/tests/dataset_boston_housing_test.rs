@@ -1,4 +1,7 @@
-use dataset_core::utils::{download_to, file_sha256_matches};
+mod common;
+
+use common::file_sha256_matches;
+use dataset_core::utils::download_to;
 use dataset_ml::boston_housing::*;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_dir_all};

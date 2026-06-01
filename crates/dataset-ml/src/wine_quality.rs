@@ -91,10 +91,7 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
     reader: R,
 ) -> Result<WineData, DatasetError> {
-    // `has_headers(false)` makes csv deserialize into the named struct
-    // *positionally* (by column order) rather than by header name, keeping
-    // parsing independent of the exact header spelling. We skip the header row
-    // ourselves with `.skip(1)`.
+    // csv deserializes into the struct
     let mut rdr = ReaderBuilder::new()
         .delimiter(b';')
         .has_headers(false)
