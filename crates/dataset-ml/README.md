@@ -31,6 +31,7 @@ dataset-ml = "0.1"
 | Struct                                     | Module path                                        | Samples | Features | Task Type      | Source            |
 |--------------------------------------------|----------------------------------------------------|---------|----------|----------------|-------------------|
 | `Iris`                                     | `dataset_ml::iris`                                 | 150     | 4        | Classification | UCI ML Repository |
+| `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 768     | 8        | Classification | Kaggle            |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
@@ -108,6 +109,7 @@ This project is licensed under the MIT License — see [LICENSE](../../LICENSE) 
 The bundled datasets are classic machine learning datasets widely used for educational and research purposes:
 
 - **Iris**: Fisher's Iris dataset (1936)
+- **Breast Cancer Wisconsin (Diagnostic)**: Wolberg, Mangasarian, Street & Street (1995)
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **Diabetes**: Pima Indians Diabetes Database
 - **Titanic**: Kaggle Titanic dataset

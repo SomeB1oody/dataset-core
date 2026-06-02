@@ -11,6 +11,7 @@
 //! | Module                                                | Samples | Features | Task Type      |
 //! |-------------------------------------------------------|---------|----------|----------------|
 //! | [`iris`]                                              | 150     | 4        | Classification |
+//! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`diabetes`]                                          | 768     | 8        | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
@@ -37,6 +38,13 @@
 /// in Boston suburbs based on various features like crime rate, room count,
 /// and accessibility to highways.
 pub mod boston_housing;
+
+/// Breast Cancer Wisconsin (Diagnostic) dataset module.
+///
+/// Contains the Breast Cancer Wisconsin dataset for binary classification of
+/// tumors as malignant or benign based on 30 features computed from digitized
+/// images of cell nuclei.
+pub mod breast_cancer;
 
 /// Diabetes dataset module.
 ///
@@ -65,6 +73,7 @@ pub mod titanic;
 pub mod wine_quality;
 
 pub use boston_housing::BostonHousing;
+pub use breast_cancer::BreastCancer;
 pub use diabetes::Diabetes;
 pub use iris::Iris;
 pub use titanic::Titanic;

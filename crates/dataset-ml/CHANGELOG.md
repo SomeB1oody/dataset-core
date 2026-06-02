@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.2.0] - 2026-6-2
+### Added
+- `breast_cancer::BreastCancer` loader for the Breast Cancer Wisconsin (Diagnostic) dataset: 569 samples, 30 numeric features (the `mean`, `se`, and `worst` statistics for 10 cell-nucleus measurements), and a `&'static str` diagnosis label (`"malignant"` / `"benign"`) for binary classification. Sourced from the UCI Machine Learning Repository (`wdbc.data`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::BreastCancer`.
+
 ## [0.2.0] - 2026-5-29
 ### Changed
 - Adapted to `dataset-core`'s loader-on-construction API: the loader is now stored on the `Dataset` and supplied at construction. Every loader's `Dataset<XData>` field becomes `Dataset<XData, DatasetError>`, `new` passes `Self::load_data` to `Dataset::new`, and the accessor methods call `self.dataset.load()` (no argument). The public API of each loader (`Iris::new(dir)`, `features()`, `labels()`, `data()`, etc.) is unchanged.
@@ -27,13 +31,13 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 ### Migration from `dataset-core` 0.1.x with `datasets` feature
 
-| Old path (`dataset-core` 0.1.x)                                    | New path (`dataset-ml` 0.1.0)                              |
-|--------------------------------------------------------------------|-------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                               | `dataset_ml::iris::Iris`                                    |
-| `dataset_core::datasets::boston_housing::BostonHousing`            | `dataset_ml::boston_housing::BostonHousing`                 |
-| `dataset_core::datasets::diabetes::Diabetes`                       | `dataset_ml::diabetes::Diabetes`                            |
-| `dataset_core::datasets::titanic::Titanic`                         | `dataset_ml::titanic::Titanic`                              |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality` | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality` |
+| Old path (`dataset-core` 0.1.x)                                              | New path (`dataset-ml` 0.1.0)                                    |
+|------------------------------------------------------------------------------|------------------------------------------------------------------|
+| `dataset_core::datasets::iris::Iris`                                         | `dataset_ml::iris::Iris`                                         |
+| `dataset_core::datasets::boston_housing::BostonHousing`                      | `dataset_ml::boston_housing::BostonHousing`                      |
+| `dataset_core::datasets::diabetes::Diabetes`                                 | `dataset_ml::diabetes::Diabetes`                                 |
+| `dataset_core::datasets::titanic::Titanic`                                   | `dataset_ml::titanic::Titanic`                                   |
+| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`     |
 | `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
 
 ## History prior to the split

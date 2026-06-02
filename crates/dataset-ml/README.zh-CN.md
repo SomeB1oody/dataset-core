@@ -31,6 +31,7 @@ dataset-ml = "0.1"
 | 结构体                                     | 模块路径                                            | 样本数  | 特征数 | 任务类型 | 来源              |
 |--------------------------------------------|-----------------------------------------------------|---------|--------|----------|-------------------|
 | `Iris`                                     | `dataset_ml::iris`                                  | 150     | 4      | 分类     | UCI ML Repository |
+| `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 768     | 8      | 分类     | Kaggle            |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
@@ -108,6 +109,7 @@ fn main() {
 内置数据集是广泛用于教学和研究目的的经典机器学习数据集：
 
 - **Iris**：Fisher 的鸢尾花数据集（1936）
+- **Breast Cancer Wisconsin（诊断）**：Wolberg、Mangasarian、Street & Street（1995）
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **Diabetes**：Pima 印第安人糖尿病数据库
 - **Titanic**：Kaggle Titanic 数据集
