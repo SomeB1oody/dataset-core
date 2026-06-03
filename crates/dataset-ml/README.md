@@ -35,6 +35,7 @@ dataset-ml = "0.1"
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 768     | 8        | Classification | Kaggle            |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
+| `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`       | 1,599   | 11       | Regression     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
 
@@ -82,14 +83,14 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 + dataset-ml = "0.1"
 ```
 
-| Old path                                                                       | New path                                                       |
-|--------------------------------------------------------------------------------|----------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                                           | `dataset_ml::iris::Iris`                                       |
-| `dataset_core::datasets::boston_housing::BostonHousing`                        | `dataset_ml::boston_housing::BostonHousing`                    |
-| `dataset_core::datasets::diabetes::Diabetes`                                   | `dataset_ml::diabetes::Diabetes`                               |
-| `dataset_core::datasets::titanic::Titanic`                                     | `dataset_ml::titanic::Titanic`                                 |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`       | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`   |
-| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality`   | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
+| Old path                                                                     | New path                                                         |
+|------------------------------------------------------------------------------|------------------------------------------------------------------|
+| `dataset_core::datasets::iris::Iris`                                         | `dataset_ml::iris::Iris`                                         |
+| `dataset_core::datasets::boston_housing::BostonHousing`                      | `dataset_ml::boston_housing::BostonHousing`                      |
+| `dataset_core::datasets::diabetes::Diabetes`                                 | `dataset_ml::diabetes::Diabetes`                                 |
+| `dataset_core::datasets::titanic::Titanic`                                   | `dataset_ml::titanic::Titanic`                                   |
+| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`     |
+| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
 
 `dataset_core::utils::*` and `dataset_core::DatasetError` are unchanged — they remain in [`dataset-core`](https://crates.io/crates/dataset-core) under the `utils` feature.
 
@@ -113,6 +114,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **Diabetes**: Pima Indians Diabetes Database
 - **Titanic**: Kaggle Titanic dataset
+- **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository
 - **Wine Quality**: UCI Machine Learning Repository
 
 ## Author

@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [Unreleased]
+### Added
+- `wine_recognition::WineRecognition` loader for the Wine recognition dataset (scikit-learn's `load_wine`): 178 samples, 13 numeric features (the chemical constituents), and a `&'static str` cultivar label (`"class_1"` / `"class_2"` / `"class_3"`) for multi-class classification. Sourced from the UCI Machine Learning Repository (`wine.data`) with SHA-256 verification. This is **distinct** from the `wine_quality` datasets, which are a regression task on quality scores. The struct is also re-exported at the crate root as `dataset_ml::WineRecognition`.
+
 ## [0.2.0] - 2026-6-2
 ### Added
 - `breast_cancer::BreastCancer` loader for the Breast Cancer Wisconsin (Diagnostic) dataset: 569 samples, 30 numeric features (the `mean`, `se`, and `worst` statistics for 10 cell-nucleus measurements), and a `&'static str` diagnosis label (`"malignant"` / `"benign"`) for binary classification. Sourced from the UCI Machine Learning Repository (`wdbc.data`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::BreastCancer`.

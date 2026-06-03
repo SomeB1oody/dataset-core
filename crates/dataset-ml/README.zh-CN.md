@@ -35,6 +35,7 @@ dataset-ml = "0.1"
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 768     | 8      | 分类     | Kaggle            |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
+| `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`        | 1,599   | 11     | 回归     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`      | 4,898   | 11     | 回归     | UCI ML Repository |
 
@@ -113,6 +114,7 @@ fn main() {
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **Diabetes**：Pima 印第安人糖尿病数据库
 - **Titanic**：Kaggle Titanic 数据集
+- **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库
 - **Wine Quality**：UCI 机器学习数据库
 
 ## 作者

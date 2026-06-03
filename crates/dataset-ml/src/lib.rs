@@ -15,6 +15,7 @@
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`diabetes`]                                          | 768     | 8        | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
+//! | [`wine_recognition`]                                  | 178     | 13       | Classification |
 //! | [`wine_quality::red_wine_quality`]                    | 1,599   | 11       | Regression     |
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
 //!
@@ -72,9 +73,17 @@ pub mod titanic;
 /// alcohol percentage.
 pub mod wine_quality;
 
+/// Wine Recognition dataset module.
+///
+/// Contains the scikit-learn Wine recognition dataset for classifying wines
+/// into three cultivars based on 13 chemical constituents. Distinct from
+/// [`wine_quality`], which is a regression task on quality scores.
+pub mod wine_recognition;
+
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use diabetes::Diabetes;
 pub use iris::Iris;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
+pub use wine_recognition::WineRecognition;
