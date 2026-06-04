@@ -15,6 +15,7 @@
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`diabetes`]                                          | 768     | 8        | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
+//! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
 //! | [`wine_quality::red_wine_quality`]                    | 1,599   | 11       | Regression     |
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
@@ -60,6 +61,13 @@ pub mod diabetes;
 /// measurements.
 pub mod iris;
 
+/// Palmer Penguins dataset module.
+///
+/// Contains the Palmer Penguins dataset for classifying penguins into three
+/// species (Adelie, Chinstrap, Gentoo) based on bill and flipper measurements,
+/// body mass, and categorical island/sex features. A modern alternative to Iris.
+pub mod palmer_penguins;
+
 /// Titanic dataset module.
 ///
 /// Contains data about Titanic passengers for predicting survival based
@@ -84,6 +92,7 @@ pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use diabetes::Diabetes;
 pub use iris::Iris;
+pub use palmer_penguins::PalmerPenguins;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
 pub use wine_recognition::WineRecognition;

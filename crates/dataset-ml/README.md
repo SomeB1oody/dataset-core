@@ -35,6 +35,7 @@ dataset-ml = "0.1"
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 768     | 8        | Classification | Kaggle            |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
+| `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`       | 1,599   | 11       | Regression     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
@@ -72,7 +73,7 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
-> **Note**: Titanic's `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple.
+> **Note**: Titanic and Palmer Penguins are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -114,6 +115,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **Diabetes**: Pima Indians Diabetes Database
 - **Titanic**: Kaggle Titanic dataset
+- **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository
 - **Wine Quality**: UCI Machine Learning Repository
 

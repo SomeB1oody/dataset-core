@@ -6,7 +6,7 @@ This crate provides `Dataset<T, E>` plus the optional `utils` feature (download 
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
-## [0.3.0] - 2026-5-29
+## [0.3.0] - 2026-05-29
 ### Changed
 - **Breaking:** the loader is now stored on the container and supplied once at construction. `Dataset<T>` becomes `Dataset<T, E>` (the loader's error type `E` is now a type parameter), `new` takes the loader (`new(dir, loader)`), and `load()` no longer takes a loader argument. The stored loader is `Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>`, so it must be `Send + Sync + 'static` (capture by value/clone, not by borrow). `Dataset<T, E>` remains `Send + Sync` whenever `T` is.
 
@@ -16,119 +16,119 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 - `Dataset::into_inner(self) -> Option<T>` and `Dataset::take(&mut self) -> Option<T>` for moving the cached value out of a `Dataset` without cloning. `into_inner` consumes the container; `take` leaves it reusable, resetting it to the unloaded state so a later `load` re-runs the loader. Both return `None` if the dataset was never loaded, and neither triggers loading.
 - `Dataset::get(&self) -> Option<&T>` and `Dataset::get_mut(&mut self) -> Option<&mut T>` for accessing the cached value without triggering loading. `get` borrows it (the reference-returning companion of `is_loaded`); `get_mut` allows editing it in place — no clone, no reload, and the change persists in the cache. Both return `None` if the dataset was never loaded.
 
-## [0.2.0] - 2026-5-27
+## [0.2.0] - 2026-05-27
 ### Changed
 - Split the project into a Cargo workspace. `dataset-core` now contains only the architecture layer (`Dataset<T>`, `utils`, `error`). The built-in dataset loaders have moved to the new companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml).
 - Removed the `datasets` feature flag (the loaders that depended on it are in `dataset-ml`).
 
-## [0.2.0] - 2026-4-14
+## [0.2.0] - 2026-04-14
 ### Changed
 - Remove formatting of record data in error messages, simplify `DataFormatError` structures.
 
-## [0.1.0] - 2026-4-11
+## [0.1.0] - 2026-04-11
 ### Changed
 - Replace `downloader` with `ureq` for file downloads.
 - Refactor `download_to` to provide optional file naming.
 - Refactor `utils` module: improve formatting, rename functions, update docs and examples for clarity.
 
-## [0.1.0] - 2026-4-10
+## [0.1.0] - 2026-04-10
 ### Added
 - Integrate `thiserror` for structured error handling, and refactor error implementations accordingly.
 
-## [0.1.0] - 2026-4-8
+## [0.1.0] - 2026-04-08
 ### Changed
 - Migrate from `rustyml-dataset` to `dataset-core`, update import paths, refactor README and documentation.
 - Update `zip` to v8.5.1.
 
-## [0.1.0] - 2026-4-7
+## [0.1.0] - 2026-04-07
 ### Changed
 - Add feature gating for `utils`; modularize optional dependencies.
 
-## [0.1.0] - 2026-4-6
+## [0.1.0] - 2026-04-06
 ### Added
 - Add tests for utility functions in the `utils` module.
 
-## [0.1.0] - 2026-4-5
+## [0.1.0] - 2026-04-05
 ### Changed
 - Separate utility functions into the `utils` module.
 
-## [0.1.0] - 2026-4-4
+## [0.1.0] - 2026-04-04
 ### Changed
 - Add usage examples to dataset utility functions.
 
-## [0.1.0] - 2026-4-3
+## [0.1.0] - 2026-04-03
 ### Changed
 - Update `zip` to v8.5.0.
 - Put `String` initialization of `field` in error handling.
 
-## [0.1.0] - 2026-4-2
+## [0.1.0] - 2026-04-02
 ### Changed
 - Streamline `Dataset` loader methods and simplify the `Dataset` trait bound; combine downloading and parsing in a single method.
 
-## [0.1.0] - 2026-4-1
+## [0.1.0] - 2026-04-01
 ### Added
 - Introduce the `Dataset` struct for unified lazy loading and caching logic.
 
-## [0.1.0] - 2026-3-31
+## [0.1.0] - 2026-03-31
 ### Changed
 - Update `zip` to v8.4.0 and `sha2` to v0.11.0.
 
-## [0.1.0] - 2026-3-30
+## [0.1.0] - 2026-03-30
 ### Changed
 - Introduce `download_dataset_with` for streamlined, reusable download workflows.
 - Make `expected_sha256` optional for flexibility in validation logic.
 - Remove the specified prefix for temporary directory creation.
 
-## [0.1.0] - 2026-3-24
+## [0.1.0] - 2026-03-24
 ### Changed
 - Update `zip` to v8.3.1.
 - Rename `storage_path` to `storage_dir` for improved clarity.
 
-## [0.1.0] - 2026-3-22
+## [0.1.0] - 2026-03-22
 ### Changed
 - Update `zip` to v8.3.0.
 
-## [0.1.0] - 2026-3-21
+## [0.1.0] - 2026-03-21
 ### Changed
 - Streamline error handling.
 
-## [0.1.0] - 2026-3-20
+## [0.1.0] - 2026-03-20
 ### Added
 - Add `Thread Safety` documentation.
 
-## [0.1.0] - 2026-3-19
+## [0.1.0] - 2026-03-19
 ### Changed
 - Ensure temporary directory cleanup on SHA-256 hash validation failure.
 
-## [0.1.0] - 2026-3-17
+## [0.1.0] - 2026-03-17
 ### Changed
 - Update Rust version to 1.88.0.
 
-## [0.1.0] - 2026-3-12
+## [0.1.0] - 2026-03-12
 ### Changed
 - Update `tempfile` to v3.27.0.
 
-## [0.1.0] - 2026-3-10
+## [0.1.0] - 2026-03-10
 ### Changed
 - Update crate documentation to reflect the struct-based API.
 
-## [0.1.0] - 2026-3-3
+## [0.1.0] - 2026-03-03
 ### Added
 - Add `prepare_download_dir` for unified download and validation logic.
 
-## [0.1.0] - 2026-2-25
+## [0.1.0] - 2026-02-25
 ### Changed
 - Update `tempfile` to v3.26.0.
 - Update documentation to reflect automatic downloading, caching, and expanded feature set.
 
-## [0.1.0] - 2026-2-21
+## [0.1.0] - 2026-02-21
 ### Changed
 - Automatically create dataset directories if they do not exist.
 
-## [0.1.0] - 2026-2-17
+## [0.1.0] - 2026-02-17
 ### Added
 - Add dependencies and functions for file downloading and zip extraction.
 
-## [0.1.0] - 2026-2-13
+## [0.1.0] - 2026-02-13
 ### Added
 - Initial commit.

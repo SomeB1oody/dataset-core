@@ -6,15 +6,16 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
-## [Unreleased]
+## [0.2.0] - 2026-06-03
 ### Added
 - `wine_recognition::WineRecognition` loader for the Wine recognition dataset (scikit-learn's `load_wine`): 178 samples, 13 numeric features (the chemical constituents), and a `&'static str` cultivar label (`"class_1"` / `"class_2"` / `"class_3"`) for multi-class classification. Sourced from the UCI Machine Learning Repository (`wine.data`) with SHA-256 verification. This is **distinct** from the `wine_quality` datasets, which are a regression task on quality scores. The struct is also re-exported at the crate root as `dataset_ml::WineRecognition`.
+- `palmer_penguins::PalmerPenguins` loader for the Palmer Penguins dataset: 344 samples with mixed features — 2 categorical string features (`island`, `sex`) and 5 numeric features (`bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, `body_mass_g`, `year`) — and a `&'static str` species label (`"Adelie"` / `"Chinstrap"` / `"Gentoo"`) for multi-class classification. Like `Titanic`, `features()` returns `(&Array2<String>, &Array2<f64>)` and `data()` is a triple. The source encodes missing values as the literal token `NA`, which becomes `NaN` (numeric) or `""` (string). Sourced from the palmerpenguins R package (`penguins.csv`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::PalmerPenguins`.
 
-## [0.2.0] - 2026-6-2
+## [0.2.0] - 2026-06-02
 ### Added
 - `breast_cancer::BreastCancer` loader for the Breast Cancer Wisconsin (Diagnostic) dataset: 569 samples, 30 numeric features (the `mean`, `se`, and `worst` statistics for 10 cell-nucleus measurements), and a `&'static str` diagnosis label (`"malignant"` / `"benign"`) for binary classification. Sourced from the UCI Machine Learning Repository (`wdbc.data`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::BreastCancer`.
 
-## [0.2.0] - 2026-5-29
+## [0.2.0] - 2026-05-29
 ### Changed
 - Adapted to `dataset-core`'s loader-on-construction API: the loader is now stored on the `Dataset` and supplied at construction. Every loader's `Dataset<XData>` field becomes `Dataset<XData, DatasetError>`, `new` passes `Self::load_data` to `Dataset::new`, and the accessor methods call `self.dataset.load()` (no argument). The public API of each loader (`Iris::new(dir)`, `features()`, `labels()`, `data()`, etc.) is unchanged.
 - Refactored CSV parsing in every dataset loader to use Serde. Each loader now defines a `#[derive(Deserialize)]` record struct and parses with `csv::Reader::deserialize()`, replacing the manual per-field `record[i].parse()` loops, the `num_features` inference, and the explicit column-count checks (the `csv` reader now enforces a consistent column count). Records are deserialized **positionally**, so parsing is independent of the exact CSV header spelling and of any byte-order mark on the header row. Missing Titanic numeric fields deserialize to `None` and are mapped to `NaN` exactly as before.
@@ -27,7 +28,7 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 - `get_data(&self) -> Option<&XData>` and `get_data_mut(&mut self) -> Option<&mut XData>` on every dataset loader, returning a reference to the cached data tuple **without** triggering loading (they return `None` if the data has not been loaded yet). `get_data` borrows it; `get_data_mut` allows editing it in place — no `to_owned()` clone, no reload, and the change persists in the cache. Built on the new `Dataset::get` / `Dataset::get_mut` in `dataset-core`.
 - `serde` (with the `derive` feature) as a direct dependency, used for record deserialization.
 
-## [0.1.0] - 2026-5-27
+## [0.1.0] - 2026-05-27
 ### Added
 - Initial release as a standalone crate.
 - Split out from `dataset-core` v0.1.x as part of the workspace reorganization. The dataset loaders previously lived behind the `datasets` feature in `dataset-core`; they are now their own crate that depends on `dataset-core` with the `utils` feature.
@@ -48,119 +49,119 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 The following entries trace the development of the dataset loaders while they were part of `dataset-core` 0.1.x. They are reproduced here for continuity.
 
-### 2026-4-14
+### 2026-04-14
 - Remove formatting of record data in dataset validations.
 
-### 2026-4-13
+### 2026-04-13
 - Add comprehensive semantic tests for datasets, including value constraints, consistency checks.
 
-### 2026-4-12
+### 2026-04-12
 - Add detailed module-level dataset descriptions for all dataset submodules.
 
-### 2026-4-11
+### 2026-04-11
 - Split Wine Quality dataset into red and white datasets.
 
-### 2026-4-7
+### 2026-04-07
 - Add feature gating for `datasets`, update examples and tests.
 
-### 2026-4-6
+### 2026-04-06
 - Rename all dataset test files to `dataset_*_test.rs`.
 
-### 2026-4-5
+### 2026-04-05
 - Move dataset implementations to the `datasets` module.
 
-### 2026-4-2
+### 2026-04-02
 - Streamline dataset loader methods so that downloading and parsing happen in one method.
 
-### 2026-4-1
+### 2026-04-01
 - Refactor dataset modules to use `Dataset` for unified lazy loading and caching logic.
 
-### 2026-3-29
+### 2026-03-29
 - Refactor dataset modules to return `PathBuf` from `download_dataset` and accept it in `parse_dataset` for improved API clarity.
 
-### 2026-3-28
+### 2026-03-28
 - Separate downloading and parsing logic for improved clarity and maintainability.
 
-### 2026-3-27
+### 2026-03-27
 - Remove hardcoded feature counts from dataset modules and infer dynamically.
 
-### 2026-3-26
+### 2026-03-26
 - Refactor dataset error handling to use `empty_dataset` helper for improved clarity.
 
-### 2026-3-25
+### 2026-03-25
 - Remove hardcoded dataset sample sizes for dynamic determination.
 
-### 2026-3-18
+### 2026-03-18
 - Implement `Clone` and `Debug` traits for dataset structs.
 
-### 2026-3-17
+### 2026-03-17
 - Use type alias for Titanic dataset.
 
-### 2026-3-16
+### 2026-03-16
 - Replace manual CSV parsing with the `csv` crate for Titanic and Wine Quality datasets.
 
-### 2026-3-14
+### 2026-03-14
 - Replace manual CSV parsing with the `csv` crate for Iris.
 
-### 2026-3-13
+### 2026-03-13
 - Replace manual CSV parsing with the `csv` crate for Diabetes.
 
-### 2026-3-12
+### 2026-03-12
 - Replace manual CSV parsing with the `csv` crate for Boston Housing.
 
-### 2026-3-11
+### 2026-03-11
 - Improve error handling and code readability across dataset modules.
 
-### 2026-3-9
+### 2026-03-09
 - Refactor Wine Quality dataset handling to enable lazy loading and improve modularity.
 
-### 2026-3-8
+### 2026-03-08
 - Refactor Titanic dataset handling to enable lazy loading and improve modularity.
 
-### 2026-3-7
+### 2026-03-07
 - Refactor Iris dataset handling to enable lazy loading and improve modularity.
 
-### 2026-3-6
+### 2026-03-06
 - Refactor Diabetes dataset handling to enable lazy loading and improve modularity.
 
-### 2026-3-5
+### 2026-03-05
 - Refactor Boston Housing dataset handling to enable lazy loading and improve modularity.
 
-### 2026-3-4
+### 2026-03-04
 - Update dataset documentation for clarity and consistency.
 
-### 2026-3-2
+### 2026-03-02
 - Add SHA-256 validation for Wine Quality dataset download.
 
-### 2026-3-1
+### 2026-03-01
 - Add SHA-256 validation for Titanic dataset download.
 
-### 2026-2-28
+### 2026-02-28
 - Add SHA-256 validation for Iris dataset download.
 
-### 2026-2-27
+### 2026-02-27
 - Add SHA-256 validation for Diabetes dataset download.
 
-### 2026-2-26
+### 2026-02-26
 - Add SHA-256 validation for Boston Housing dataset download.
 
-### 2026-2-24
+### 2026-02-24
 - Replace hardcoded dataset configurations with reusable constants.
 
-### 2026-2-23
+### 2026-02-23
 - Replace hardcoded Wine Quality dataset with dynamic download and processing.
 
-### 2026-2-22
+### 2026-02-22
 - Replace hardcoded Titanic dataset with dynamic download and processing.
 
-### 2026-2-20
+### 2026-02-20
 - Replace hardcoded Boston Housing dataset with dynamic download and processing.
 
-### 2026-2-19
+### 2026-02-19
 - Replace hardcoded Diabetes dataset with dynamic download and processing.
 
-### 2026-2-18
+### 2026-02-18
 - Replace hardcoded Iris dataset with dynamic download and processing.
 
-### 2026-2-14
+### 2026-02-14
 - Initial project scaffolding with starter datasets and documentation.
