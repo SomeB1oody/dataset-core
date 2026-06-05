@@ -6,6 +6,14 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.2.0] - 2026-06-05
+### Added
+- `california_housing::CaliforniaHousing` loader for the California Housing dataset: 20,640 samples, 8 numeric features, and an `f64` regression target (`MedHouseVal`, median house value in units of $100,000). Unlike the other loaders, it does **feature engineering** rather than exposing raw columns — it reproduces scikit-learn's `fetch_california_housing` features (`MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`) by deriving the per-household ratios from Géron's `housing.csv` and scaling the target by `1/100000`. The source's 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms` (sklearn's complete upstream has none). A modern replacement for Boston Housing. Sourced with SHA-256 verification; the struct is also re-exported at the crate root as `dataset_ml::CaliforniaHousing`.
+
+## [0.2.0] - 2026-06-04
+### Added
+- Add Palmer Penguins dataset support with lazy loading, multi-class classification, and SHA256 verification
+
 ## [0.2.0] - 2026-06-03
 ### Added
 - `wine_recognition::WineRecognition` loader for the Wine recognition dataset (scikit-learn's `load_wine`): 178 samples, 13 numeric features (the chemical constituents), and a `&'static str` cultivar label (`"class_1"` / `"class_2"` / `"class_3"`) for multi-class classification. Sourced from the UCI Machine Learning Repository (`wine.data`) with SHA-256 verification. This is **distinct** from the `wine_quality` datasets, which are a regression task on quality scores. The struct is also re-exported at the crate root as `dataset_ml::WineRecognition`.

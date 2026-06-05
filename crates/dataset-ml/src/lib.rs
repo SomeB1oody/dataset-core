@@ -13,6 +13,7 @@
 //! | [`iris`]                                              | 150     | 4        | Classification |
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
+//! | [`california_housing`]                                | 20,640  | 8        | Regression     |
 //! | [`diabetes`]                                          | 768     | 8        | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
@@ -47,6 +48,13 @@ pub mod boston_housing;
 /// tumors as malignant or benign based on 30 features computed from digitized
 /// images of cell nuclei.
 pub mod breast_cancer;
+
+/// California Housing dataset module.
+///
+/// Contains the California Housing dataset for predicting median house values
+/// in California districts. Reproduces scikit-learn's `fetch_california_housing`
+/// eight derived features. A modern replacement for Boston Housing.
+pub mod california_housing;
 
 /// Diabetes dataset module.
 ///
@@ -90,6 +98,7 @@ pub mod wine_recognition;
 
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
+pub use california_housing::CaliforniaHousing;
 pub use diabetes::Diabetes;
 pub use iris::Iris;
 pub use palmer_penguins::PalmerPenguins;
