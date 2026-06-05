@@ -10,7 +10,7 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 ## Overview
 
-`dataset-ml` ships with loaders for six classic ML datasets. Each loader:
+`dataset-ml` ships with loaders for ten classic ML datasets. Each loader:
 
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
@@ -23,7 +23,7 @@ Each module is also a complete reference implementation of the pattern for wrapp
 
 ```toml
 [dependencies]
-dataset-ml = "0.1"
+dataset-ml = "0.2"
 ```
 
 ## Datasets
@@ -84,7 +84,7 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 
 ```diff
 - dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.1"
++ dataset-ml = "0.2"
 ```
 
 | Old path                                                                     | New path                                                         |

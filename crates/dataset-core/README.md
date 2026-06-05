@@ -18,7 +18,7 @@ On top of this core type, an **optional** feature-gated module is available:
 
 - **`utils`** — helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-Looking for ready-to-use loaders for classic ML datasets (Iris, Boston Housing, Diabetes, Titanic, Wine Quality)? They live in the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends on `dataset-core` with the `utils` feature enabled.
+Looking for ready-to-use loaders for classic ML datasets (Iris, Breast Cancer, Boston/California Housing, Diabetes, Titanic, Palmer Penguins, Wine Recognition, Wine Quality)? They live in the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends on `dataset-core` with the `utils` feature enabled.
 
 ## Installation
 
@@ -26,14 +26,14 @@ Looking for ready-to-use loaders for classic ML datasets (Iris, Boston Housing, 
 
 ```toml
 [dependencies]
-dataset-core = "0.2"
+dataset-core = "0.3"
 ```
 
 **With utilities**:
 
 ```toml
 [dependencies]
-dataset-core = { version = "0.2", features = ["utils"] }
+dataset-core = { version = "0.3", features = ["utils"] }
 ```
 
 ## Feature Flags
@@ -84,8 +84,6 @@ fn main() {
 |-----------------------|----------------------------------------------------------------------------------------|
 | `download_to`         | Download a remote file into a directory                                                |
 | `unzip`               | Extract a ZIP archive                                                                  |
-| `create_temp_dir`     | Create a self-cleaning temporary directory                                             |
-| `file_sha256_matches` | Verify a file's SHA-256 hash                                                           |
 | `acquire_dataset`     | Cache-aware acquisition: reuse valid local file, prepare in temp dir, hash check, move |
 
 ## Building Your Own Dataset

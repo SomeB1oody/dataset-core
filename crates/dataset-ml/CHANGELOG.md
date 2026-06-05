@@ -2,7 +2,7 @@
 
 All notable changes to the `dataset-ml` crate will be documented in this file.
 
-This crate provides ready-to-use loaders for classic machine learning datasets (Iris, Boston Housing, Diabetes, Titanic, Wine Quality), built on top of [`dataset-core`](https://crates.io/crates/dataset-core).
+This crate provides ready-to-use loaders for classic machine learning datasets (Iris, Breast Cancer, Boston/California Housing, Diabetes, Titanic, Palmer Penguins, Wine Recognition, Wine Quality), built on top of [`dataset-core`](https://crates.io/crates/dataset-core).
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
@@ -12,12 +12,11 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 ## [0.2.0] - 2026-06-04
 ### Added
-- Add Palmer Penguins dataset support with lazy loading, multi-class classification, and SHA256 verification
+- `palmer_penguins::PalmerPenguins` loader for the Palmer Penguins dataset: 344 samples with mixed features — 2 categorical string features (`island`, `sex`) and 5 numeric features (`bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, `body_mass_g`, `year`) — and a `&'static str` species label (`"Adelie"` / `"Chinstrap"` / `"Gentoo"`) for multi-class classification. Like `Titanic`, `features()` returns `(&Array2<String>, &Array2<f64>)` and `data()` is a triple. The source encodes missing values as the literal token `NA`, which becomes `NaN` (numeric) or `""` (string). Sourced from the palmerpenguins R package (`penguins.csv`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::PalmerPenguins`.
 
 ## [0.2.0] - 2026-06-03
 ### Added
 - `wine_recognition::WineRecognition` loader for the Wine recognition dataset (scikit-learn's `load_wine`): 178 samples, 13 numeric features (the chemical constituents), and a `&'static str` cultivar label (`"class_1"` / `"class_2"` / `"class_3"`) for multi-class classification. Sourced from the UCI Machine Learning Repository (`wine.data`) with SHA-256 verification. This is **distinct** from the `wine_quality` datasets, which are a regression task on quality scores. The struct is also re-exported at the crate root as `dataset_ml::WineRecognition`.
-- `palmer_penguins::PalmerPenguins` loader for the Palmer Penguins dataset: 344 samples with mixed features — 2 categorical string features (`island`, `sex`) and 5 numeric features (`bill_length_mm`, `bill_depth_mm`, `flipper_length_mm`, `body_mass_g`, `year`) — and a `&'static str` species label (`"Adelie"` / `"Chinstrap"` / `"Gentoo"`) for multi-class classification. Like `Titanic`, `features()` returns `(&Array2<String>, &Array2<f64>)` and `data()` is a triple. The source encodes missing values as the literal token `NA`, which becomes `NaN` (numeric) or `""` (string). Sourced from the palmerpenguins R package (`penguins.csv`) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::PalmerPenguins`.
 
 ## [0.2.0] - 2026-06-02
 ### Added

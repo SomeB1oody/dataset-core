@@ -6,6 +6,14 @@ This crate provides `Dataset<T, E>` plus the optional `utils` feature (download 
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [0.3.0] - 2026-06-01
+### Removed
+- **Breaking:** `create_temp_dir` and `file_sha256_matches` are no longer part of the public API. In 0.2.x they were re-exported at the crate root (`dataset_core::create_temp_dir`, `dataset_core::file_sha256_matches`) and reachable through `dataset_core::utils::`; they are now private implementation details. The internal `evaluate_storage` helper was likewise folded away. Call `acquire_dataset` — which performs temp-dir creation, SHA-256 verification, and the atomic rename for you — instead of composing these helpers by hand.
+
+### Changed
+- `download_to` now validates the URL and strips any query string and fragment before deriving the output filename from the URL. An explicit `filename` argument is still used verbatim, and the public signature is unchanged.
+- Raised the minimum `ureq` to 3.3.0, `thiserror` to 2.0.18, and `zip` to 8.6.0 (all within their existing major versions; `utils` feature only).
+
 ## [0.3.0] - 2026-05-29
 ### Changed
 - **Breaking:** the loader is now stored on the container and supplied once at construction. `Dataset<T>` becomes `Dataset<T, E>` (the loader's error type `E` is now a type parameter), `new` takes the loader (`new(dir, loader)`), and `load()` no longer takes a loader argument. The stored loader is `Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>`, so it must be `Send + Sync + 'static` (capture by value/clone, not by borrow). `Dataset<T, E>` remains `Send + Sync` whenever `T` is.

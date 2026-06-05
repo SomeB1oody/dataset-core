@@ -12,7 +12,7 @@
 | Crate                                     | 路径                       | 提供的内容                                                                                                          |
 |-------------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------|
 | [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T, E>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压、SHA-256 等）                       |
-| [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的开箱即用加载器：Iris、Boston Housing、Diabetes、Titanic、红/白葡萄酒质量数据集                |
+| [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的 10 个经典 ML 数据集开箱即用加载器：Iris、Breast Cancer、Boston/California Housing、Diabetes、Titanic、Palmer Penguins、Wine Recognition、红/白葡萄酒质量数据集 |
 
 ```
 dataset-core （工作区根目录）
@@ -31,15 +31,15 @@ dataset-core （工作区根目录）
 ``` toml
 # 最小依赖：仅 Dataset<T, E>
 [dependencies]
-dataset-core = "0.2"
+dataset-core = "0.3"
 
 # 还需要下载 / 解压 / SHA-256 辅助函数
 [dependencies]
-dataset-core = { version = "0.2", features = ["utils"] }
+dataset-core = { version = "0.3", features = ["utils"] }
 
 # 内置机器学习数据集（Iris、Titanic 等）
 [dependencies]
-dataset-ml = "0.1"
+dataset-ml = "0.2"
 ```
 
 ## 开发

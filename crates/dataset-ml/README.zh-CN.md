@@ -10,7 +10,7 @@
 
 ## 概述
 
-`dataset-ml` 内置了六个经典 ML 数据集的加载器。每个加载器会：
+`dataset-ml` 内置了十个经典 ML 数据集的加载器。每个加载器会：
 
 - 在首次访问时下载源文件（通过 `ureq`）。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
@@ -23,7 +23,7 @@
 
 ```toml
 [dependencies]
-dataset-ml = "0.1"
+dataset-ml = "0.2"
 ```
 
 ## 数据集
@@ -84,7 +84,7 @@ fn main() {
 
 ```diff
 - dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.1"
++ dataset-ml = "0.2"
 ```
 
 | 旧路径                                                                         | 新路径                                                         |

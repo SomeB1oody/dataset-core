@@ -18,7 +18,7 @@
 
 - **`utils`** — 用于下载文件、解压归档、验证 SHA-256 哈希值和管理临时目录的辅助工具。
 
-需要经典机器学习数据集（Iris、Boston Housing、Diabetes、Titanic、Wine Quality）的开箱即用加载器？请参见同一工作区中的配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml)，它在启用 `utils` 特性的前提下依赖 `dataset-core`。
+需要经典机器学习数据集（Iris、Breast Cancer、Boston/California Housing、Diabetes、Titanic、Palmer Penguins、Wine Recognition、Wine Quality）的开箱即用加载器？请参见同一工作区中的配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml)，它在启用 `utils` 特性的前提下依赖 `dataset-core`。
 
 ## 安装
 
@@ -26,14 +26,14 @@
 
 ```toml
 [dependencies]
-dataset-core = "0.2"
+dataset-core = "0.3"
 ```
 
 **包含工具函数**：
 
 ```toml
 [dependencies]
-dataset-core = { version = "0.2", features = ["utils"] }
+dataset-core = { version = "0.3", features = ["utils"] }
 ```
 
 ## 特性标志
@@ -84,8 +84,6 @@ fn main() {
 |-----------------------|----------------------------------------------------------------------------------|
 | `download_to`         | 将远程文件下载到目录                                                             |
 | `unzip`               | 解压 ZIP 归档                                                                    |
-| `create_temp_dir`     | 创建自动清理的临时目录                                                           |
-| `file_sha256_matches` | 验证文件的 SHA-256 哈希值                                                        |
 | `acquire_dataset`     | 缓存感知的数据集获取：复用有效本地文件、临时目录准备、哈希校验、移动到最终位置   |
 
 ## 构建自己的数据集
