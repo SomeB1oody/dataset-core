@@ -17,7 +17,7 @@ dataset-core = { version = "0.3.0", path = "crates/dataset-core" }
 
 ndarray = "0.17.2"
 ureq = "3.3.0"
-zip = "8.5.1"
+zip = "8.6.0"
 tempfile = "3.27.0"
 sha2 = "0.11.0"
 thiserror = "2.0.18"
