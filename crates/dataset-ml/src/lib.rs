@@ -14,7 +14,7 @@
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`california_housing`]                                | 20,640  | 8        | Regression     |
-//! | [`diabetes`]                                          | 768     | 8        | Classification |
+//! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
@@ -58,8 +58,8 @@ pub mod california_housing;
 
 /// Diabetes dataset module.
 ///
-/// Contains the Pima Indians Diabetes dataset for binary classification
-/// based on 8 diagnostic measurements.
+/// Contains the scikit-learn diabetes dataset (`load_diabetes`) for regression:
+/// predicting disease progression from 10 standardized physiological features.
 pub mod diabetes;
 
 /// Iris flower dataset module.

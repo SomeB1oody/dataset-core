@@ -34,7 +34,7 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
-| `Diabetes`                                 | `dataset_ml::diabetes`                             | 768     | 8        | Classification | Kaggle            |
+| `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
@@ -77,6 +77,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Titanic and Palmer Penguins are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
 >
 > **Note**: California Housing reproduces scikit-learn's `fetch_california_housing` features by deriving them from the raw census columns (e.g. `AveRooms = total_rooms / households`) and scaling the target by `1/100000`. Its 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms`.
+>
+> **Note**: Diabetes reproduces scikit-learn's `load_diabetes` (default output): the 10 feature columns are standardized (mean-centered, divided by their L2 norm, so each column's sum of squares is 1) and the regression target is left unscaled.
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -117,7 +119,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Breast Cancer Wisconsin (Diagnostic)**: Wolberg, Mangasarian, Street & Street (1995)
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
-- **Diabetes**: Pima Indians Diabetes Database
+- **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
 - **Titanic**: Kaggle Titanic dataset
 - **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository

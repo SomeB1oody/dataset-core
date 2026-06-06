@@ -34,7 +34,7 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
-| `Diabetes`                                 | `dataset_ml::diabetes`                              | 768     | 8      | 分类     | Kaggle            |
+| `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
@@ -77,6 +77,8 @@ fn main() {
 > **注意**：Titanic 和 Palmer Penguins 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
 >
 > **注意**：California Housing 复现了 scikit-learn `fetch_california_housing` 的特征——从原始普查列派生（例如 `AveRooms = total_rooms / households`），并把目标缩放 `1/100000`。源文件中 207 个缺失的 `total_bedrooms` 会让派生特征 `AveBedrms` 出现 `NaN`。
+>
+> **注意**：Diabetes 复现了 scikit-learn `load_diabetes`（默认输出）：10 个特征列经过标准化（均值中心化，再除以各自的 L2 范数，使每列的平方和为 1），回归目标保持未缩放。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -117,7 +119,7 @@ fn main() {
 - **Breast Cancer Wisconsin（诊断）**：Wolberg、Mangasarian、Street & Street（1995）
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **California Housing**：Pace & Barry（1997），源自 1990 年美国普查
-- **Diabetes**：Pima 印第安人糖尿病数据库
+- **Diabetes**：Efron、Hastie、Johnstone & Tibshirani（2004），通过 scikit-learn 的 `load_diabetes`
 - **Titanic**：Kaggle Titanic 数据集
 - **Palmer Penguins**：Horst、Hill & Gorman（2020）；原始数据 Gorman、Williams & Fraser（2014）
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库

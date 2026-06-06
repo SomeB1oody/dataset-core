@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [Unreleased]
+### Changed
+- **BREAKING**: `diabetes::Diabetes` now loads the **scikit-learn `load_diabetes`** dataset (Efron, Hastie, Johnstone & Tibshirani, 2004) instead of the Pima Indians Diabetes dataset — changing it from **768 samples × 8 features, binary classification** to **442 samples × 10 features, regression**. The ten features are standardized to reproduce scikit-learn's default `load_diabetes()` output (each column mean-centered and divided by its L2 norm, so its sum of squares is 1); the target is the unscaled measure of disease progression one year after baseline (integer-valued, range 25–346). The label accessor is renamed `labels()` → `targets()` to match the other regression loaders (`CaliforniaHousing`, `BostonHousing`); `DiabetesData` remains `(Array2<f64>, Array1<f64>)` but its `.1` is now the regression target. The source URL and pinned SHA-256 now point at the original tab-separated `diabetes.tab` file, with SHA-256 verification.
+
 ## [0.2.0] - 2026-06-05
 ### Added
 - `california_housing::CaliforniaHousing` loader for the California Housing dataset: 20,640 samples, 8 numeric features, and an `f64` regression target (`MedHouseVal`, median house value in units of $100,000). Unlike the other loaders, it does **feature engineering** rather than exposing raw columns — it reproduces scikit-learn's `fetch_california_housing` features (`MedInc`, `HouseAge`, `AveRooms`, `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`) by deriving the per-household ratios from Géron's `housing.csv` and scaling the target by `1/100000`. The source's 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms` (sklearn's complete upstream has none). A modern replacement for Boston Housing. Sourced with SHA-256 verification; the struct is also re-exported at the crate root as `dataset_ml::CaliforniaHousing`.
