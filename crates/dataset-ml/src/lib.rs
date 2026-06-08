@@ -16,6 +16,7 @@
 //! | [`california_housing`]                                | 20,640  | 8        | Regression     |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
+//! | [`linnerud`]                                          | 20      | 3        | Regression     |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
@@ -77,6 +78,14 @@ pub mod digits;
 /// measurements.
 pub mod iris;
 
+/// Linnerud dataset module.
+///
+/// Contains the scikit-learn Linnerud dataset (`load_linnerud`) for multi-output
+/// regression: predicting three physiological variables (`Weight`, `Waist`,
+/// `Pulse`) from three exercise variables (`Chins`, `Situps`, `Jumps`) measured
+/// on 20 middle-aged men.
+pub mod linnerud;
+
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
@@ -110,6 +119,7 @@ pub use california_housing::CaliforniaHousing;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
 pub use iris::Iris;
+pub use linnerud::Linnerud;
 pub use palmer_penguins::PalmerPenguins;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};

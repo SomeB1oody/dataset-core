@@ -36,6 +36,7 @@ dataset-ml = "0.2"
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
+| `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
@@ -82,6 +83,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Diabetes reproduces scikit-learn's `load_diabetes` (default output): the 10 feature columns are standardized (mean-centered, divided by their L2 norm, so each column's sum of squares is 1) and the regression target is left unscaled.
 >
 > **Note**: Digits reproduces scikit-learn's `load_digits`: each of the 64 features is an integer pixel intensity in `0..=16` (an 8×8 image flattened row-major), and `labels()` returns an `Array1<u8>` of the digit classes (`0`–`9`). It is sourced from the UCI static ZIP package, using the `optdigits.tes` test partition (the same 1,797 samples scikit-learn uses).
+>
+> **Note**: Linnerud reproduces scikit-learn's `load_linnerud` (multi-output regression): `features()` returns the three exercise variables (`Chins`, `Situps`, `Jumps`) and `targets()` returns the three physiological variables (`Weight`, `Waist`, `Pulse`), so both are `Array2<f64>` with shape `(20, 3)`. It is sourced from two whitespace-separated files distributed with scikit-learn.
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -123,6 +126,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
 - **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
+- **Linnerud**: A. C. Linnerud (NCSU), via scikit-learn's `load_linnerud`
 - **Titanic**: Kaggle Titanic dataset
 - **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository

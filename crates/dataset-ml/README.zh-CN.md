@@ -36,6 +36,7 @@ dataset-ml = "0.2"
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
 | `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
+| `Linnerud`                                 | `dataset_ml::linnerud`                              | 20      | 3      | 回归（多输出） | scikit-learn |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
@@ -82,6 +83,8 @@ fn main() {
 > **注意**：Diabetes 复现了 scikit-learn `load_diabetes`（默认输出）：10 个特征列经过标准化（均值中心化，再除以各自的 L2 范数，使每列的平方和为 1），回归目标保持未缩放。
 >
 > **注意**：Digits 复现了 scikit-learn `load_digits`：64 个特征均为 `0..=16` 范围内的整数像素强度（一张 8×8 图像按行主序展平），`labels()` 返回数字类别（`0`–`9`）的 `Array1<u8>`。数据来自 UCI 静态 ZIP 包，使用其中的 `optdigits.tes` 测试分区（即 scikit-learn 所用的同一批 1,797 条样本）。
+>
+> **注意**：Linnerud 复现了 scikit-learn `load_linnerud`（多输出回归）：`features()` 返回三个运动量变量（`Chins`、`Situps`、`Jumps`），`targets()` 返回三个生理量变量（`Weight`、`Waist`、`Pulse`），两者都是形状为 `(20, 3)` 的 `Array2<f64>`。数据来自 scikit-learn 附带的两个以空白分隔的文件。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -123,6 +126,7 @@ fn main() {
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **California Housing**：Pace & Barry（1997），源自 1990 年美国普查
 - **Diabetes**：Efron、Hastie、Johnstone & Tibshirani（2004），通过 scikit-learn 的 `load_diabetes`
+- **Linnerud**：A. C. Linnerud（北卡罗来纳州立大学），通过 scikit-learn 的 `load_linnerud`
 - **Titanic**：Kaggle Titanic 数据集
 - **Palmer Penguins**：Horst、Hill & Gorman（2020）；原始数据 Gorman、Williams & Fraser（2014）
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库

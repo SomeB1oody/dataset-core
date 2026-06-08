@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [Unreleased] - 2026-06-08
+### Added
+- `linnerud::Linnerud` loader for the Linnerud dataset (scikit-learn's `load_linnerud`): 20 samples, **multi-output regression**. `features()` returns the three exercise variables (`Chins`, `Situps`, `Jumps`) and `targets()` returns the three physiological variables (`Weight`, `Waist`, `Pulse`), so both are `Array2<f64>` with shape `(20, 3)` — the first loader whose target is an `Array2<f64>` rather than a 1-D vector. It is the first loader to acquire **two** source files (the whitespace-separated `linnerud_exercise.csv` and `linnerud_physiological.csv` distributed with scikit-learn), each downloaded and SHA-256 verified independently. The struct is also re-exported at the crate root as `dataset_ml::Linnerud`.
+
 ## [Unreleased] - 2026-06-07
 ### Added
 - `digits::Digits` loader for the Optical Recognition of Handwritten Digits dataset (scikit-learn's `load_digits`): 1,797 samples, 64 numeric pixel features (an 8×8 grayscale image flattened in row-major order, each intensity an integer in `0..=16`), and a `u8` digit label (`0`–`9`) for multi-class classification. This is the first loader with an `Array1<u8>` target and the first to extract its source from a **ZIP archive**: it downloads the UCI static package, unzips it, and uses the `optdigits.tes` test partition (the same partition scikit-learn uses, hence the 1,797 sample count), with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::Digits`.
