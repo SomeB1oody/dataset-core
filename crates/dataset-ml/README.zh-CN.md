@@ -35,6 +35,7 @@ dataset-ml = "0.2"
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
+| `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
@@ -79,6 +80,8 @@ fn main() {
 > **注意**：California Housing 复现了 scikit-learn `fetch_california_housing` 的特征——从原始普查列派生（例如 `AveRooms = total_rooms / households`），并把目标缩放 `1/100000`。源文件中 207 个缺失的 `total_bedrooms` 会让派生特征 `AveBedrms` 出现 `NaN`。
 >
 > **注意**：Diabetes 复现了 scikit-learn `load_diabetes`（默认输出）：10 个特征列经过标准化（均值中心化，再除以各自的 L2 范数，使每列的平方和为 1），回归目标保持未缩放。
+>
+> **注意**：Digits 复现了 scikit-learn `load_digits`：64 个特征均为 `0..=16` 范围内的整数像素强度（一张 8×8 图像按行主序展平），`labels()` 返回数字类别（`0`–`9`）的 `Array1<u8>`。数据来自 UCI 静态 ZIP 包，使用其中的 `optdigits.tes` 测试分区（即 scikit-learn 所用的同一批 1,797 条样本）。
 
 ## 从 `dataset-core` 0.1.x 迁移
 

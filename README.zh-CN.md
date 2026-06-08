@@ -12,7 +12,7 @@
 | Crate                                     | 路径                       | 提供的内容                                                                                                          |
 |-------------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------|
 | [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T, E>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压、SHA-256 等）                       |
-| [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的 10 个经典 ML 数据集开箱即用加载器：Iris、Breast Cancer、Boston/California Housing、Diabetes、Titanic、Palmer Penguins、Wine Recognition、红/白葡萄酒质量数据集 |
+| [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的 11 个经典 ML 数据集开箱即用加载器：Iris、Breast Cancer、Boston/California Housing、Diabetes、Digits、Titanic、Palmer Penguins、Wine Recognition、红/白葡萄酒质量数据集 |
 
 ```
 dataset-core （工作区根目录）

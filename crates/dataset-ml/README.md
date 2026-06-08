@@ -35,6 +35,7 @@ dataset-ml = "0.2"
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
+| `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
@@ -79,6 +80,8 @@ Each dataset struct follows the same pattern:
 > **Note**: California Housing reproduces scikit-learn's `fetch_california_housing` features by deriving them from the raw census columns (e.g. `AveRooms = total_rooms / households`) and scaling the target by `1/100000`. Its 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms`.
 >
 > **Note**: Diabetes reproduces scikit-learn's `load_diabetes` (default output): the 10 feature columns are standardized (mean-centered, divided by their L2 norm, so each column's sum of squares is 1) and the regression target is left unscaled.
+>
+> **Note**: Digits reproduces scikit-learn's `load_digits`: each of the 64 features is an integer pixel intensity in `0..=16` (an 8×8 image flattened row-major), and `labels()` returns an `Array1<u8>` of the digit classes (`0`–`9`). It is sourced from the UCI static ZIP package, using the `optdigits.tes` test partition (the same 1,797 samples scikit-learn uses).
 
 ## Migration from `dataset-core` 0.1.x
 

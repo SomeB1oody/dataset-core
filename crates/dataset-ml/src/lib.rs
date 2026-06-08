@@ -15,6 +15,7 @@
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`california_housing`]                                | 20,640  | 8        | Regression     |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
+//! | [`digits`]                                            | 1,797   | 64       | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
@@ -62,6 +63,13 @@ pub mod california_housing;
 /// predicting disease progression from 10 standardized physiological features.
 pub mod diabetes;
 
+/// Optical Recognition of Handwritten Digits dataset module.
+///
+/// Contains the scikit-learn digits dataset (`load_digits`) for multi-class
+/// classification: recognizing handwritten digits (`0`–`9`) from 8×8 grayscale
+/// images flattened into 64 integer pixel intensities.
+pub mod digits;
+
 /// Iris flower dataset module.
 ///
 /// Contains the classic Iris dataset for classifying iris flowers into
@@ -100,6 +108,7 @@ pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;
 pub use diabetes::Diabetes;
+pub use digits::Digits;
 pub use iris::Iris;
 pub use palmer_penguins::PalmerPenguins;
 pub use titanic::Titanic;

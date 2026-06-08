@@ -6,7 +6,11 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
-## [Unreleased]
+## [Unreleased] - 2026-06-07
+### Added
+- `digits::Digits` loader for the Optical Recognition of Handwritten Digits dataset (scikit-learn's `load_digits`): 1,797 samples, 64 numeric pixel features (an 8×8 grayscale image flattened in row-major order, each intensity an integer in `0..=16`), and a `u8` digit label (`0`–`9`) for multi-class classification. This is the first loader with an `Array1<u8>` target and the first to extract its source from a **ZIP archive**: it downloads the UCI static package, unzips it, and uses the `optdigits.tes` test partition (the same partition scikit-learn uses, hence the 1,797 sample count), with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::Digits`.
+
+## [Unreleased] - 2026-06-06
 ### Changed
 - **BREAKING**: `diabetes::Diabetes` now loads the **scikit-learn `load_diabetes`** dataset (Efron, Hastie, Johnstone & Tibshirani, 2004) instead of the Pima Indians Diabetes dataset — changing it from **768 samples × 8 features, binary classification** to **442 samples × 10 features, regression**. The ten features are standardized to reproduce scikit-learn's default `load_diabetes()` output (each column mean-centered and divided by its L2 norm, so its sum of squares is 1); the target is the unscaled measure of disease progression one year after baseline (integer-valued, range 25–346). The label accessor is renamed `labels()` → `targets()` to match the other regression loaders (`CaliforniaHousing`, `BostonHousing`); `DiabetesData` remains `(Array2<f64>, Array1<f64>)` but its `.1` is now the regression target. The source URL and pinned SHA-256 now point at the original tab-separated `diabetes.tab` file, with SHA-256 verification.
 
