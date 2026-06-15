@@ -71,29 +71,48 @@ struct TitanicRecord {
 /// Unfortunately, there weren't enough lifeboats for everyone on board, resulting in the death of 1502 out of 2224 passengers and crew.
 /// While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
 ///
-/// String features (shape `(891, 5)`), in column order:
-/// - `Name`
-/// - `Sex`
-/// - `Ticket`
-/// - `Cabin`
-/// - `Embarked`
+/// # Feature columns
 ///
-/// Numeric features (shape `(891, 6)`), in column order (may be `NaN` if missing in the source):
-/// - `PassengerId`
-/// - `Pclass`
-/// - `Age`
-/// - `SibSp`
-/// - `Parch`
-/// - `Fare`
+/// Features are split across two matrices: a `(891, 5)` string matrix and a
+/// `(891, 6)` numeric `f64` matrix (numeric entries are `NaN` when missing in
+/// the source).
 ///
-/// Labels (shape `(891,)`):
-/// - `Survived` (`0.0` or `1.0`; `NaN` if missing in source)
+/// String features (`Array2<String>`), by 0-based column:
+///
+/// | Columns | Attributes | Unit |
+/// |---------|------------|------|
+/// | `0`     | `Name`     |      |
+/// | `1`     | `Sex`      |      |
+/// | `2`     | `Ticket`   |      |
+/// | `3`     | `Cabin`    |      |
+/// | `4`     | `Embarked` |      |
+///
+/// Numeric features (`Array2<f64>`), by 0-based column:
+///
+/// | Columns | Attributes    | Unit  |
+/// |---------|---------------|-------|
+/// | `0`     | `PassengerId` |       |
+/// | `1`     | `Pclass`      |       |
+/// | `2`     | `Age`         | years |
+/// | `3`     | `SibSp`       |       |
+/// | `4`     | `Parch`       |       |
+/// | `5`     | `Fare`        |       |
+///
+/// # Labels
+///
+/// - `Survived` (shape `(891,)`): `0.0` (died) or `1.0` (survived); `NaN` if
+///   missing in the source
 ///
 /// Missing values:
 /// - Numeric fields are parsed as `NaN` when missing.
 /// - String fields are parsed as empty strings when missing.
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
+///
+/// # Citation
+///
+/// Kaggle, "Titanic: Machine Learning from Disaster." \[Online\].
+/// Available: <https://www.kaggle.com/c/titanic>
 ///
 /// # Thread Safety
 ///

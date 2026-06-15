@@ -114,7 +114,47 @@ struct BreastCancerRecord {
 /// dimension) the mean, standard error, and "worst" (mean of the three largest
 /// values) are recorded, for 30 features in total.
 ///
-/// Labels:
+/// # Feature columns
+///
+/// All 30 features are quantitative. They are laid out in three blocks of 10:
+/// the `mean` of each base measurement (columns `0`–`9`), its standard error
+/// (`se`, columns `10`–`19`), and its `worst` value (columns `20`–`29`).
+///
+/// | Columns | Attributes                | Unit |
+/// |---------|---------------------------|------|
+/// | `0`     | `radius_mean`             |      |
+/// | `1`     | `texture_mean`            |      |
+/// | `2`     | `perimeter_mean`          |      |
+/// | `3`     | `area_mean`               |      |
+/// | `4`     | `smoothness_mean`         |      |
+/// | `5`     | `compactness_mean`        |      |
+/// | `6`     | `concavity_mean`          |      |
+/// | `7`     | `concave_points_mean`     |      |
+/// | `8`     | `symmetry_mean`           |      |
+/// | `9`     | `fractal_dimension_mean`  |      |
+/// | `10`    | `radius_se`               |      |
+/// | `11`    | `texture_se`              |      |
+/// | `12`    | `perimeter_se`            |      |
+/// | `13`    | `area_se`                 |      |
+/// | `14`    | `smoothness_se`           |      |
+/// | `15`    | `compactness_se`          |      |
+/// | `16`    | `concavity_se`            |      |
+/// | `17`    | `concave_points_se`       |      |
+/// | `18`    | `symmetry_se`             |      |
+/// | `19`    | `fractal_dimension_se`    |      |
+/// | `20`    | `radius_worst`            |      |
+/// | `21`    | `texture_worst`           |      |
+/// | `22`    | `perimeter_worst`         |      |
+/// | `23`    | `area_worst`              |      |
+/// | `24`    | `smoothness_worst`        |      |
+/// | `25`    | `compactness_worst`       |      |
+/// | `26`    | `concavity_worst`         |      |
+/// | `27`    | `concave_points_worst`    |      |
+/// | `28`    | `symmetry_worst`          |      |
+/// | `29`    | `fractal_dimension_worst` |      |
+///
+/// # Labels
+///
 /// - diagnosis (in `&str`): `"malignant"`, `"benign"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic>

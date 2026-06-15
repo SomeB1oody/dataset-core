@@ -121,7 +121,8 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 /// `1`). All 54 columns are stored as `f64` (the one-hot columns hold `0.0`/`1.0`),
 /// matching scikit-learn's dense `fetch_covtype` matrix.
 ///
-/// Labels:
+/// # Labels
+///
 /// - cover type (in `u8`): `1` = Spruce/Fir, `2` = Lodgepole Pine,
 ///   `3` = Ponderosa Pine, `4` = Cottonwood/Willow, `5` = Aspen,
 ///   `6` = Douglas-fir, `7` = Krummholz

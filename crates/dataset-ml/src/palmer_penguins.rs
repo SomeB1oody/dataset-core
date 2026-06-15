@@ -112,20 +112,34 @@ fn clean_categorical(value: String) -> String {
 /// the Palmer Archipelago, Antarctica. It is a popular, beginner-friendly
 /// alternative to the Iris dataset.
 ///
+/// # Feature columns
+///
+/// The features are split across two matrices: a string (categorical) matrix of
+/// shape `(344, 2)` and a numeric matrix of shape `(344, 5)`. The source encodes
+/// missing values as the literal token `NA`; numeric cells become `NaN` and
+/// string cells become empty strings (`""`).
+///
 /// String features (shape `(344, 2)`), in column order:
-/// - `island` - Biscoe, Dream, or Torgersen (empty if missing in source)
-/// - `sex` - male or female (empty if missing in source)
+///
+/// | Columns | Attributes | Unit |
+/// |---------|------------|------|
+/// | `0`     | `island` (Biscoe, Dream, or Torgersen; `""` if missing) | |
+/// | `1`     | `sex` (male or female; `""` if missing) | |
 ///
 /// Numeric features (shape `(344, 5)`), in column order (may be `NaN` if missing
 /// in the source):
-/// - `bill_length_mm`
-/// - `bill_depth_mm`
-/// - `flipper_length_mm`
-/// - `body_mass_g`
-/// - `year` - the study year (2007, 2008, or 2009)
 ///
-/// Labels (shape `(344,)`):
-/// - `species` (in `&str`): `"Adelie"`, `"Chinstrap"`, `"Gentoo"`
+/// | Columns | Attributes | Unit |
+/// |---------|------------|------|
+/// | `0`     | `bill_length_mm` | mm |
+/// | `1`     | `bill_depth_mm` | mm |
+/// | `2`     | `flipper_length_mm` | mm |
+/// | `3`     | `body_mass_g` | g |
+/// | `4`     | `year` (the study year: 2007, 2008, or 2009) | |
+///
+/// # Labels
+///
+/// - `species` (shape `(344,)`, in `&str`): `"Adelie"`, `"Chinstrap"`, `"Gentoo"`
 ///
 /// See more information at <https://allisonhorst.github.io/palmerpenguins/>
 ///

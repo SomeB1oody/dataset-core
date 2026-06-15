@@ -113,17 +113,28 @@ struct HousingRecord {
 /// scikit-learn's `fetch_california_housing` feature set by deriving eight
 /// per-district features from the raw census columns.
 ///
-/// Features (in sklearn column order):
-/// - `MedInc` - median income in block group
-/// - `HouseAge` - median house age in block group
-/// - `AveRooms` - average number of rooms per household
-/// - `AveBedrms` - average number of bedrooms per household
-/// - `Population` - block group population
-/// - `AveOccup` - average household occupancy
-/// - `Latitude` - block group latitude
-/// - `Longitude` - block group longitude
+/// # Feature columns
 ///
-/// Target:
+/// The eight features reproduce scikit-learn's `fetch_california_housing` set,
+/// derived per-district from the raw census columns. The three per-household
+/// ratios are `AveRooms = total_rooms / households`,
+/// `AveBedrms = total_bedrooms / households`, and
+/// `AveOccup = population / households`; a missing `total_bedrooms` yields `NaN`
+/// in `AveBedrms`. By 0-based column index in the feature matrix:
+///
+/// | Columns | Attributes   | Unit                    |
+/// |---------|--------------|-------------------------|
+/// | `0`     | `MedInc`     | tens of thousands of USD |
+/// | `1`     | `HouseAge`   |                         |
+/// | `2`     | `AveRooms`   |                         |
+/// | `3`     | `AveBedrms`  |                         |
+/// | `4`     | `Population` |                         |
+/// | `5`     | `AveOccup`   |                         |
+/// | `6`     | `Latitude`   | degrees                 |
+/// | `7`     | `Longitude`  | degrees                 |
+///
+/// # Targets
+///
 /// - `MedHouseVal` - median house value in units of $100,000
 ///
 /// Missing values: the source file has 207 rows with a missing `total_bedrooms`,

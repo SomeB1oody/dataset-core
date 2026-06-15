@@ -95,19 +95,30 @@ struct DiabetesRecord {
 /// the ten feature columns (mean-centered and divided by its L2 norm, so every
 /// column has mean 0 and a sum of squares of 1). The target is left unscaled.
 ///
-/// Features (in scikit-learn column order):
-/// - `age` - age in years
-/// - `sex` - sex
-/// - `bmi` - body mass index
-/// - `bp` - average blood pressure
-/// - `s1` - tc, total serum cholesterol
-/// - `s2` - ldl, low-density lipoproteins
-/// - `s3` - hdl, high-density lipoproteins
-/// - `s4` - tch, total cholesterol / HDL
-/// - `s5` - ltg, possibly log of serum triglycerides level
-/// - `s6` - glu, blood sugar level
+/// # Feature columns
 ///
-/// Target:
+/// All ten feature columns are **standardized** — each is mean-centered and
+/// divided by its L2 norm, so the stored values are dimensionless (mean 0, sum
+/// of squares 1). The `Unit` column below records the unit of the *original*
+/// (pre-standardization) measurement where known; the parenthetical text in
+/// `Attributes` expands each abbreviated name. By 0-based column index in the
+/// feature matrix, in scikit-learn column order:
+///
+/// | Columns | Attributes                                            | Unit  |
+/// |---------|-------------------------------------------------------|-------|
+/// | `0`     | `age`                                                 | years |
+/// | `1`     | `sex`                                                 |       |
+/// | `2`     | `bmi` (body mass index)                               |       |
+/// | `3`     | `bp` (average blood pressure)                         |       |
+/// | `4`     | `s1` (tc, total serum cholesterol)                    |       |
+/// | `5`     | `s2` (ldl, low-density lipoproteins)                  |       |
+/// | `6`     | `s3` (hdl, high-density lipoproteins)                 |       |
+/// | `7`     | `s4` (tch, total cholesterol / HDL)                   |       |
+/// | `8`     | `s5` (ltg, possibly log of serum triglycerides level) |       |
+/// | `9`     | `s6` (glu, blood sugar level)                         |       |
+///
+/// # Targets
+///
 /// - quantitative measure of disease progression one year after baseline
 ///   (unscaled, integer-valued in the range 25–346)
 ///

@@ -32,20 +32,27 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// The dataset contains physicochemical properties of Portuguese "Vinho Verde"
 /// white wine samples and a quality score for each sample.
 ///
-/// Features (11 total, all `f64`):
-///   - fixed acidity
-///   - volatile acidity
-///   - citric acid
-///   - residual sugar
-///   - chlorides
-///   - free sulfur dioxide
-///   - total sulfur dioxide
-///   - density
-///   - pH
-///   - sulphates
-///   - alcohol
+/// # Feature columns
 ///
-/// Targets:
+/// The dataset has 11 numeric physicochemical features, all stored as `f64`. By
+/// 0-based column index in the feature matrix:
+///
+/// | Columns | Attributes             | Unit |
+/// |---------|------------------------|------|
+/// | `0`     | `fixed acidity`        |      |
+/// | `1`     | `volatile acidity`     |      |
+/// | `2`     | `citric acid`          |      |
+/// | `3`     | `residual sugar`       |      |
+/// | `4`     | `chlorides`            |      |
+/// | `5`     | `free sulfur dioxide`  |      |
+/// | `6`     | `total sulfur dioxide` |      |
+/// | `7`     | `density`              |      |
+/// | `8`     | `pH`                   |      |
+/// | `9`     | `sulphates`            |      |
+/// | `10`    | `alcohol`              |      |
+///
+/// # Targets
+///
 /// - quality (score between 0 and 10, stored as `f64`)
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>

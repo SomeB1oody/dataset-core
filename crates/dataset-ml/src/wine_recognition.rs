@@ -104,22 +104,29 @@ struct WineRecognitionRecord {
 /// multi-class classification task. It is **not** the same as the
 /// [`crate::wine_quality`] datasets, which predict a quality score (regression).
 ///
-/// Features:
-/// - alcohol
-/// - malic acid
-/// - ash
-/// - alcalinity of ash
-/// - magnesium
-/// - total phenols
-/// - flavanoids
-/// - nonflavanoid phenols
-/// - proanthocyanins
-/// - color intensity
-/// - hue
-/// - OD280/OD315 of diluted wines
-/// - proline
+/// # Feature columns
 ///
-/// Labels:
+/// The 13 numeric feature columns are the chemical constituents measured for
+/// each wine sample. By 0-based column index in the feature matrix:
+///
+/// | Columns | Attributes                      | Unit |
+/// |---------|---------------------------------|------|
+/// | `0`     | `alcohol`                       |      |
+/// | `1`     | `malic_acid`                    |      |
+/// | `2`     | `ash`                           |      |
+/// | `3`     | `alcalinity_of_ash`             |      |
+/// | `4`     | `magnesium`                     |      |
+/// | `5`     | `total_phenols`                 |      |
+/// | `6`     | `flavanoids`                    |      |
+/// | `7`     | `nonflavanoid_phenols`          |      |
+/// | `8`     | `proanthocyanins`               |      |
+/// | `9`     | `color_intensity`               |      |
+/// | `10`    | `hue`                           |      |
+/// | `11`    | `od280_od315_of_diluted_wines`  |      |
+/// | `12`    | `proline`                       |      |
+///
+/// # Labels
+///
 /// - class (in `&str`): `"class_1"`, `"class_2"`, `"class_3"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/109/wine>

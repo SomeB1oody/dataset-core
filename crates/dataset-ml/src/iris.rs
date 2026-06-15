@@ -70,13 +70,17 @@ struct IrisRecord {
 /// with 50 samples each as well as some properties about each flower. One flower species is
 /// linearly separable from the other two, but the other two are not linearly separable from each other.
 ///
-/// Features:
-/// - sepal length in cm
-/// - sepal width in cm
-/// - petal length in cm
-/// - petal width in cm
+/// # Feature columns
 ///
-/// Labels:
+/// | Columns | Attributes      | Unit |
+/// |---------|-----------------|------|
+/// | `0`     | `sepal_length`  | cm   |
+/// | `1`     | `sepal_width`   | cm   |
+/// | `2`     | `petal_length`  | cm   |
+/// | `3`     | `petal_width`   | cm   |
+///
+/// # Labels
+///
 /// - species name (in `&str`): `"setosa"`, `"versicolor"`, `"virginica"`
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/53/iris>

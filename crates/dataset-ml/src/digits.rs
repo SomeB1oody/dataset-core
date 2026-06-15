@@ -77,11 +77,25 @@ type DigitsData = (Array2<f64>, Array1<u8>);
 /// This is the same data scikit-learn exposes through `load_digits`: it uses the
 /// test partition (`optdigits.tes`) of the UCI archive, with 1797 samples.
 ///
-/// Features:
-/// - 64 pixel intensities (`pixel_0_0` … `pixel_7_7`), the 8×8 image flattened in
-///   row-major order, each an integer in `0..=16`
+/// # Feature columns
 ///
-/// Labels:
+/// The 64 features are the pixels of an 8×8 grayscale image, flattened in
+/// row-major order. Each pixel holds an integer intensity in `0..=16` stored as
+/// `f64`. By 0-based column index:
+///
+/// | Columns   | Attributes                                  | Unit                 |
+/// |-----------|---------------------------------------------|----------------------|
+/// | `0..=7`   | row 0 pixels (`pixel_0_0` .. `pixel_0_7`)   | intensity (`0..=16`) |
+/// | `8..=15`  | row 1 pixels (`pixel_1_0` .. `pixel_1_7`)   | intensity (`0..=16`) |
+/// | `16..=23` | row 2 pixels (`pixel_2_0` .. `pixel_2_7`)   | intensity (`0..=16`) |
+/// | `24..=31` | row 3 pixels (`pixel_3_0` .. `pixel_3_7`)   | intensity (`0..=16`) |
+/// | `32..=39` | row 4 pixels (`pixel_4_0` .. `pixel_4_7`)   | intensity (`0..=16`) |
+/// | `40..=47` | row 5 pixels (`pixel_5_0` .. `pixel_5_7`)   | intensity (`0..=16`) |
+/// | `48..=55` | row 6 pixels (`pixel_6_0` .. `pixel_6_7`)   | intensity (`0..=16`) |
+/// | `56..=63` | row 7 pixels (`pixel_7_0` .. `pixel_7_7`)   | intensity (`0..=16`) |
+///
+/// # Labels
+///
 /// - digit (in `u8`): `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`
 ///
 /// See more information at

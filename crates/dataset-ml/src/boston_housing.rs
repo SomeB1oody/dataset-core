@@ -83,23 +83,36 @@ struct BostonHousingRecord {
 /// The Boston Housing Dataset is derived from information collected by the U.S. Census Service
 /// concerning housing in the area of Boston MA.
 ///
-/// Features:
-/// - CRIM - per capita crime rate by town
-/// - ZN - proportion of residential land zoned for lots over 25,000 sq.ft.
-/// - INDUS - proportion of non-retail business acres per town.
-/// - CHAS - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
-/// - NOX - nitric oxides concentration (parts per 10 million)
-/// - RM - average number of rooms per dwelling
-/// - AGE - proportion of owner-occupied units built prior to 1940
-/// - DIS - weighted distances to five Boston employment centres
-/// - RAD - index of accessibility to radial highways
-/// - TAX - full-value property-tax rate per $10,000
-/// - PTRATIO - pupil-teacher ratio by town
-/// - B - 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
-/// - LSTAT - % lower status of the population
+/// # Feature columns
 ///
-/// Targets:
-/// - MEDV - Median value of owner-occupied homes in $1000's
+/// The 13 feature columns, by 0-based column index in the feature matrix:
+///
+/// | Columns | Attributes | Unit |
+/// |---------|------------|------|
+/// | `0`     | `CRIM` (per capita crime rate by town)                                            |                       |
+/// | `1`     | `ZN` (proportion of residential land zoned for lots over 25,000 sq.ft.)           | sq.ft.                |
+/// | `2`     | `INDUS` (proportion of non-retail business acres per town)                        |                       |
+/// | `3`     | `CHAS` (Charles River dummy variable; 1 if tract bounds river, 0 otherwise)       |                       |
+/// | `4`     | `NOX` (nitric oxides concentration)                                               | parts per 10 million  |
+/// | `5`     | `RM` (average number of rooms per dwelling)                                        |                       |
+/// | `6`     | `AGE` (proportion of owner-occupied units built prior to 1940)                    |                       |
+/// | `7`     | `DIS` (weighted distances to five Boston employment centres)                      |                       |
+/// | `8`     | `RAD` (index of accessibility to radial highways)                                 |                       |
+/// | `9`     | `TAX` (full-value property-tax rate)                                              | per $10,000           |
+/// | `10`    | `PTRATIO` (pupil-teacher ratio by town)                                           |                       |
+/// | `11`    | `B` (1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town)              |                       |
+/// | `12`    | `LSTAT` (% lower status of the population)                                        |                       |
+///
+/// # Targets
+///
+/// - `MEDV` - median value of owner-occupied homes in $1000's
+///
+/// # Citation
+///
+/// D. Harrison and D. L. Rubinfeld, "Hedonic prices and the demand for clean
+/// air," Journal of Environmental Economics and Management, vol. 5, no. 1,
+/// pp. 81–102, 1978. Dataset via UCI Machine Learning Repository,
+/// <https://doi.org/10.24432/C5C88K>.
 ///
 /// # Thread Safety
 ///

@@ -122,17 +122,35 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
 /// exercise variables and the targets are the three physiological variables, so
 /// both are `Array2<f64>` with shape `(20, 3)` (multi-output regression).
 ///
-/// Features (the exercise variables, in scikit-learn column order):
-/// - `Chins` - number of chin-ups
-/// - `Situps` - number of sit-ups
-/// - `Jumps` - number of jumping jacks
+/// # Feature columns
 ///
-/// Targets (the physiological variables, in scikit-learn column order):
-/// - `Weight` - body weight
-/// - `Waist` - waist circumference
-/// - `Pulse` - resting pulse
+/// The exercise variables, in scikit-learn column order. By 0-based column index
+/// in the feature matrix:
+///
+/// | Columns | Attributes | Unit  |
+/// |---------|------------|-------|
+/// | `0`     | `Chins`    | count |
+/// | `1`     | `Situps`   | count |
+/// | `2`     | `Jumps`    | count |
+///
+/// # Target columns
+///
+/// The physiological variables, in scikit-learn column order. By 0-based column
+/// index in the target matrix:
+///
+/// | Columns | Attributes | Unit |
+/// |---------|------------|------|
+/// | `0`     | `Weight`   |      |
+/// | `1`     | `Waist`    |      |
+/// | `2`     | `Pulse`    |      |
 ///
 /// See more information at <https://scikit-learn.org/stable/datasets/toy_dataset.html#linnerrud-dataset>
+///
+/// # Citation
+///
+/// M. Tenenhaus, *La régression PLS: théorie et pratique*. Paris: Editions
+/// Technip, 1998. Distributed with scikit-learn as `linnerud_exercise.csv` and
+/// `linnerud_physiological.csv`.
 ///
 /// # Thread Safety
 ///
