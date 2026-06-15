@@ -14,6 +14,7 @@
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`california_housing`]                                | 20,640  | 8        | Regression     |
+//! | [`covtype`]                                           | 581,012 | 54       | Classification |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
 //! | [`linnerud`]                                          | 20      | 3        | Regression     |
@@ -57,6 +58,14 @@ pub mod breast_cancer;
 /// in California districts. Reproduces scikit-learn's `fetch_california_housing`
 /// eight derived features. A modern replacement for Boston Housing.
 pub mod california_housing;
+
+/// Forest Cover Type dataset module.
+///
+/// Contains the scikit-learn Forest CoverType dataset (`fetch_covtype`) for
+/// multi-class classification: predicting one of seven forest cover types from 54
+/// cartographic features of 30×30 metre cells. Sourced from a gzip-compressed file,
+/// it is the first loader to decompress its source with `gunzip`.
+pub mod covtype;
 
 /// Diabetes dataset module.
 ///
@@ -116,6 +125,7 @@ pub mod wine_recognition;
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;
+pub use covtype::Covtype;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
 pub use iris::Iris;

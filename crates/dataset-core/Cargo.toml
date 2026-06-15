@@ -13,17 +13,19 @@ keywords = ["dataset", "lazy-loading", "caching", "data", "machine-learning"]
 categories = ["caching", "data-structures", "science"]
 
 [features]
-utils = ["dep:ureq", "dep:zip", "dep:tempfile", "dep:sha2", "dep:thiserror"]
+utils = ["dep:ureq", "dep:zip", "dep:flate2", "dep:tempfile", "dep:sha2", "dep:thiserror"]
 
 [dependencies]
 ureq = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
 tempfile = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }
 thiserror = { workspace = true, optional = true }
 
 [dev-dependencies]
 zip = { workspace = true }
+flate2 = { workspace = true }
 
 [package.metadata.docs.rs]
 all-features = true

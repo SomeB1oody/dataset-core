@@ -19,9 +19,9 @@
 //!
 //! # Feature Flags
 //!
-//! | Feature | What it enables                                                  |
-//! |---------|------------------------------------------------------------------|
-//! | `utils` | `download_to`, `unzip`, `acquire_dataset`, and the `error` module |
+//! | Feature | What it enables                                                            |
+//! |---------|----------------------------------------------------------------------------|
+//! | `utils` | `download_to`, `unzip`, `gunzip`, `acquire_dataset`, and the `error` module |
 //!
 //! With no features enabled, only `Dataset<T, E>` is available — depending only on
 //! `std::sync::OnceLock`.
@@ -87,6 +87,7 @@
 //!
 //! - `download_to` — download a remote file into a directory
 //! - `unzip` — extract a ZIP archive
+//! - `gunzip` — decompress a gzip (`.gz`) file into a single output file
 //! - `acquire_dataset` — cache-aware dataset acquisition workflow
 //!   (temp dir → prepare → optional hash check → move to final location)
 //!
@@ -97,7 +98,7 @@
 pub use error::{DataFormatErrorKind, DatasetError};
 use std::sync::OnceLock;
 #[cfg(feature = "utils")]
-pub use utils::{acquire_dataset, download_to, unzip};
+pub use utils::{acquire_dataset, download_to, gunzip, unzip};
 
 /// The boxed loader stored inside a [`Dataset`].
 ///

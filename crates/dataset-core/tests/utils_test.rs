@@ -1,6 +1,8 @@
 #![cfg(feature = "utils")]
 
-use dataset_core::utils::{acquire_dataset, download_to, unzip};
+use dataset_core::utils::{acquire_dataset, download_to, gunzip, unzip};
+use flate2::Compression;
+use flate2::write::GzEncoder;
 use std::fs::{self, File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -22,6 +24,59 @@ fn create_zip(zip_path: &Path, entries: &[(&str, &[u8])]) {
         zip.write_all(content).unwrap();
     }
     zip.finish().unwrap();
+}
+
+fn create_gz(gz_path: &Path, content: &[u8]) {
+    let file = File::create(gz_path).unwrap();
+    let mut encoder = GzEncoder::new(file, Compression::default());
+    encoder.write_all(content).unwrap();
+    encoder.finish().unwrap();
+}
+
+#[test]
+// Verifies that gunzip decompresses a gzip file back to its original bytes.
+fn test_gunzip_round_trip() {
+    let dir = "./test_gunzip_round_trip";
+    create_dir_all(dir).unwrap();
+    let dir_path = Path::new(dir);
+
+    let payload = b"feature_0,feature_1,label\n2596,51,5\n2590,56,5\n";
+    let gz_path = dir_path.join("data.csv.gz");
+    let out_path = dir_path.join("data.csv");
+    create_gz(&gz_path, payload);
+
+    gunzip(&gz_path, &out_path).unwrap();
+
+    assert_eq!(fs::read(&out_path).unwrap(), payload);
+
+    remove_dir_all(dir).unwrap();
+}
+
+#[test]
+// Verifies that gunzip returns an error when the gzip file does not exist.
+fn test_gunzip_nonexistent_source_errors() {
+    let result = gunzip(
+        Path::new("./no_such_archive_for_gunzip_test.gz"),
+        Path::new("./no_such_archive_for_gunzip_test.out"),
+    );
+    assert!(result.is_err());
+}
+
+#[test]
+// Verifies that gunzip surfaces an error when the source is not a valid gzip stream.
+fn test_gunzip_invalid_stream_errors() {
+    let dir = "./test_gunzip_invalid_stream_errors";
+    create_dir_all(dir).unwrap();
+    let dir_path = Path::new(dir);
+
+    // Plain, non-gzip bytes: decompression must fail rather than silently succeed.
+    let bogus = dir_path.join("not_really.gz");
+    fs::write(&bogus, b"this is not a gzip stream").unwrap();
+
+    let result = gunzip(&bogus, &dir_path.join("out.bin"));
+    assert!(result.is_err());
+
+    remove_dir_all(dir).unwrap();
 }
 
 #[test]

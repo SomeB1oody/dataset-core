@@ -1,4 +1,5 @@
 use crate::DatasetError;
+use flate2::read::GzDecoder;
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 use std::fs::File;
@@ -118,6 +119,49 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     let file = File::open(file_path).map_err(|e| DatasetError::from(ZipError::Io(e)))?;
 
     ZipArchive::new(file)?.extract(extract_dir)?;
+
+    Ok(())
+}
+
+/// Decompress a gzip (`.gz`) file into a single output file.
+///
+/// Unlike [`unzip`], which extracts a multi-entry archive into a directory, a gzip
+/// stream wraps exactly **one** file, so this writes the decompressed bytes to a
+/// single `output_path`. It streams through [`flate2::read::GzDecoder`], so the
+/// whole file is never held in memory at once — suitable for large datasets such as
+/// the gzip-compressed `covtype.data.gz`.
+///
+/// The output file is created (or truncated if it already exists). Any leading
+/// directories in `output_path` must already exist.
+///
+/// # Parameters
+///
+/// - `file_path` - Path to the `.gz` file to decompress.
+/// - `output_path` - Path of the decompressed file to write (including filename).
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when opening the source fails, the gzip
+///   stream is malformed, or writing the output fails.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::{download_to, gunzip};
+/// use std::path::Path;
+///
+/// let work_dir = Path::new("./gunzip_example");
+/// std::fs::create_dir_all(work_dir).unwrap();
+///
+/// // Download a gzip-compressed dataset, then decompress it in place.
+/// download_to("https://example.com/data.csv.gz", work_dir, Some("data.csv.gz")).unwrap();
+/// gunzip(&work_dir.join("data.csv.gz"), &work_dir.join("data.csv")).unwrap();
+/// assert!(work_dir.join("data.csv").exists());
+/// ```
+pub fn gunzip(file_path: &Path, output_path: &Path) -> Result<(), DatasetError> {
+    let input = File::open(file_path)?;
+    let mut decoder = GzDecoder::new(input);
+    let mut output = File::create(output_path)?;
+    io::copy(&mut decoder, &mut output)?;
 
     Ok(())
 }
@@ -378,6 +422,44 @@ mod tests {
     #[test]
     fn create_temp_dir_nonexistent_parent_errors() {
         let result = create_temp_dir(Path::new("./nonexistent_parent_xyz_abc_123"));
+        assert!(result.is_err());
+    }
+
+    /// Compress `content` into a gzip file at `path` (test helper).
+    fn write_gz(path: &Path, content: &[u8]) {
+        use flate2::Compression;
+        use flate2::write::GzEncoder;
+
+        let file = File::create(path).unwrap();
+        let mut encoder = GzEncoder::new(file, Compression::default());
+        encoder.write_all(content).unwrap();
+        encoder.finish().unwrap();
+    }
+
+    #[test]
+    fn gunzip_round_trips_content() {
+        let dir = "./test_gunzip_round_trips_content";
+        create_dir_all(dir).unwrap();
+        let dir_path = Path::new(dir);
+
+        let payload = b"col_a,col_b\n1,2\n3,4\n";
+        let gz_path = dir_path.join("data.csv.gz");
+        let out_path = dir_path.join("data.csv");
+        write_gz(&gz_path, payload);
+
+        gunzip(&gz_path, &out_path).unwrap();
+
+        assert_eq!(fs::read(&out_path).unwrap(), payload);
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn gunzip_nonexistent_source_errors() {
+        let result = gunzip(
+            Path::new("./no_such_file_for_gunzip_test.gz"),
+            Path::new("./no_such_file_for_gunzip_test.out"),
+        );
         assert!(result.is_err());
     }
 

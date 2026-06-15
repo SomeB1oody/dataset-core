@@ -2,9 +2,13 @@
 
 All notable changes to the `dataset-core` crate will be documented in this file.
 
-This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
+This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / gunzip / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
+
+## [Unreleased]
+### Added
+- `gunzip(file_path, output_path)` in the `utils` module (feature `utils`): decompresses a gzip (`.gz`) file into a single output file, streaming through `flate2::read::GzDecoder` so the whole file is never held in memory at once. It is the gzip counterpart to `unzip` and is re-exported at the crate root (`dataset_core::gunzip`). This adds `flate2` (pure-Rust `miniz_oxide` backend) as an optional dependency enabled by the `utils` feature. Decompression failures surface as `DatasetError::IoError`, so no new error variant was introduced.
 
 ## [0.3.0] - 2026-06-01
 ### Removed

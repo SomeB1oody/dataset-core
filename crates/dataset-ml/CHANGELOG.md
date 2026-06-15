@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [Unreleased] - 2026-06-14
+### Added
+- `covtype::Covtype` loader for the Forest Cover Type dataset (scikit-learn's `fetch_covtype`): 581,012 samples, 54 cartographic features (10 quantitative variables, 4 one-hot `Wilderness_Area` columns, 40 one-hot `Soil_Type` columns, all stored as `f64`), and a `u8` cover-type label (`1`–`7`) for multi-class classification. It is the first loader sourced from a **gzip-compressed** file: its `prepare_file` closure downloads `covtype.data.gz` and decompresses it with `dataset-core`'s new `gunzip` helper before parsing the plain comma-separated data, with SHA-256 verification of the decompressed file. The struct is also re-exported at the crate root as `dataset_ml::Covtype`. Requires `dataset-core` with the `gunzip` helper (the `utils` feature now pulls in `flate2`).
+
 ## [Unreleased] - 2026-06-08
 ### Added
 - `linnerud::Linnerud` loader for the Linnerud dataset (scikit-learn's `load_linnerud`): 20 samples, **multi-output regression**. `features()` returns the three exercise variables (`Chins`, `Situps`, `Jumps`) and `targets()` returns the three physiological variables (`Weight`, `Waist`, `Pulse`), so both are `Array2<f64>` with shape `(20, 3)` — the first loader whose target is an `Array2<f64>` rather than a 1-D vector. It is the first loader to acquire **two** source files (the whitespace-separated `linnerud_exercise.csv` and `linnerud_physiological.csv` distributed with scikit-learn), each downloaded and SHA-256 verified independently. The struct is also re-exported at the crate root as `dataset_ml::Linnerud`.

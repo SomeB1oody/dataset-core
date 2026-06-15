@@ -34,6 +34,7 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
+| `Covtype`                                  | `dataset_ml::covtype`                              | 581,012 | 54       | Classification | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
 | `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
@@ -82,6 +83,8 @@ Each dataset struct follows the same pattern:
 >
 > **Note**: Diabetes reproduces scikit-learn's `load_diabetes` (default output): the 10 feature columns are standardized (mean-centered, divided by their L2 norm, so each column's sum of squares is 1) and the regression target is left unscaled.
 >
+> **Note**: Covtype reproduces scikit-learn's `fetch_covtype`: 581,012 samples with 54 features (10 quantitative variables, 4 one-hot `Wilderness_Area` columns, 40 one-hot `Soil_Type` columns) and an `Array1<u8>` cover-type label (`1`–`7`). It is the first loader sourced from a gzip-compressed file: the loader downloads `covtype.data.gz` and decompresses it with `dataset-core`'s `gunzip` helper.
+>
 > **Note**: Digits reproduces scikit-learn's `load_digits`: each of the 64 features is an integer pixel intensity in `0..=16` (an 8×8 image flattened row-major), and `labels()` returns an `Array1<u8>` of the digit classes (`0`–`9`). It is sourced from the UCI static ZIP package, using the `optdigits.tes` test partition (the same 1,797 samples scikit-learn uses).
 >
 > **Note**: Linnerud reproduces scikit-learn's `load_linnerud` (multi-output regression): `features()` returns the three exercise variables (`Chins`, `Situps`, `Jumps`) and `targets()` returns the three physiological variables (`Weight`, `Waist`, `Pulse`), so both are `Array2<f64>` with shape `(20, 3)`. It is sourced from two whitespace-separated files distributed with scikit-learn.
@@ -125,6 +128,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Breast Cancer Wisconsin (Diagnostic)**: Wolberg, Mangasarian, Street & Street (1995)
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
+- **Forest Cover Type**: Blackard & Dean (1999), UCI Machine Learning Repository, via scikit-learn's `fetch_covtype`
 - **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
 - **Linnerud**: A. C. Linnerud (NCSU), via scikit-learn's `load_linnerud`
 - **Titanic**: Kaggle Titanic dataset
