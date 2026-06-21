@@ -42,8 +42,10 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
+| `Covtype`                                  | `dataset_ml::covtype`                               | 581,012 | 54     | 分类     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
 | `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
+| `Kddcup99`                                 | `dataset_ml::kddcup99`                              | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                              | 20      | 3      | 回归（多输出） | scikit-learn |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
@@ -93,6 +95,10 @@ fn main() {
 > **注意**：Digits 复现了 scikit-learn `load_digits`：64 个特征均为 `0..=16` 范围内的整数像素强度（一张 8×8 图像按行主序展平），`labels()` 返回数字类别（`0`–`9`）的 `Array1<u8>`。数据来自 UCI 静态 ZIP 包，使用其中的 `optdigits.tes` 测试分区（即 scikit-learn 所用的同一批 1,797 条样本）。
 >
 > **注意**：Linnerud 复现了 scikit-learn `load_linnerud`（多输出回归）：`features()` 返回三个运动量变量（`Chins`、`Situps`、`Jumps`），`targets()` 返回三个生理量变量（`Weight`、`Waist`、`Pulse`），两者都是形状为 `(20, 3)` 的 `Array2<f64>`。数据来自 scikit-learn 附带的两个以空白分隔的文件。
+>
+> **注意**：Covtype 复现了 scikit-learn `fetch_covtype`：581,012 条样本，54 个特征（10 个数量型变量、4 个独热编码的 `Wilderness_Area` 列、40 个独热编码的 `Soil_Type` 列），以及 `Array1<u8>` 的森林覆盖类型标签（`1`–`7`）。它是首个以 gzip 压缩文件为源的加载器：下载 `covtype.data.gz` 并用 `dataset-core` 的 `gunzip` 辅助函数解压。
+>
+> **注意**：Kddcup99 复现了 scikit-learn `fetch_kddcup99`。与 scikit-learn 一样，`Kddcup99::new` 加载**默认的 10% 子集**（494,021 条连接，`percent10=True`），`Kddcup99::new_full` 加载**全量**（4,898,431 条连接，`percent10=False`）；两者共享相同的 41 特征结构与 23 个类别。与 Titanic 一样是混合类型：`features()` 返回 `(&Array2<String>, &Array2<f64>)`——3 个类别特征（`protocol_type`、`service`、`flag`）和 38 个数值特征，`labels()` 返回 `Array1<String>`，标签保持原样（含末尾句点，如 `"normal."`、`"smurf."`）。与 Covtype 一样，源文件经 gzip 压缩并用 `gunzip` 解压。**提示**：全量解压后的源文件约 743 MB，解析后的内存数组达数 GB，`new_full` 会耗费可观的时间与内存；默认子集约小 10 倍。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -133,6 +139,8 @@ fn main() {
 - **Breast Cancer Wisconsin（诊断）**：Wolberg、Mangasarian、Street & Street（1995）
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **California Housing**：Pace & Barry（1997），源自 1990 年美国普查
+- **Forest Cover Type**：Blackard & Dean（1999），UCI 机器学习数据库，通过 scikit-learn 的 `fetch_covtype`
+- **KDD Cup 1999**：Stolfo、Fan、Lee、Prodromidis & Chan（1999/2000），UCI KDD 数据库，通过 scikit-learn 的 `fetch_kddcup99`
 - **Diabetes**：Efron、Hastie、Johnstone & Tibshirani（2004），通过 scikit-learn 的 `load_diabetes`
 - **Linnerud**：A. C. Linnerud（北卡罗来纳州立大学），通过 scikit-learn 的 `load_linnerud`
 - **Titanic**：Kaggle Titanic 数据集

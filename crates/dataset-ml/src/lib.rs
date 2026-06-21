@@ -17,6 +17,7 @@
 //! | [`covtype`]                                           | 581,012 | 54       | Classification |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
+//! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
 //! | [`linnerud`]                                          | 20      | 3        | Regression     |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
@@ -87,6 +88,16 @@ pub mod digits;
 /// measurements.
 pub mod iris;
 
+/// KDD Cup 1999 network-intrusion dataset module.
+///
+/// Contains the scikit-learn KDD Cup 1999 dataset (`fetch_kddcup99`) for
+/// multi-class classification: detecting network intrusions from 41 mixed
+/// (3 categorical + 38 numeric) connection features. `Kddcup99::new` loads the
+/// default 10% subset (494,021 samples) and `Kddcup99::new_full` the full set
+/// (4,898,431 samples). Like `covtype`, it is sourced from a gzip-compressed file
+/// and decompressed with `gunzip`.
+pub mod kddcup99;
+
 /// Linnerud dataset module.
 ///
 /// Contains the scikit-learn Linnerud dataset (`load_linnerud`) for multi-output
@@ -129,6 +140,7 @@ pub use covtype::Covtype;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
 pub use iris::Iris;
+pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
 pub use palmer_penguins::PalmerPenguins;
 pub use titanic::Titanic;
