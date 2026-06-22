@@ -11,6 +11,7 @@
 //! | Module                                                | Samples | Features | Task Type      |
 //! |-------------------------------------------------------|---------|----------|----------------|
 //! | [`adult`]                                             | 32,561  | 14       | Classification |
+//! | [`bank_marketing`]                                    | 45,211  | 16       | Classification |
 //! | [`iris`]                                              | 150     | 4        | Classification |
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
@@ -47,6 +48,15 @@
 /// (8 categorical + 6 numeric) demographic and employment features. Extracted from
 /// the 1994 US Census; uses the canonical `adult.data` training partition.
 pub mod adult;
+
+/// Bank Marketing dataset module.
+///
+/// Contains the Bank Marketing dataset for binary classification: predicting
+/// whether a client subscribes a term deposit from 16 mixed (9 categorical +
+/// 7 numeric) client, contact, and campaign features. Recorded from a Portuguese
+/// bank's phone campaigns; uses the full `bank-full.csv` partition. Sourced from a
+/// ZIP archive (like `digits`).
+pub mod bank_marketing;
 
 /// Boston Housing dataset module.
 ///
@@ -143,6 +153,7 @@ pub mod wine_quality;
 pub mod wine_recognition;
 
 pub use adult::Adult;
+pub use bank_marketing::BankMarketing;
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;

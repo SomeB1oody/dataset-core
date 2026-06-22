@@ -39,6 +39,7 @@ dataset-ml = "0.2"
 | 结构体                                     | 模块路径                                            | 样本数  | 特征数 | 任务类型 | 来源              |
 |--------------------------------------------|-----------------------------------------------------|---------|--------|----------|-------------------|
 | `Adult`                                    | `dataset_ml::adult`                                 | 32,561  | 14     | 分类     | UCI ML Repository |
+| `BankMarketing`                            | `dataset_ml::bank_marketing`                        | 45,211  | 16     | 分类     | UCI ML Repository |
 | `Iris`                                     | `dataset_ml::iris`                                  | 150     | 4      | 分类     | UCI ML Repository |
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
@@ -87,9 +88,11 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
-> **注意**：Titanic、Palmer Penguins、Adult 和 Kddcup99 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
+> **注意**：Titanic、Palmer Penguins、Adult、BankMarketing 和 Kddcup99 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
 >
 > **注意**：Adult（人口普查收入）复现了经典的 UCI 数据集，用于预测年收入是否超过 5 万美元：8 个类别特征（`workclass`、`education`、`marital-status`、`occupation`、`relationship`、`race`、`sex`、`native-country`），6 个数值特征（`age`、`fnlwgt`、`education-num`、`capital-gain`、`capital-loss`、`hours-per-week`），以及保持原样的 `Array1<String>` 收入标签（`<=50K` 或 `>50K`）。它加载标准的 `adult.data` 训练分区（32,561 条记录）；源文件中的 `?` 缺失类别标记被映射为空字符串 `""`。
+>
+> **注意**：BankMarketing 复现了经典的 UCI Bank Marketing 数据集（葡萄牙某银行的电话营销活动），用于预测客户是否会订购定期存款：9 个类别特征（`job`、`marital`、`education`、`default`、`housing`、`loan`、`contact`、`month`、`poutcome`），7 个数值特征（`age`、`balance`、`day`、`duration`、`campaign`、`pdays`、`previous`），以及保持原样的 `Array1<String>` 标签（`yes` 或 `no`）。它从 ZIP 压缩包中加载完整的 `bank-full.csv` 分区（45,211 条记录）；类别中的 `unknown` 标记保持原样（它是文档化的取值，例如 `poutcome = unknown` 表示此前没有联系过），而不映射为空字符串。
 >
 > **注意**：California Housing 复现了 scikit-learn `fetch_california_housing` 的特征——从原始普查列派生（例如 `AveRooms = total_rooms / households`），并把目标缩放 `1/100000`。源文件中 207 个缺失的 `total_bedrooms` 会让派生特征 `AveBedrms` 出现 `NaN`。
 >
@@ -139,6 +142,7 @@ fn main() {
 内置数据集是广泛用于教学和研究目的的经典机器学习数据集：
 
 - **Adult / 人口普查收入**：Becker & Kohavi（1996），UCI 机器学习数据库，源自 1994 年美国人口普查
+- **Bank Marketing**：Moro、Rita & Cortez（2012），UCI 机器学习数据库，源自葡萄牙某银行的直接营销活动
 - **Iris**：Fisher 的鸢尾花数据集（1936）
 - **Breast Cancer Wisconsin（诊断）**：Wolberg、Mangasarian、Street & Street（1995）
 - **Boston Housing**：Harrison & Rubinfeld（1978）
