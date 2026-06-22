@@ -38,6 +38,7 @@ dataset-ml = "0.2"
 
 | Struct                                     | Module path                                        | Samples | Features | Task Type      | Source            |
 |--------------------------------------------|----------------------------------------------------|---------|----------|----------------|-------------------|
+| `Adult`                                    | `dataset_ml::adult`                                | 32,561  | 14       | Classification | UCI ML Repository |
 | `Iris`                                     | `dataset_ml::iris`                                 | 150     | 4        | Classification | UCI ML Repository |
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
@@ -86,7 +87,9 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
-> **Note**: Titanic and Palmer Penguins are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
+> **Note**: Titanic, Palmer Penguins, Adult, and Kddcup99 are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
+>
+> **Note**: Adult (Census Income) reproduces the classic UCI dataset for predicting whether income exceeds $50K/year: 8 categorical features (`workclass`, `education`, `marital-status`, `occupation`, `relationship`, `race`, `sex`, `native-country`), 6 numeric features (`age`, `fnlwgt`, `education-num`, `capital-gain`, `capital-loss`, `hours-per-week`), and an `Array1<String>` income label kept verbatim (`<=50K` or `>50K`). It loads the canonical `adult.data` training partition (32,561 records); the source's `?` missing categorical token is mapped to empty strings `""`.
 >
 > **Note**: California Housing reproduces scikit-learn's `fetch_california_housing` features by deriving them from the raw census columns (e.g. `AveRooms = total_rooms / households`) and scaling the target by `1/100000`. Its 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms`.
 >
@@ -135,6 +138,7 @@ This project is licensed under the MIT License — see [LICENSE](../../LICENSE) 
 
 The bundled datasets are classic machine learning datasets widely used for educational and research purposes:
 
+- **Adult / Census Income**: Becker & Kohavi (1996), UCI Machine Learning Repository, extracted from the 1994 US Census
 - **Iris**: Fisher's Iris dataset (1936)
 - **Breast Cancer Wisconsin (Diagnostic)**: Wolberg, Mangasarian, Street & Street (1995)
 - **Boston Housing**: Harrison & Rubinfeld (1978)

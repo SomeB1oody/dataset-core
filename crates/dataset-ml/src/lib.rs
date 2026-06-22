@@ -10,6 +10,7 @@
 //!
 //! | Module                                                | Samples | Features | Task Type      |
 //! |-------------------------------------------------------|---------|----------|----------------|
+//! | [`adult`]                                             | 32,561  | 14       | Classification |
 //! | [`iris`]                                              | 150     | 4        | Classification |
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
@@ -38,6 +39,14 @@
 //! All loaders are lazy: the first call downloads and parses the file, every
 //! subsequent call returns a cached reference. See the individual module docs
 //! for features, target, sample count, and source.
+
+/// Adult / Census Income dataset module.
+///
+/// Contains the Adult dataset (also called "Census Income") for binary
+/// classification: predicting whether a person earns over $50K/year from 14 mixed
+/// (8 categorical + 6 numeric) demographic and employment features. Extracted from
+/// the 1994 US Census; uses the canonical `adult.data` training partition.
+pub mod adult;
 
 /// Boston Housing dataset module.
 ///
@@ -133,6 +142,7 @@ pub mod wine_quality;
 /// [`wine_quality`], which is a regression task on quality scores.
 pub mod wine_recognition;
 
+pub use adult::Adult;
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;
