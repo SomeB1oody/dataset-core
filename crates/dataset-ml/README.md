@@ -49,6 +49,7 @@ dataset-ml = "0.2"
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                             | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
+| `Mushroom`                                 | `dataset_ml::mushroom`                             | 8,124   | 22       | Classification | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
@@ -93,6 +94,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Adult (Census Income) reproduces the classic UCI dataset for predicting whether income exceeds $50K/year: 8 categorical features (`workclass`, `education`, `marital-status`, `occupation`, `relationship`, `race`, `sex`, `native-country`), 6 numeric features (`age`, `fnlwgt`, `education-num`, `capital-gain`, `capital-loss`, `hours-per-week`), and an `Array1<String>` income label kept verbatim (`<=50K` or `>50K`). It loads the canonical `adult.data` training partition (32,561 records); the source's `?` missing categorical token is mapped to empty strings `""`.
 >
 > **Note**: BankMarketing reproduces the classic UCI Bank Marketing dataset (a Portuguese bank's phone campaigns) for predicting term-deposit subscription: 9 categorical features (`job`, `marital`, `education`, `default`, `housing`, `loan`, `contact`, `month`, `poutcome`), 7 numeric features (`age`, `balance`, `day`, `duration`, `campaign`, `pdays`, `previous`), and an `Array1<String>` label kept verbatim (`yes` or `no`). It loads the full `bank-full.csv` partition (45,211 records) from a ZIP archive; the categorical `unknown` label is kept verbatim (it is a documented level, e.g. `poutcome = unknown` means no previous contact), rather than mapped to an empty string.
+>
+> **Note**: Mushroom is the only **all-categorical** dataset: all 22 features are single-letter string codes, so `features()` returns a single `&Array2<String>` (no numeric matrix) and `data()` returns a `(features, labels)` pair. The `Array1<String>` label is kept verbatim (`e` = edible, `p` = poisonous). The source's `?` missing token (only in `stalk-root`) is mapped to empty strings `""`.
 >
 > **Note**: California Housing reproduces scikit-learn's `fetch_california_housing` features by deriving them from the raw census columns (e.g. `AveRooms = total_rooms / households`) and scaling the target by `1/100000`. Its 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms`.
 >
@@ -151,6 +154,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **KDD Cup 1999**: Stolfo, Fan, Lee, Prodromidis & Chan (1999/2000), UCI KDD Archive, via scikit-learn's `fetch_kddcup99`
 - **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
 - **Linnerud**: A. C. Linnerud (NCSU), via scikit-learn's `load_linnerud`
+- **Mushroom**: UCI Machine Learning Repository (1987), from *The Audubon Society Field Guide to North American Mushrooms* (1981)
 - **Titanic**: Kaggle Titanic dataset
 - **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository

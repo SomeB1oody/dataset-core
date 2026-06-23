@@ -21,6 +21,7 @@
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
 //! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
 //! | [`linnerud`]                                          | 20      | 3        | Regression     |
+//! | [`mushroom`]                                          | 8,124   | 22       | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
@@ -125,6 +126,14 @@ pub mod kddcup99;
 /// on 20 middle-aged men.
 pub mod linnerud;
 
+/// Mushroom dataset module.
+///
+/// Contains the Mushroom dataset (UCI `agaricus-lepiota`) for binary
+/// classification: predicting whether a mushroom is edible or poisonous from 22
+/// categorical attributes. The first **all-categorical** loader — every feature is
+/// a single-letter string code, so `features()` returns a single `Array2<String>`.
+pub mod mushroom;
+
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
@@ -163,6 +172,7 @@ pub use digits::Digits;
 pub use iris::Iris;
 pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
+pub use mushroom::Mushroom;
 pub use palmer_penguins::PalmerPenguins;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};

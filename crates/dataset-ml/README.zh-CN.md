@@ -49,6 +49,7 @@ dataset-ml = "0.2"
 | `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                              | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                              | 20      | 3      | 回归（多输出） | scikit-learn |
+| `Mushroom`                                 | `dataset_ml::mushroom`                              | 8,124   | 22     | 分类     | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
@@ -93,6 +94,8 @@ fn main() {
 > **注意**：Adult（人口普查收入）复现了经典的 UCI 数据集，用于预测年收入是否超过 5 万美元：8 个类别特征（`workclass`、`education`、`marital-status`、`occupation`、`relationship`、`race`、`sex`、`native-country`），6 个数值特征（`age`、`fnlwgt`、`education-num`、`capital-gain`、`capital-loss`、`hours-per-week`），以及保持原样的 `Array1<String>` 收入标签（`<=50K` 或 `>50K`）。它加载标准的 `adult.data` 训练分区（32,561 条记录）；源文件中的 `?` 缺失类别标记被映射为空字符串 `""`。
 >
 > **注意**：BankMarketing 复现了经典的 UCI Bank Marketing 数据集（葡萄牙某银行的电话营销活动），用于预测客户是否会订购定期存款：9 个类别特征（`job`、`marital`、`education`、`default`、`housing`、`loan`、`contact`、`month`、`poutcome`），7 个数值特征（`age`、`balance`、`day`、`duration`、`campaign`、`pdays`、`previous`），以及保持原样的 `Array1<String>` 标签（`yes` 或 `no`）。它从 ZIP 压缩包中加载完整的 `bank-full.csv` 分区（45,211 条记录）；类别中的 `unknown` 标记保持原样（它是文档化的取值，例如 `poutcome = unknown` 表示此前没有联系过），而不映射为空字符串。
+>
+> **注意**：Mushroom 是唯一的**全类别型**数据集：全部 22 个特征都是单字母字符串编码，因此 `features()` 返回单个 `&Array2<String>`（没有数值矩阵），`data()` 返回 `(特征, 标签)` 二元组。`Array1<String>` 标签保持原样（`e` = 可食用，`p` = 有毒）。源文件中的 `?` 缺失标记（仅出现在 `stalk-root`）被映射为空字符串 `""`。
 >
 > **注意**：California Housing 复现了 scikit-learn `fetch_california_housing` 的特征——从原始普查列派生（例如 `AveRooms = total_rooms / households`），并把目标缩放 `1/100000`。源文件中 207 个缺失的 `total_bedrooms` 会让派生特征 `AveBedrms` 出现 `NaN`。
 >
@@ -151,6 +154,7 @@ fn main() {
 - **KDD Cup 1999**：Stolfo、Fan、Lee、Prodromidis & Chan（1999/2000），UCI KDD 数据库，通过 scikit-learn 的 `fetch_kddcup99`
 - **Diabetes**：Efron、Hastie、Johnstone & Tibshirani（2004），通过 scikit-learn 的 `load_diabetes`
 - **Linnerud**：A. C. Linnerud（北卡罗来纳州立大学），通过 scikit-learn 的 `load_linnerud`
+- **Mushroom**：UCI 机器学习数据库（1987），源自《奥杜邦协会北美蘑菇野外指南》（1981）
 - **Titanic**：Kaggle Titanic 数据集
 - **Palmer Penguins**：Horst、Hill & Gorman（2020）；原始数据 Gorman、Williams & Fraser（2014）
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库
