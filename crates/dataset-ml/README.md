@@ -18,7 +18,7 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 ## Overview
 
-`dataset-ml` ships with loaders for ten classic ML datasets. Each loader:
+`dataset-ml` ships with loaders for 22 classic ML datasets. Each loader:
 
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
