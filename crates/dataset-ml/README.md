@@ -47,6 +47,7 @@ dataset-ml = "0.2"
 | `Covtype`                                  | `dataset_ml::covtype`                              | 581,012 | 54       | Classification | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
+| `Ionosphere`                               | `dataset_ml::ionosphere`                           | 351     | 34       | Classification | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                             | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
 | `Mushroom`                                 | `dataset_ml::mushroom`                             | 8,124   | 22       | Classification | UCI ML Repository |
@@ -151,6 +152,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
 - **Forest Cover Type**: Blackard & Dean (1999), UCI Machine Learning Repository, via scikit-learn's `fetch_covtype`
+- **Ionosphere**: Sigillito, Wing, Hutton & Baker (1989), UCI Machine Learning Repository, radar returns collected in Goose Bay, Labrador
 - **KDD Cup 1999**: Stolfo, Fan, Lee, Prodromidis & Chan (1999/2000), UCI KDD Archive, via scikit-learn's `fetch_kddcup99`
 - **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
 - **Linnerud**: A. C. Linnerud (NCSU), via scikit-learn's `load_linnerud`

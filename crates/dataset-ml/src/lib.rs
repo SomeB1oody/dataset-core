@@ -19,6 +19,7 @@
 //! | [`covtype`]                                           | 581,012 | 54       | Classification |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
+//! | [`ionosphere`]                                        | 351     | 34       | Classification |
 //! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
 //! | [`linnerud`]                                          | 20      | 3        | Regression     |
 //! | [`mushroom`]                                          | 8,124   | 22       | Classification |
@@ -101,6 +102,15 @@ pub mod diabetes;
 /// images flattened into 64 integer pixel intensities.
 pub mod digits;
 
+/// Ionosphere dataset module.
+///
+/// Contains the Ionosphere dataset (UCI, Sigillito et al. 1989) for binary
+/// classification: predicting whether a radar return shows structure in the
+/// ionosphere (`good`) or passes through it (`bad`) from 34 continuous
+/// autocorrelation features. A compact pure-numeric benchmark like
+/// [`breast_cancer`].
+pub mod ionosphere;
+
 /// Iris flower dataset module.
 ///
 /// Contains the classic Iris dataset for classifying iris flowers into
@@ -169,6 +179,7 @@ pub use california_housing::CaliforniaHousing;
 pub use covtype::Covtype;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
+pub use ionosphere::Ionosphere;
 pub use iris::Iris;
 pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;

@@ -6,6 +6,10 @@ This crate provides ready-to-use loaders for classic machine learning datasets (
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
+## [Unreleased] - 2026-07-11
+### Added
+- `ionosphere::Ionosphere` loader for the Ionosphere dataset (UCI Machine Learning Repository, Sigillito, Wing, Hutton & Baker 1989): 351 samples, 34 continuous features (17 radar pulses × real/imaginary autocorrelation components), and an `Array1<&'static str>` label for binary classification. `IonosphereData` is `(Array2<f64>, Array1<&'static str>)` — a compact **pure-numeric** loader like `Iris`/`BreastCancer`: `features()` returns a single `&Array2<f64>` and `data()` returns a `(features, labels)` pair. The source's single-letter `class` codes are mapped to readable names (`g` → `"good"`, `b` → `"bad"`, matching how `BreastCancer` maps `M`/`B`). The feature values are normalized to `[-1, 1]`; the first two columns are degenerate in this collection (column `0` is `0`/`1`, column `1` is constant `0`) but are kept verbatim so the schema matches the source. Sourced from `ionosphere.data` (plain comma-separated, no header) with SHA-256 verification. The struct is also re-exported at the crate root as `dataset_ml::Ionosphere`.
+
 ## [Unreleased] - 2026-06-23
 ### Added
 - `mushroom::Mushroom` loader for the Mushroom dataset (UCI Machine Learning Repository, `agaricus-lepiota`, 1987): 8,124 samples, 22 categorical features, and an `Array1<String>` label kept verbatim (`e` = edible, `p` = poisonous) for binary classification. This is the first **all-categorical** loader: every feature is a single-letter string code, so `MushroomData` is `(Array2<String>, Array1<String>)` — `features()` returns a single `&Array2<String>` (there is no numeric matrix) and `data()` returns a `(features, labels)` pair. The label is the **first** source column (unlike the mixed-type loaders, where it is last). It parses raw `StringRecord`s by position; the `?` missing token (only in `stalk-root`, 2,480 samples) is mapped to empty strings `""` (like `Adult`'s `?`). The struct is also re-exported at the crate root as `dataset_ml::Mushroom`.
