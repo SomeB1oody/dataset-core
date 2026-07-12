@@ -18,7 +18,7 @@
 
 ## 概述
 
-`dataset-ml` 内置了 22 个经典 ML 数据集的加载器。每个加载器会：
+`dataset-ml` 内置了 23 个经典 ML 数据集的加载器。每个加载器会：
 
 - 在首次访问时下载源文件（通过 `ureq`）。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
@@ -60,6 +60,7 @@ dataset-ml = "0.2"
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`        | 1,599   | 11     | 回归     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`      | 4,898   | 11     | 回归     | UCI ML Repository |
+| `YoutubeSpam`                              | `dataset_ml::youtube_spam`                          | 1,956   | 文本   | 分类     | UCI ML Repository |
 
 所有结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris`、`dataset_ml::RedWineQuality` 等也可以使用。
 
@@ -94,7 +95,7 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
-> 文本加载器 **SmsSpam** 是唯一例外：它用 `texts()`（原始消息的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。
+> 文本加载器 **SmsSpam** 和 **YoutubeSpam** 是例外：它们用 `texts()`（原始消息/评论的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。
 
 > **注意**：Titanic、Palmer Penguins、Adult、BankMarketing、Kddcup99 和 Abalone 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。除 **Abalone** 外都是分类（`labels()` 访问器）；Abalone 是回归——三元组的第三个元素是通过 `targets()` 暴露的 `Array1<f64>` 目标。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
 >
@@ -123,6 +124,8 @@ fn main() {
 > **注意**：Heart Disease（Cleveland）是带缺失值的全数值数据集：`features()` 返回单个 `&Array2<f64>`，形状 `(303, 13)`（其中若干列是以 `f64` 保存的整数编码类别），源文件中 `ca`（4 个）与 `thal`（2 个）的 `?` 标记被映射为 `NaN`（与 Titanic / Palmer Penguins 相同）。`labels()` 返回 `Array1<u8>` 诊断标签 `num`，取值 `0..=4`（`0` = 无病，`1`–`4` = 病情递增），通常二值化为 `0` 与 `> 0`。它加载标准的 `processed.cleveland.data` 分区（几乎所有已发表实验所用的 14 列子集）。
 >
 > **注意**：SMS Spam 是首个**文本**数据集。它没有特征矩阵：`texts()` 返回 5,574 条原始 SMS 消息正文的 `Array1<String>`（需自行向量化——词袋、TF-IDF、词向量等），`labels()` 返回 `"ham"` / `"spam"` 的 `Array1<&'static str>`，`data()` 返回 `(texts, labels)` 二元组。它从 **ZIP 压缩包**加载（与 Digits/BankMarketing 相同）：下载 `smsspamcollection.zip`，解压其中制表符分隔的 `SMSSpamCollection` 文件（缓存为 `sms_spam.csv`），并在关闭引号处理的情况下解析（消息是可能包含 `"` 与 `,` 的自由文本）。
+>
+> **注意**：YouTube Spam 是第二个**文本**数据集，也是 SMS Spam 的姊妹集（同一批作者）。与 SMS Spam 一样它没有特征矩阵：`texts()` 返回 1,956 条原始 YouTube 评论正文的 `Array1<String>`（源文件的 `CONTENT` 列），`labels()` 返回 `"ham"` / `"spam"` 的 `Array1<&'static str>`（由源文件的 `CLASS` 编码 `0` / `1` 映射而来），`data()` 返回 `(texts, labels)` 二元组。它从**五个**按视频划分的 CSV 组成的 **ZIP 压缩包**加载（Psy、Katy Perry、LMFAO、Eminem、Shakira 的音乐视频评论）；加载器按固定顺序将它们拼接为单个 `youtube_spam.csv`，用一个预设的 SHA-256 覆盖全部数据，然后以标准逗号分隔 CSV 解析，并**启用**引号处理（与 SMS Spam 不同——评论是规范加引号的，其中一条甚至跨越换行），同时跳过每个文件重复的表头行。每条评论的元数据列（`COMMENT_ID`、`AUTHOR`、`DATE`）不予暴露。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -177,6 +180,7 @@ fn main() {
 - **Titanic**：Kaggle Titanic 数据集
 - **Palmer Penguins**：Horst、Hill & Gorman（2020）；原始数据 Gorman、Williams & Fraser（2014）
 - **SMS Spam Collection**：Almeida & Hidalgo（2011），UCI 机器学习数据库，源自 Grumbletext、NUS SMS 语料库以及一篇博士论文的收集
+- **YouTube Spam Collection**：Alberto、Lochter & Almeida（2017），UCI 机器学习数据库，源自五个热门音乐视频的评论
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库
 - **Wine Quality**：UCI 机器学习数据库
 

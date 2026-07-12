@@ -32,6 +32,7 @@
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
 //! | [`wine_quality::red_wine_quality`]                    | 1,599   | 11       | Regression     |
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
+//! | [`youtube_spam`]                                      | 1,956   | text     | Classification |
 //!
 //! # Example
 //!
@@ -210,6 +211,16 @@ pub mod wine_quality;
 /// [`wine_quality`], which is a regression task on quality scores.
 pub mod wine_recognition;
 
+/// YouTube Spam Collection dataset module.
+///
+/// Contains the YouTube Spam Collection dataset (UCI, Alberto, Lochter & Almeida
+/// 2017) for binary **text** classification: labelling 1,956 comments from five
+/// popular music videos as `ham` or `spam`. Like [`sms_spam`] (a sibling by the
+/// same authors) it is a text-modality loader — there is no feature matrix, so
+/// the document accessor is `texts()` (an `Array1<String>` of raw comments)
+/// rather than `features()`. Sourced from a ZIP archive of five per-video CSVs.
+pub mod youtube_spam;
+
 pub use abalone::Abalone;
 pub use adult::Adult;
 pub use bank_marketing::BankMarketing;
@@ -231,3 +242,4 @@ pub use sms_spam::SmsSpam;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
 pub use wine_recognition::WineRecognition;
+pub use youtube_spam::YoutubeSpam;

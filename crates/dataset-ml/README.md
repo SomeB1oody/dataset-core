@@ -18,7 +18,7 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 ## Overview
 
-`dataset-ml` ships with loaders for 22 classic ML datasets. Each loader:
+`dataset-ml` ships with loaders for 23 classic ML datasets. Each loader:
 
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
@@ -60,6 +60,7 @@ dataset-ml = "0.2"
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`       | 1,599   | 11       | Regression     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
+| `YoutubeSpam`                              | `dataset_ml::youtube_spam`                         | 1,956   | text     | Classification | UCI ML Repository |
 
 All structs are also re-exported at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
 
@@ -94,7 +95,7 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
-> The text loader **SmsSpam** is the one exception: instead of `features()` it exposes `texts()` (an `Array1<String>` of raw messages), since a text corpus has no fixed feature matrix.
+> The text loaders **SmsSpam** and **YoutubeSpam** are the exception: instead of `features()` they expose `texts()` (an `Array1<String>` of raw messages/comments), since a text corpus has no fixed feature matrix.
 
 > **Note**: Titanic, Palmer Penguins, Adult, BankMarketing, Kddcup99, and Abalone are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. All are classification (a `labels()` accessor) **except Abalone**, which is regression — its third element is an `Array1<f64>` target exposed via `targets()`. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
 >
@@ -123,6 +124,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Heart Disease (Cleveland) is all-numeric with missing values: `features()` returns a single `&Array2<f64>` of shape `(303, 13)` (several columns are integer-coded categoricals kept as `f64`), and the `?` tokens in `ca` (4) and `thal` (2) become `NaN` (like Titanic/Palmer Penguins). `labels()` returns an `Array1<u8>` diagnosis `num` in `0..=4` (`0` = absence, `1`–`4` = increasing presence), commonly binarized to `0` vs `> 0`. It loads the canonical `processed.cleveland.data` partition (the 14-column subset used by virtually all published experiments).
 >
 > **Note**: SMS Spam is the first **text** dataset. It has no feature matrix: `texts()` returns an `Array1<String>` of the 5,574 raw SMS message bodies (vectorize them yourself — bag-of-words, TF-IDF, embeddings, …), and `labels()` returns an `Array1<&'static str>` of `"ham"` / `"spam"`. `data()` returns the `(texts, labels)` pair. It is sourced from a **ZIP archive** (like Digits/BankMarketing): the loader downloads `smsspamcollection.zip`, extracts the tab-separated `SMSSpamCollection` file (cached as `sms_spam.csv`), and parses it with quote handling disabled (the messages are free text that can contain `"` and `,`).
+>
+> **Note**: YouTube Spam is a second **text** dataset and a sibling of SMS Spam (same authors). Like SMS Spam it has no feature matrix: `texts()` returns an `Array1<String>` of the 1,956 raw YouTube comment bodies (the source `CONTENT` column) and `labels()` returns an `Array1<&'static str>` of `"ham"` / `"spam"` (mapped from the source `CLASS` codes `0` / `1`); `data()` returns the `(texts, labels)` pair. It is sourced from a **ZIP archive** of **five** per-video CSVs (comments on music videos by Psy, Katy Perry, LMFAO, Eminem, and Shakira); the loader concatenates them in a fixed order into a single `youtube_spam.csv` covered by one pinned SHA-256, then parses standard comma-separated CSV with quote handling **enabled** (unlike SMS Spam — the comments are properly quoted, one even spanning a newline) and skips each file's repeated header row. The per-comment metadata columns (`COMMENT_ID`, `AUTHOR`, `DATE`) are not exposed.
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -177,6 +180,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Titanic**: Kaggle Titanic dataset
 - **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
 - **SMS Spam Collection**: Almeida & Hidalgo (2011), UCI Machine Learning Repository, from Grumbletext, the NUS SMS Corpus, and a PhD thesis collection
+- **YouTube Spam Collection**: Alberto, Lochter & Almeida (2017), UCI Machine Learning Repository, comments collected from five popular music videos
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository
 - **Wine Quality**: UCI Machine Learning Repository
 
