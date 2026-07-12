@@ -20,6 +20,7 @@
 //! | [`covtype`]                                           | 581,012 | 54       | Classification |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
+//! | [`heart_disease`]                                     | 303     | 13       | Classification |
 //! | [`ionosphere`]                                        | 351     | 34       | Classification |
 //! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
 //! | [`linnerud`]                                          | 20      | 3        | Regression     |
@@ -112,6 +113,14 @@ pub mod diabetes;
 /// images flattened into 64 integer pixel intensities.
 pub mod digits;
 
+/// Heart Disease (Cleveland) dataset module.
+///
+/// Contains the Cleveland Heart Disease dataset (UCI, Janosi et al. 1988) for
+/// classification: predicting the presence of heart disease (`num`, `0`–`4`) from
+/// 13 clinical features. The `?` missing values in `ca`/`thal` are mapped to
+/// `NaN` (like [`titanic`]/[`palmer_penguins`]); the target is an `Array1<u8>`.
+pub mod heart_disease;
+
 /// Ionosphere dataset module.
 ///
 /// Contains the Ionosphere dataset (UCI, Sigillito et al. 1989) for binary
@@ -190,6 +199,7 @@ pub use car_evaluation::CarEvaluation;
 pub use covtype::Covtype;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
+pub use heart_disease::HeartDisease;
 pub use ionosphere::Ionosphere;
 pub use iris::Iris;
 pub use kddcup99::Kddcup99;

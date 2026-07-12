@@ -48,6 +48,7 @@ dataset-ml = "0.2"
 | `Covtype`                                  | `dataset_ml::covtype`                               | 581,012 | 54     | 分类     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
 | `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
+| `HeartDisease`                             | `dataset_ml::heart_disease`                         | 303     | 13     | 分类     | UCI ML Repository |
 | `Ionosphere`                               | `dataset_ml::ionosphere`                            | 351     | 34     | 分类     | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                              | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                              | 20      | 3      | 回归（多输出） | scikit-learn |
@@ -112,6 +113,8 @@ fn main() {
 > **注意**：Covtype 复现了 scikit-learn `fetch_covtype`：581,012 条样本，54 个特征（10 个数量型变量、4 个独热编码的 `Wilderness_Area` 列、40 个独热编码的 `Soil_Type` 列），以及 `Array1<u8>` 的森林覆盖类型标签（`1`–`7`）。它是首个以 gzip 压缩文件为源的加载器：下载 `covtype.data.gz` 并用 `dataset-core` 的 `gunzip` 辅助函数解压。
 >
 > **注意**：Kddcup99 复现了 scikit-learn `fetch_kddcup99`。与 scikit-learn 一样，`Kddcup99::new` 加载**默认的 10% 子集**（494,021 条连接，`percent10=True`），`Kddcup99::new_full` 加载**全量**（4,898,431 条连接，`percent10=False`）；两者共享相同的 41 特征结构与 23 个类别。与 Titanic 一样是混合类型：`features()` 返回 `(&Array2<String>, &Array2<f64>)`——3 个类别特征（`protocol_type`、`service`、`flag`）和 38 个数值特征，`labels()` 返回 `Array1<String>`，标签保持原样（含末尾句点，如 `"normal."`、`"smurf."`）。与 Covtype 一样，源文件经 gzip 压缩并用 `gunzip` 解压。**提示**：全量解压后的源文件约 743 MB，解析后的内存数组达数 GB，`new_full` 会耗费可观的时间与内存；默认子集约小 10 倍。
+>
+> **注意**：Heart Disease（Cleveland）是带缺失值的全数值数据集：`features()` 返回单个 `&Array2<f64>`，形状 `(303, 13)`（其中若干列是以 `f64` 保存的整数编码类别），源文件中 `ca`（4 个）与 `thal`（2 个）的 `?` 标记被映射为 `NaN`（与 Titanic / Palmer Penguins 相同）。`labels()` 返回 `Array1<u8>` 诊断标签 `num`，取值 `0..=4`（`0` = 无病，`1`–`4` = 病情递增），通常二值化为 `0` 与 `> 0`。它加载标准的 `processed.cleveland.data` 分区（几乎所有已发表实验所用的 14 列子集）。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -155,6 +158,7 @@ fn main() {
 - **Boston Housing**：Harrison & Rubinfeld（1978）
 - **California Housing**：Pace & Barry（1997），源自 1990 年美国普查
 - **Forest Cover Type**：Blackard & Dean（1999），UCI 机器学习数据库，通过 scikit-learn 的 `fetch_covtype`
+- **Heart Disease**：Janosi、Steinbrunn、Pfisterer & Detrano（1988），UCI 机器学习数据库，克利夫兰临床基金会分区
 - **Ionosphere**：Sigillito、Wing、Hutton & Baker（1989），UCI 机器学习数据库，源自在拉布拉多 Goose Bay 采集的雷达回波
 - **Car Evaluation**：Bohanec（1988），UCI 机器学习数据库，源自 DEX 层次化决策模型
 - **KDD Cup 1999**：Stolfo、Fan、Lee、Prodromidis & Chan（1999/2000），UCI KDD 数据库，通过 scikit-learn 的 `fetch_kddcup99`

@@ -48,6 +48,7 @@ dataset-ml = "0.2"
 | `Covtype`                                  | `dataset_ml::covtype`                              | 581,012 | 54       | Classification | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
+| `HeartDisease`                             | `dataset_ml::heart_disease`                        | 303     | 13       | Classification | UCI ML Repository |
 | `Ionosphere`                               | `dataset_ml::ionosphere`                           | 351     | 34       | Classification | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                             | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
 | `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
@@ -112,6 +113,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Linnerud reproduces scikit-learn's `load_linnerud` (multi-output regression): `features()` returns the three exercise variables (`Chins`, `Situps`, `Jumps`) and `targets()` returns the three physiological variables (`Weight`, `Waist`, `Pulse`), so both are `Array2<f64>` with shape `(20, 3)`. It is sourced from two whitespace-separated files distributed with scikit-learn.
 >
 > **Note**: Kddcup99 reproduces scikit-learn's `fetch_kddcup99`. Like scikit-learn, `Kddcup99::new` loads the **default 10% subset** (494,021 connections, `percent10=True`) and `Kddcup99::new_full` loads the **full set** (4,898,431 connections, `percent10=False`); both share the same 41-feature schema and 23 classes. It is mixed-type like Titanic: `features()` returns `(&Array2<String>, &Array2<f64>)` — 3 categorical features (`protocol_type`, `service`, `flag`) and 38 numeric features — and `labels()` returns an `Array1<String>` of the connection class kept verbatim including the trailing period (e.g. `"normal."`, `"smurf."`). Like Covtype it is sourced from a gzip-compressed file decompressed with `gunzip`. **Heads-up:** the full set's decompressed source is ~743 MB and the parsed in-memory arrays are several GB, so `new_full` takes noticeable time and memory; the default subset is ~10× smaller.
+>
+> **Note**: Heart Disease (Cleveland) is all-numeric with missing values: `features()` returns a single `&Array2<f64>` of shape `(303, 13)` (several columns are integer-coded categoricals kept as `f64`), and the `?` tokens in `ca` (4) and `thal` (2) become `NaN` (like Titanic/Palmer Penguins). `labels()` returns an `Array1<u8>` diagnosis `num` in `0..=4` (`0` = absence, `1`–`4` = increasing presence), commonly binarized to `0` vs `> 0`. It loads the canonical `processed.cleveland.data` partition (the 14-column subset used by virtually all published experiments).
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -155,6 +158,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Boston Housing**: Harrison & Rubinfeld (1978)
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
 - **Forest Cover Type**: Blackard & Dean (1999), UCI Machine Learning Repository, via scikit-learn's `fetch_covtype`
+- **Heart Disease**: Janosi, Steinbrunn, Pfisterer & Detrano (1988), UCI Machine Learning Repository, Cleveland Clinic Foundation partition
 - **Ionosphere**: Sigillito, Wing, Hutton & Baker (1989), UCI Machine Learning Repository, radar returns collected in Goose Bay, Labrador
 - **Car Evaluation**: Bohanec (1988), UCI Machine Learning Repository, derived from a DEX hierarchical decision model
 - **KDD Cup 1999**: Stolfo, Fan, Lee, Prodromidis & Chan (1999/2000), UCI KDD Archive, via scikit-learn's `fetch_kddcup99`
