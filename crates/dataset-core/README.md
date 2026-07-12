@@ -49,7 +49,7 @@ dataset-core = { version = "0.3", features = ["utils"] }
 | Feature  | What it enables                                              | Extra dependencies               |
 |----------|--------------------------------------------------------------|----------------------------------|
 | *(none)* | `Dataset<T, E>` only                                         | none                             |
-| `utils`  | Download, unzip, gunzip, temp dirs, SHA-256 validation, error types | ureq, zip, flate2, tempfile, sha2, thiserror |
+| `utils`  | Download, unzip, gunzip, untar, untar_gz, temp dirs, SHA-256 validation, error types | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
 
 ## Core Usage
 
@@ -93,6 +93,8 @@ fn main() {
 | `download_to`         | Download a remote file into a directory                                                |
 | `unzip`               | Extract a ZIP archive                                                                  |
 | `gunzip`              | Decompress a gzip (`.gz`) file into a single output file                               |
+| `untar`               | Extract a tar (`.tar`) archive into a directory                                        |
+| `untar_gz`            | Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a directory, streaming |
 | `acquire_dataset`     | Cache-aware acquisition: reuse valid local file, prepare in temp dir, hash check, move |
 
 ## Building Your Own Dataset

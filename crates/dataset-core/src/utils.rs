@@ -6,6 +6,7 @@ use std::fs::File;
 use std::io;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use tar::Archive;
 use zip::ZipArchive;
 use zip::result::ZipError;
 
@@ -162,6 +163,89 @@ pub fn gunzip(file_path: &Path, output_path: &Path) -> Result<(), DatasetError> 
     let mut decoder = GzDecoder::new(input);
     let mut output = File::create(output_path)?;
     io::copy(&mut decoder, &mut output)?;
+
+    Ok(())
+}
+
+/// Extract a tar (`.tar`) archive into a target directory using [`tar::Archive`].
+///
+/// This is the tar analogue of [`unzip`]: a `.tar` bundles a whole directory tree
+/// (unlike [`gunzip`], which decompresses a single-file gzip stream). For the very
+/// common gzip-compressed tarball (`.tar.gz` / `.tgz`), use [`untar_gz`], which
+/// streams the decompression and extraction together without writing an
+/// intermediate `.tar` to disk.
+///
+/// The archive's entries are unpacked **relative to** `extract_dir` (which is
+/// created if needed); the [`tar`] crate rejects entries whose paths would escape
+/// it.
+///
+/// # Parameters
+///
+/// - `file_path` - Path to the `.tar` file to extract.
+/// - `extract_dir` - Directory to extract the archive contents into.
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when opening the archive fails or when
+///   extraction fails (a malformed archive, or an entry that cannot be written).
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::{download_to, untar};
+/// use std::path::Path;
+///
+/// let work_dir = Path::new("./untar_example");
+/// std::fs::create_dir_all(work_dir).unwrap();
+///
+/// // Download a tar archive, then extract it in place.
+/// download_to("https://example.com/data.tar", work_dir, Some("data.tar")).unwrap();
+/// untar(&work_dir.join("data.tar"), work_dir).unwrap();
+/// ```
+pub fn untar(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
+    let file = File::open(file_path)?;
+    Archive::new(file).unpack(extract_dir)?;
+
+    Ok(())
+}
+
+/// Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a target directory.
+///
+/// This composes the two layers of a gzipped tarball in one streaming pass: the
+/// bytes flow through [`flate2::read::GzDecoder`] (the gzip layer, as in
+/// [`gunzip`]) straight into [`tar::Archive`] (the tar layer, as in [`untar`]), so
+/// the intermediate uncompressed `.tar` is never written to disk — suitable for
+/// large datasets distributed as `.tar.gz`.
+///
+/// The archive's entries are unpacked **relative to** `extract_dir` (which is
+/// created if needed); the [`tar`] crate rejects entries whose paths would escape
+/// it.
+///
+/// # Parameters
+///
+/// - `file_path` - Path to the `.tar.gz` (or `.tgz`) file to extract.
+/// - `extract_dir` - Directory to extract the archive contents into.
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when opening the source fails, the gzip
+///   stream is malformed, or the tar extraction fails.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::{download_to, untar_gz};
+/// use std::path::Path;
+///
+/// let work_dir = Path::new("./untar_gz_example");
+/// std::fs::create_dir_all(work_dir).unwrap();
+///
+/// // Download a gzip-compressed tarball, then extract it in place.
+/// download_to("https://example.com/data.tar.gz", work_dir, Some("data.tar.gz")).unwrap();
+/// untar_gz(&work_dir.join("data.tar.gz"), work_dir).unwrap();
+/// ```
+pub fn untar_gz(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
+    let input = File::open(file_path)?;
+    let decoder = GzDecoder::new(input);
+    Archive::new(decoder).unpack(extract_dir)?;
 
     Ok(())
 }
@@ -459,6 +543,98 @@ mod tests {
         let result = gunzip(
             Path::new("./no_such_file_for_gunzip_test.gz"),
             Path::new("./no_such_file_for_gunzip_test.out"),
+        );
+        assert!(result.is_err());
+    }
+
+    /// Build a tar archive at `path` from `(name, content)` entries (test helper).
+    fn write_tar(path: &Path, entries: &[(&str, &[u8])]) {
+        let file = File::create(path).unwrap();
+        let mut builder = tar::Builder::new(file);
+        for (name, content) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append_data(&mut header, name, *content).unwrap();
+        }
+        builder.into_inner().unwrap().sync_all().unwrap();
+    }
+
+    /// Build a gzip-compressed tar archive at `path` (test helper).
+    fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
+        use flate2::Compression;
+        use flate2::write::GzEncoder;
+
+        let file = File::create(path).unwrap();
+        let encoder = GzEncoder::new(file, Compression::default());
+        let mut builder = tar::Builder::new(encoder);
+        for (name, content) in entries {
+            let mut header = tar::Header::new_gnu();
+            header.set_size(content.len() as u64);
+            header.set_mode(0o644);
+            header.set_cksum();
+            builder.append_data(&mut header, name, *content).unwrap();
+        }
+        builder.into_inner().unwrap().finish().unwrap();
+    }
+
+    #[test]
+    fn untar_round_trips_entries() {
+        let dir = "./test_untar_round_trips_entries";
+        create_dir_all(dir).unwrap();
+        let dir_path = Path::new(dir);
+
+        let tar_path = dir_path.join("data.tar");
+        write_tar(
+            &tar_path,
+            &[("a.txt", b"hello"), ("nested/b.txt", b"world")],
+        );
+
+        let out_dir = dir_path.join("extracted");
+        untar(&tar_path, &out_dir).unwrap();
+
+        assert_eq!(fs::read(out_dir.join("a.txt")).unwrap(), b"hello");
+        assert_eq!(fs::read(out_dir.join("nested/b.txt")).unwrap(), b"world");
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn untar_nonexistent_source_errors() {
+        let result = untar(
+            Path::new("./no_such_file_for_untar_test.tar"),
+            Path::new("./no_such_dir_for_untar_test"),
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn untar_gz_round_trips_entries() {
+        let dir = "./test_untar_gz_round_trips_entries";
+        create_dir_all(dir).unwrap();
+        let dir_path = Path::new(dir);
+
+        let tar_gz_path = dir_path.join("data.tar.gz");
+        write_tar_gz(
+            &tar_gz_path,
+            &[("a.txt", b"hello"), ("nested/b.txt", b"world")],
+        );
+
+        let out_dir = dir_path.join("extracted");
+        untar_gz(&tar_gz_path, &out_dir).unwrap();
+
+        assert_eq!(fs::read(out_dir.join("a.txt")).unwrap(), b"hello");
+        assert_eq!(fs::read(out_dir.join("nested/b.txt")).unwrap(), b"world");
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn untar_gz_nonexistent_source_errors() {
+        let result = untar_gz(
+            Path::new("./no_such_file_for_untar_gz_test.tar.gz"),
+            Path::new("./no_such_dir_for_untar_gz_test"),
         );
         assert!(result.is_err());
     }
