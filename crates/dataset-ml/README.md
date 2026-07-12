@@ -56,6 +56,7 @@ dataset-ml = "0.2"
 | `Mushroom`                                 | `dataset_ml::mushroom`                             | 8,124   | 22       | Classification | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
+| `SmsSpam`                                  | `dataset_ml::sms_spam`                             | 5,574   | text     | Classification | UCI ML Repository |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`       | 1,599   | 11       | Regression     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
@@ -93,6 +94,8 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
+> The text loader **SmsSpam** is the one exception: instead of `features()` it exposes `texts()` (an `Array1<String>` of raw messages), since a text corpus has no fixed feature matrix.
+
 > **Note**: Titanic, Palmer Penguins, Adult, BankMarketing, Kddcup99, and Abalone are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. All are classification (a `labels()` accessor) **except Abalone**, which is regression — its third element is an `Array1<f64>` target exposed via `targets()`. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
 >
 > **Note**: Abalone is the first **mixed-type regression** loader: a single categorical `sex` feature (`M`/`F`/`I`, a `(4177, 1)` `&Array2<String>`) plus 7 numeric measurements (`length`, `diameter`, `height`, `whole_weight`, `shucked_weight`, `viscera_weight`, `shell_weight`, a `(4177, 7)` `&Array2<f64>`), predicting `rings` — the `Array1<f64>` regression target (the age in years is `rings + 1.5`). It has no missing values.
@@ -118,6 +121,8 @@ Each dataset struct follows the same pattern:
 > **Note**: Kddcup99 reproduces scikit-learn's `fetch_kddcup99`. Like scikit-learn, `Kddcup99::new` loads the **default 10% subset** (494,021 connections, `percent10=True`) and `Kddcup99::new_full` loads the **full set** (4,898,431 connections, `percent10=False`); both share the same 41-feature schema and 23 classes. It is mixed-type like Titanic: `features()` returns `(&Array2<String>, &Array2<f64>)` — 3 categorical features (`protocol_type`, `service`, `flag`) and 38 numeric features — and `labels()` returns an `Array1<String>` of the connection class kept verbatim including the trailing period (e.g. `"normal."`, `"smurf."`). Like Covtype it is sourced from a gzip-compressed file decompressed with `gunzip`. **Heads-up:** the full set's decompressed source is ~743 MB and the parsed in-memory arrays are several GB, so `new_full` takes noticeable time and memory; the default subset is ~10× smaller.
 >
 > **Note**: Heart Disease (Cleveland) is all-numeric with missing values: `features()` returns a single `&Array2<f64>` of shape `(303, 13)` (several columns are integer-coded categoricals kept as `f64`), and the `?` tokens in `ca` (4) and `thal` (2) become `NaN` (like Titanic/Palmer Penguins). `labels()` returns an `Array1<u8>` diagnosis `num` in `0..=4` (`0` = absence, `1`–`4` = increasing presence), commonly binarized to `0` vs `> 0`. It loads the canonical `processed.cleveland.data` partition (the 14-column subset used by virtually all published experiments).
+>
+> **Note**: SMS Spam is the first **text** dataset. It has no feature matrix: `texts()` returns an `Array1<String>` of the 5,574 raw SMS message bodies (vectorize them yourself — bag-of-words, TF-IDF, embeddings, …), and `labels()` returns an `Array1<&'static str>` of `"ham"` / `"spam"`. `data()` returns the `(texts, labels)` pair. It is sourced from a **ZIP archive** (like Digits/BankMarketing): the loader downloads `smsspamcollection.zip`, extracts the tab-separated `SMSSpamCollection` file (cached as `sms_spam.csv`), and parses it with quote handling disabled (the messages are free text that can contain `"` and `,`).
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -171,6 +176,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **Mushroom**: UCI Machine Learning Repository (1987), from *The Audubon Society Field Guide to North American Mushrooms* (1981)
 - **Titanic**: Kaggle Titanic dataset
 - **Palmer Penguins**: Horst, Hill & Gorman (2020); data by Gorman, Williams & Fraser (2014)
+- **SMS Spam Collection**: Almeida & Hidalgo (2011), UCI Machine Learning Repository, from Grumbletext, the NUS SMS Corpus, and a PhD thesis collection
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository
 - **Wine Quality**: UCI Machine Learning Repository
 

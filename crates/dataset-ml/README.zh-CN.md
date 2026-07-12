@@ -56,6 +56,7 @@ dataset-ml = "0.2"
 | `Mushroom`                                 | `dataset_ml::mushroom`                              | 8,124   | 22     | 分类     | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
+| `SmsSpam`                                  | `dataset_ml::sms_spam`                              | 5,574   | 文本   | 分类     | UCI ML Repository |
 | `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
 | `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`        | 1,599   | 11     | 回归     | UCI ML Repository |
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`      | 4,898   | 11     | 回归     | UCI ML Repository |
@@ -93,6 +94,8 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
+> 文本加载器 **SmsSpam** 是唯一例外：它用 `texts()`（原始消息的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。
+
 > **注意**：Titanic、Palmer Penguins、Adult、BankMarketing、Kddcup99 和 Abalone 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。除 **Abalone** 外都是分类（`labels()` 访问器）；Abalone 是回归——三元组的第三个元素是通过 `targets()` 暴露的 `Array1<f64>` 目标。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
 >
 > **注意**：Abalone 是首个**混合类型回归**加载器：单个类别特征 `sex`（`M`/`F`/`I`，即 `(4177, 1)` 的 `&Array2<String>`），加上 7 个数值测量（`length`、`diameter`、`height`、`whole_weight`、`shucked_weight`、`viscera_weight`、`shell_weight`，即 `(4177, 7)` 的 `&Array2<f64>`），预测 `rings`——`Array1<f64>` 回归目标（年龄为 `rings + 1.5` 岁）。它没有缺失值。
@@ -118,6 +121,8 @@ fn main() {
 > **注意**：Kddcup99 复现了 scikit-learn `fetch_kddcup99`。与 scikit-learn 一样，`Kddcup99::new` 加载**默认的 10% 子集**（494,021 条连接，`percent10=True`），`Kddcup99::new_full` 加载**全量**（4,898,431 条连接，`percent10=False`）；两者共享相同的 41 特征结构与 23 个类别。与 Titanic 一样是混合类型：`features()` 返回 `(&Array2<String>, &Array2<f64>)`——3 个类别特征（`protocol_type`、`service`、`flag`）和 38 个数值特征，`labels()` 返回 `Array1<String>`，标签保持原样（含末尾句点，如 `"normal."`、`"smurf."`）。与 Covtype 一样，源文件经 gzip 压缩并用 `gunzip` 解压。**提示**：全量解压后的源文件约 743 MB，解析后的内存数组达数 GB，`new_full` 会耗费可观的时间与内存；默认子集约小 10 倍。
 >
 > **注意**：Heart Disease（Cleveland）是带缺失值的全数值数据集：`features()` 返回单个 `&Array2<f64>`，形状 `(303, 13)`（其中若干列是以 `f64` 保存的整数编码类别），源文件中 `ca`（4 个）与 `thal`（2 个）的 `?` 标记被映射为 `NaN`（与 Titanic / Palmer Penguins 相同）。`labels()` 返回 `Array1<u8>` 诊断标签 `num`，取值 `0..=4`（`0` = 无病，`1`–`4` = 病情递增），通常二值化为 `0` 与 `> 0`。它加载标准的 `processed.cleveland.data` 分区（几乎所有已发表实验所用的 14 列子集）。
+>
+> **注意**：SMS Spam 是首个**文本**数据集。它没有特征矩阵：`texts()` 返回 5,574 条原始 SMS 消息正文的 `Array1<String>`（需自行向量化——词袋、TF-IDF、词向量等），`labels()` 返回 `"ham"` / `"spam"` 的 `Array1<&'static str>`，`data()` 返回 `(texts, labels)` 二元组。它从 **ZIP 压缩包**加载（与 Digits/BankMarketing 相同）：下载 `smsspamcollection.zip`，解压其中制表符分隔的 `SMSSpamCollection` 文件（缓存为 `sms_spam.csv`），并在关闭引号处理的情况下解析（消息是可能包含 `"` 与 `,` 的自由文本）。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -171,6 +176,7 @@ fn main() {
 - **Mushroom**：UCI 机器学习数据库（1987），源自《奥杜邦协会北美蘑菇野外指南》（1981）
 - **Titanic**：Kaggle Titanic 数据集
 - **Palmer Penguins**：Horst、Hill & Gorman（2020）；原始数据 Gorman、Williams & Fraser（2014）
+- **SMS Spam Collection**：Almeida & Hidalgo（2011），UCI 机器学习数据库，源自 Grumbletext、NUS SMS 语料库以及一篇博士论文的收集
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库
 - **Wine Quality**：UCI 机器学习数据库
 

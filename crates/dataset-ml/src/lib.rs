@@ -28,6 +28,7 @@
 //! | [`mushroom`]                                          | 8,124   | 22       | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
+//! | [`sms_spam`]                                          | 5,574   | text     | Classification |
 //! | [`wine_recognition`]                                  | 178     | 13       | Classification |
 //! | [`wine_quality::red_wine_quality`]                    | 1,599   | 11       | Regression     |
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
@@ -180,6 +181,15 @@ pub mod mushroom;
 /// body mass, and categorical island/sex features. A modern alternative to Iris.
 pub mod palmer_penguins;
 
+/// SMS Spam Collection dataset module.
+///
+/// Contains the SMS Spam Collection dataset (UCI, Almeida & Hidalgo 2011) for
+/// binary **text** classification: labelling 5,574 SMS messages as `ham` or
+/// `spam`. The crate's first text-modality loader — there is no feature matrix,
+/// so the document accessor is `texts()` (an `Array1<String>` of raw messages)
+/// rather than `features()`. Sourced from a ZIP archive.
+pub mod sms_spam;
+
 /// Titanic dataset module.
 ///
 /// Contains data about Titanic passengers for predicting survival based
@@ -217,6 +227,7 @@ pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
 pub use mushroom::Mushroom;
 pub use palmer_penguins::PalmerPenguins;
+pub use sms_spam::SmsSpam;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
 pub use wine_recognition::WineRecognition;
