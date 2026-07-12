@@ -10,6 +10,7 @@
 //!
 //! | Module                                                | Samples | Features | Task Type      |
 //! |-------------------------------------------------------|---------|----------|----------------|
+//! | [`abalone`]                                           | 4,177   | 8        | Regression     |
 //! | [`adult`]                                             | 32,561  | 14       | Classification |
 //! | [`bank_marketing`]                                    | 45,211  | 16       | Classification |
 //! | [`iris`]                                              | 150     | 4        | Classification |
@@ -44,6 +45,15 @@
 //! All loaders are lazy: the first call downloads and parses the file, every
 //! subsequent call returns a cached reference. See the individual module docs
 //! for features, target, sample count, and source.
+
+/// Abalone dataset module.
+///
+/// Contains the Abalone dataset (UCI, Nash et al. 1994) for **regression**:
+/// predicting an abalone's `rings` (age in years is `rings + 1.5`) from 8 mixed
+/// (1 categorical `sex` + 7 numeric) physical measurements. Unlike the other
+/// mixed-type loaders (which are classification), its target is an
+/// `Array1<f64>` regression target via `targets()`.
+pub mod abalone;
 
 /// Adult / Census Income dataset module.
 ///
@@ -190,6 +200,7 @@ pub mod wine_quality;
 /// [`wine_quality`], which is a regression task on quality scores.
 pub mod wine_recognition;
 
+pub use abalone::Abalone;
 pub use adult::Adult;
 pub use bank_marketing::BankMarketing;
 pub use boston_housing::BostonHousing;

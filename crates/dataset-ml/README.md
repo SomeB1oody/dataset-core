@@ -38,6 +38,7 @@ dataset-ml = "0.2"
 
 | Struct                                     | Module path                                        | Samples | Features | Task Type      | Source            |
 |--------------------------------------------|----------------------------------------------------|---------|----------|----------------|-------------------|
+| `Abalone`                                  | `dataset_ml::abalone`                              | 4,177   | 8        | Regression     | UCI ML Repository |
 | `Adult`                                    | `dataset_ml::adult`                                | 32,561  | 14       | Classification | UCI ML Repository |
 | `BankMarketing`                            | `dataset_ml::bank_marketing`                       | 45,211  | 16       | Classification | UCI ML Repository |
 | `Iris`                                     | `dataset_ml::iris`                                 | 150     | 4        | Classification | UCI ML Repository |
@@ -92,7 +93,9 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
-> **Note**: Titanic, Palmer Penguins, Adult, BankMarketing, and Kddcup99 are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
+> **Note**: Titanic, Palmer Penguins, Adult, BankMarketing, Kddcup99, and Abalone are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. All are classification (a `labels()` accessor) **except Abalone**, which is regression — its third element is an `Array1<f64>` target exposed via `targets()`. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
+>
+> **Note**: Abalone is the first **mixed-type regression** loader: a single categorical `sex` feature (`M`/`F`/`I`, a `(4177, 1)` `&Array2<String>`) plus 7 numeric measurements (`length`, `diameter`, `height`, `whole_weight`, `shucked_weight`, `viscera_weight`, `shell_weight`, a `(4177, 7)` `&Array2<f64>`), predicting `rings` — the `Array1<f64>` regression target (the age in years is `rings + 1.5`). It has no missing values.
 >
 > **Note**: Adult (Census Income) reproduces the classic UCI dataset for predicting whether income exceeds $50K/year: 8 categorical features (`workclass`, `education`, `marital-status`, `occupation`, `relationship`, `race`, `sex`, `native-country`), 6 numeric features (`age`, `fnlwgt`, `education-num`, `capital-gain`, `capital-loss`, `hours-per-week`), and an `Array1<String>` income label kept verbatim (`<=50K` or `>50K`). It loads the canonical `adult.data` training partition (32,561 records); the source's `?` missing categorical token is mapped to empty strings `""`.
 >
@@ -151,6 +154,7 @@ This project is licensed under the MIT License — see [LICENSE](../../LICENSE) 
 
 The bundled datasets are classic machine learning datasets widely used for educational and research purposes:
 
+- **Abalone**: Nash, Sellers, Talbot, Cawthorn & Ford (1994), UCI Machine Learning Repository, from a study of blacklip abalone in Tasmania
 - **Adult / Census Income**: Becker & Kohavi (1996), UCI Machine Learning Repository, extracted from the 1994 US Census
 - **Bank Marketing**: Moro, Rita & Cortez (2012), UCI Machine Learning Repository, from a Portuguese bank's direct marketing campaigns
 - **Iris**: Fisher's Iris dataset (1936)

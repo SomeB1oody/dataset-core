@@ -38,6 +38,7 @@ dataset-ml = "0.2"
 
 | 结构体                                     | 模块路径                                            | 样本数  | 特征数 | 任务类型 | 来源              |
 |--------------------------------------------|-----------------------------------------------------|---------|--------|----------|-------------------|
+| `Abalone`                                  | `dataset_ml::abalone`                               | 4,177   | 8      | 回归     | UCI ML Repository |
 | `Adult`                                    | `dataset_ml::adult`                                 | 32,561  | 14     | 分类     | UCI ML Repository |
 | `BankMarketing`                            | `dataset_ml::bank_marketing`                        | 45,211  | 16     | 分类     | UCI ML Repository |
 | `Iris`                                     | `dataset_ml::iris`                                  | 150     | 4      | 分类     | UCI ML Repository |
@@ -92,7 +93,9 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
-> **注意**：Titanic、Palmer Penguins、Adult、BankMarketing 和 Kddcup99 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
+> **注意**：Titanic、Palmer Penguins、Adult、BankMarketing、Kddcup99 和 Abalone 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。除 **Abalone** 外都是分类（`labels()` 访问器）；Abalone 是回归——三元组的第三个元素是通过 `targets()` 暴露的 `Array1<f64>` 目标。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
+>
+> **注意**：Abalone 是首个**混合类型回归**加载器：单个类别特征 `sex`（`M`/`F`/`I`，即 `(4177, 1)` 的 `&Array2<String>`），加上 7 个数值测量（`length`、`diameter`、`height`、`whole_weight`、`shucked_weight`、`viscera_weight`、`shell_weight`，即 `(4177, 7)` 的 `&Array2<f64>`），预测 `rings`——`Array1<f64>` 回归目标（年龄为 `rings + 1.5` 岁）。它没有缺失值。
 >
 > **注意**：Adult（人口普查收入）复现了经典的 UCI 数据集，用于预测年收入是否超过 5 万美元：8 个类别特征（`workclass`、`education`、`marital-status`、`occupation`、`relationship`、`race`、`sex`、`native-country`），6 个数值特征（`age`、`fnlwgt`、`education-num`、`capital-gain`、`capital-loss`、`hours-per-week`），以及保持原样的 `Array1<String>` 收入标签（`<=50K` 或 `>50K`）。它加载标准的 `adult.data` 训练分区（32,561 条记录）；源文件中的 `?` 缺失类别标记被映射为空字符串 `""`。
 >
@@ -151,6 +154,7 @@ fn main() {
 
 内置数据集是广泛用于教学和研究目的的经典机器学习数据集：
 
+- **Abalone**：Nash、Sellers、Talbot、Cawthorn & Ford（1994），UCI 机器学习数据库，源自塔斯马尼亚黑唇鲍鱼的研究
 - **Adult / 人口普查收入**：Becker & Kohavi（1996），UCI 机器学习数据库，源自 1994 年美国人口普查
 - **Bank Marketing**：Moro、Rita & Cortez（2012），UCI 机器学习数据库，源自葡萄牙某银行的直接营销活动
 - **Iris**：Fisher 的鸢尾花数据集（1936）
