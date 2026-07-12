@@ -44,6 +44,7 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
+| `CarEvaluation`                            | `dataset_ml::car_evaluation`                       | 1,728   | 6        | Classification | UCI ML Repository |
 | `Covtype`                                  | `dataset_ml::covtype`                              | 581,012 | 54       | Classification | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
 | `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
@@ -96,7 +97,9 @@ Each dataset struct follows the same pattern:
 >
 > **Note**: BankMarketing reproduces the classic UCI Bank Marketing dataset (a Portuguese bank's phone campaigns) for predicting term-deposit subscription: 9 categorical features (`job`, `marital`, `education`, `default`, `housing`, `loan`, `contact`, `month`, `poutcome`), 7 numeric features (`age`, `balance`, `day`, `duration`, `campaign`, `pdays`, `previous`), and an `Array1<String>` label kept verbatim (`yes` or `no`). It loads the full `bank-full.csv` partition (45,211 records) from a ZIP archive; the categorical `unknown` label is kept verbatim (it is a documented level, e.g. `poutcome = unknown` means no previous contact), rather than mapped to an empty string.
 >
-> **Note**: Mushroom is the only **all-categorical** dataset: all 22 features are single-letter string codes, so `features()` returns a single `&Array2<String>` (no numeric matrix) and `data()` returns a `(features, labels)` pair. The `Array1<String>` label is kept verbatim (`e` = edible, `p` = poisonous). The source's `?` missing token (only in `stalk-root`) is mapped to empty strings `""`.
+> **Note**: Mushroom is an **all-categorical** dataset (like Car Evaluation): all 22 features are single-letter string codes, so `features()` returns a single `&Array2<String>` (no numeric matrix) and `data()` returns a `(features, labels)` pair. The `Array1<String>` label is kept verbatim (`e` = edible, `p` = poisonous). The source's `?` missing token (only in `stalk-root`) is mapped to empty strings `""`.
+>
+> **Note**: Car Evaluation is also **all-categorical** (like Mushroom): all 6 features are string codes (`buying`, `maint`, `doors`, `persons`, `lug_boot`, `safety`), so `features()` returns a single `&Array2<String>` and `data()` returns a `(features, labels)` pair. The `Array1<String>` label is kept verbatim, one of the four acceptability classes `unacc` / `acc` / `good` / `vgood`. The 1,728 records enumerate the full cartesian product of the six attributes, so there are no missing values.
 >
 > **Note**: California Housing reproduces scikit-learn's `fetch_california_housing` features by deriving them from the raw census columns (e.g. `AveRooms = total_rooms / households`) and scaling the target by `1/100000`. Its 207 missing `total_bedrooms` values surface as `NaN` in `AveBedrms`.
 >
@@ -153,6 +156,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **California Housing**: Pace & Barry (1997), from the 1990 U.S. census
 - **Forest Cover Type**: Blackard & Dean (1999), UCI Machine Learning Repository, via scikit-learn's `fetch_covtype`
 - **Ionosphere**: Sigillito, Wing, Hutton & Baker (1989), UCI Machine Learning Repository, radar returns collected in Goose Bay, Labrador
+- **Car Evaluation**: Bohanec (1988), UCI Machine Learning Repository, derived from a DEX hierarchical decision model
 - **KDD Cup 1999**: Stolfo, Fan, Lee, Prodromidis & Chan (1999/2000), UCI KDD Archive, via scikit-learn's `fetch_kddcup99`
 - **Diabetes**: Efron, Hastie, Johnstone & Tibshirani (2004), via scikit-learn's `load_diabetes`
 - **Linnerud**: A. C. Linnerud (NCSU), via scikit-learn's `load_linnerud`

@@ -44,6 +44,7 @@ dataset-ml = "0.2"
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
 | `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
+| `CarEvaluation`                            | `dataset_ml::car_evaluation`                        | 1,728   | 6      | 分类     | UCI ML Repository |
 | `Covtype`                                  | `dataset_ml::covtype`                               | 581,012 | 54     | 分类     | UCI ML Repository |
 | `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
 | `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
@@ -96,7 +97,9 @@ fn main() {
 >
 > **注意**：BankMarketing 复现了经典的 UCI Bank Marketing 数据集（葡萄牙某银行的电话营销活动），用于预测客户是否会订购定期存款：9 个类别特征（`job`、`marital`、`education`、`default`、`housing`、`loan`、`contact`、`month`、`poutcome`），7 个数值特征（`age`、`balance`、`day`、`duration`、`campaign`、`pdays`、`previous`），以及保持原样的 `Array1<String>` 标签（`yes` 或 `no`）。它从 ZIP 压缩包中加载完整的 `bank-full.csv` 分区（45,211 条记录）；类别中的 `unknown` 标记保持原样（它是文档化的取值，例如 `poutcome = unknown` 表示此前没有联系过），而不映射为空字符串。
 >
-> **注意**：Mushroom 是唯一的**全类别型**数据集：全部 22 个特征都是单字母字符串编码，因此 `features()` 返回单个 `&Array2<String>`（没有数值矩阵），`data()` 返回 `(特征, 标签)` 二元组。`Array1<String>` 标签保持原样（`e` = 可食用，`p` = 有毒）。源文件中的 `?` 缺失标记（仅出现在 `stalk-root`）被映射为空字符串 `""`。
+> **注意**：Mushroom 是**全类别型**数据集（与 Car Evaluation 相同）：全部 22 个特征都是单字母字符串编码，因此 `features()` 返回单个 `&Array2<String>`（没有数值矩阵），`data()` 返回 `(特征, 标签)` 二元组。`Array1<String>` 标签保持原样（`e` = 可食用，`p` = 有毒）。源文件中的 `?` 缺失标记（仅出现在 `stalk-root`）被映射为空字符串 `""`。
+>
+> **注意**：Car Evaluation 同样是**全类别型**数据集（与 Mushroom 相同）：全部 6 个特征都是字符串编码（`buying`、`maint`、`doors`、`persons`、`lug_boot`、`safety`），因此 `features()` 返回单个 `&Array2<String>`，`data()` 返回 `(特征, 标签)` 二元组。`Array1<String>` 标签保持原样，是四个可接受度类别 `unacc` / `acc` / `good` / `vgood` 之一。1,728 条记录穷举了六个属性的全笛卡尔积，因此没有缺失值。
 >
 > **注意**：California Housing 复现了 scikit-learn `fetch_california_housing` 的特征——从原始普查列派生（例如 `AveRooms = total_rooms / households`），并把目标缩放 `1/100000`。源文件中 207 个缺失的 `total_bedrooms` 会让派生特征 `AveBedrms` 出现 `NaN`。
 >
@@ -153,6 +156,7 @@ fn main() {
 - **California Housing**：Pace & Barry（1997），源自 1990 年美国普查
 - **Forest Cover Type**：Blackard & Dean（1999），UCI 机器学习数据库，通过 scikit-learn 的 `fetch_covtype`
 - **Ionosphere**：Sigillito、Wing、Hutton & Baker（1989），UCI 机器学习数据库，源自在拉布拉多 Goose Bay 采集的雷达回波
+- **Car Evaluation**：Bohanec（1988），UCI 机器学习数据库，源自 DEX 层次化决策模型
 - **KDD Cup 1999**：Stolfo、Fan、Lee、Prodromidis & Chan（1999/2000），UCI KDD 数据库，通过 scikit-learn 的 `fetch_kddcup99`
 - **Diabetes**：Efron、Hastie、Johnstone & Tibshirani（2004），通过 scikit-learn 的 `load_diabetes`
 - **Linnerud**：A. C. Linnerud（北卡罗来纳州立大学），通过 scikit-learn 的 `load_linnerud`

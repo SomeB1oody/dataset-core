@@ -16,6 +16,7 @@
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
 //! | [`california_housing`]                                | 20,640  | 8        | Regression     |
+//! | [`car_evaluation`]                                    | 1,728   | 6        | Classification |
 //! | [`covtype`]                                           | 581,012 | 54       | Classification |
 //! | [`diabetes`]                                          | 442     | 10       | Regression     |
 //! | [`digits`]                                            | 1,797   | 64       | Classification |
@@ -80,6 +81,15 @@ pub mod breast_cancer;
 /// in California districts. Reproduces scikit-learn's `fetch_california_housing`
 /// eight derived features. A modern replacement for Boston Housing.
 pub mod california_housing;
+
+/// Car Evaluation dataset module.
+///
+/// Contains the Car Evaluation dataset (UCI, Bohanec 1988) for multi-class
+/// classification: predicting a car's overall acceptability (`unacc`, `acc`,
+/// `good`, `vgood`) from 6 categorical price and technical attributes. Like
+/// [`mushroom`], it is **all-categorical** — `features()` returns a single
+/// `Array2<String>`.
+pub mod car_evaluation;
 
 /// Forest Cover Type dataset module.
 ///
@@ -176,6 +186,7 @@ pub use bank_marketing::BankMarketing;
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;
+pub use car_evaluation::CarEvaluation;
 pub use covtype::Covtype;
 pub use diabetes::Diabetes;
 pub use digits::Digits;
