@@ -35,6 +35,7 @@
 //! | [`youtube_spam`]                                      | 1,956   | text     | Classification |
 //! | [`sentiment_sentences`]                               | 3,000   | text     | Classification |
 //! | [`newsgroups20`]                                      | 11,314 / 18,846 | text | Classification |
+//! | [`movie_review_polarity`]                             | 2,000   | text     | Classification |
 //!
 //! # Example
 //!
@@ -169,6 +170,16 @@ pub mod kddcup99;
 /// on 20 middle-aged men.
 pub mod linnerud;
 
+/// Movie Review Polarity dataset module.
+///
+/// Contains the Cornell Movie Review Polarity dataset (Pang & Lee 2004, polarity
+/// dataset v2.0) for binary **text** classification: labelling 2,000 full IMDb
+/// movie reviews as `positive` or `negative` (1,000 each). Like [`sms_spam`] it
+/// is a text-modality loader (document accessor `texts()`, not `features()`) and
+/// complements the sentence-level [`sentiment_sentences`] with full-document
+/// reviews. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
+pub mod movie_review_polarity;
+
 /// Mushroom dataset module.
 ///
 /// Contains the Mushroom dataset (UCI `agaricus-lepiota`) for binary
@@ -261,6 +272,7 @@ pub use ionosphere::Ionosphere;
 pub use iris::Iris;
 pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
+pub use movie_review_polarity::MovieReviewPolarity;
 pub use mushroom::Mushroom;
 pub use newsgroups20::Newsgroups20;
 pub use palmer_penguins::PalmerPenguins;

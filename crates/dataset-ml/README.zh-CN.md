@@ -18,7 +18,7 @@
 
 ## 概述
 
-`dataset-ml` 内置了 25 个经典 ML 数据集的加载器。每个加载器会：
+`dataset-ml` 内置了 26 个经典 ML 数据集的加载器。每个加载器会：
 
 - 在首次访问时下载源文件（通过 `ureq`）。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
@@ -63,6 +63,7 @@ dataset-ml = "0.2"
 | `YoutubeSpam`                              | `dataset_ml::youtube_spam`                          | 1,956   | 文本   | 分类     | UCI ML Repository |
 | `SentimentSentences`                       | `dataset_ml::sentiment_sentences`                   | 3,000   | 文本   | 分类     | UCI ML Repository |
 | `Newsgroups20`                             | `dataset_ml::newsgroups20`                          | 11,314 / 18,846 | 文本 | 分类  | Jason Rennie / 20 Newsgroups |
+| `MovieReviewPolarity`                      | `dataset_ml::movie_review_polarity`                 | 2,000   | 文本   | 分类     | Cornell (Pang & Lee) |
 
 所有结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris`、`dataset_ml::RedWineQuality` 等也可以使用。
 
@@ -97,7 +98,7 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
-> 文本加载器 **SmsSpam**、**YoutubeSpam**、**SentimentSentences** 和 **Newsgroups20** 是例外：它们用 `texts()`（原始文档的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。**SentimentSentences** 还额外提供 `sources()`（每条句子来自哪个评论站点）；**Newsgroups20** 是唯一的**多分类**文本加载器（20 类），并提供 `new`/`new_test`/`new_all` 三个子集构造函数。
+> 文本加载器 **SmsSpam**、**YoutubeSpam**、**SentimentSentences**、**Newsgroups20** 和 **MovieReviewPolarity** 是例外：它们用 `texts()`（原始文档的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。**SentimentSentences** 还额外提供 `sources()`（每条句子来自哪个评论站点）；**Newsgroups20** 是唯一的**多分类**文本加载器（20 类），并提供 `new`/`new_test`/`new_all` 三个子集构造函数。
 
 > **注意**：Titanic、Palmer Penguins、Adult、BankMarketing、Kddcup99 和 Abalone 是混合类型数据集：`features()` 返回 `(&Array2<String>, &Array2<f64>)`（字符串特征 + 数值特征），`data()` 返回三元组。除 **Abalone** 外都是分类（`labels()` 访问器）；Abalone 是回归——三元组的第三个元素是通过 `targets()` 暴露的 `Array1<f64>` 目标。Palmer Penguins 还会把缺失值表示为 `NaN`（数值）或 `""`（字符串）。
 >
@@ -132,6 +133,8 @@ fn main() {
 > **注意**：Sentiment Labelled Sentences 是第三个**文本**数据集，也是首个带有每样本**元数据**的加载器。它包含 3,000 条评论句子（Amazon、IMDb、Yelp 各 1,000 条；每个站点 500 正 + 500 负，因此完全均衡）。`texts()` 返回句子的 `Array1<String>`，`labels()` 返回 `"positive"` / `"negative"` 的 `Array1<&'static str>`（由源标签 `1` / `0` 映射而来）；此外 `sources()` 返回 `"amazon"` / `"imdb"` / `"yelp"` 的 `Array1<&'static str>`，可据此按领域切分语料（或搭建跨领域迁移实验）。因为多了这一列，`SentimentSentencesData` 是 `(texts, sources, labels)` **三元组**，`data()` 一并返回三者。它从三个按站点划分的 `sentence<TAB>label` 文件组成的 **ZIP 压缩包**加载；由于这些文件本身没有来源列，加载器为每行打上其站点标签，合并为单个 `source<TAB>sentence<TAB>label` 语料（`sentiment_sentences.csv`，由一个预设 SHA-256 覆盖），并在关闭引号处理的情况下按制表符分隔解析（与 SMS Spam 相同）。
 >
 > **注意**：20 Newsgroups 是首个**多分类**文本数据集（20 类），也是 scikit-learn `fetch_20newsgroups` 的框架无关对应实现。`texts()` 返回完整原始 Usenet 帖子的 `Array1<String>`——**包含**邮件式头部，不作任何剥离，与 scikit-learn 的默认行为一致；`labels()` 返回 20 个新闻组名称之一的 `Array1<&'static str>`（如 `"sci.space"`）。仿照 scikit-learn 的 `subset` 参数提供三个构造函数，共享同一份缓存归档：`new`（train，11,314 帖，默认）、`new_test`（test，7,532）、`new_all`（18,846）。它使用标准的 **“bydate”** `.tar.gz`，用 `dataset-core` 的 `untar_gz` 解压；与其他文本加载器（缓存合并后的 CSV）不同，帖子是多行原始文档，因此加载器**原样缓存 tar.gz**（以其 SHA-256 作为完整性校验），并在加载时于内存中重新解压，将每个文件按 Latin-1 解码（与 scikit-learn 相同），从而无损保留非 UTF-8 字节。样本按确定性顺序（先类别后文件、字典序）遍历。
+>
+> **注意**：Movie Review Polarity（Cornell polarity dataset v2.0，Pang & Lee 2004）是第五个**文本**数据集：2,000 篇完整 IMDb 影评，1,000 篇 `positive` + 1,000 篇 `negative`（均衡），用于文档级情感分类。它以整篇影评补充了句子级的 SentimentSentences。`texts()` 返回已分词、已小写化的影评的 `Array1<String>`，`labels()` 返回 `"positive"` / `"negative"` 的 `Array1<&'static str>`（来自 `pos` / `neg` 文件夹）。与 20 Newsgroups 一样，它**原样缓存标准 `.tar.gz`**（校验 SHA-256），并在加载时于内存中用 `untar_gz` 重新解压，将每个文件按 Latin-1 解码，并按 `neg`、`pos` 的顺序、文件字典序遍历。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -189,6 +192,7 @@ fn main() {
 - **YouTube Spam Collection**：Alberto、Lochter & Almeida（2017），UCI 机器学习数据库，源自五个热门音乐视频的评论
 - **Sentiment Labelled Sentences**：Kotzias、Denil、de Freitas & Smyth（2015），UCI 机器学习数据库，源自 Amazon、IMDb 与 Yelp 评论的句子
 - **20 Newsgroups**：Lang（1995），由 Jason Rennie 整理的 `bydate` 版本（<http://qwone.com/~jason/20Newsgroups/>），即 scikit-learn `fetch_20newsgroups` 所用的同一压缩包
+- **Movie Review Polarity**：Pang & Lee（2004），Cornell 影评数据，polarity dataset v2.0（<http://www.cs.cornell.edu/people/pabo/movie-review-data/>）
 - **Wine Recognition**：Aeberhard & Forina（1991），UCI 机器学习数据库
 - **Wine Quality**：UCI 机器学习数据库
 
