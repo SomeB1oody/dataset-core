@@ -34,6 +34,7 @@
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
 //! | [`youtube_spam`]                                      | 1,956   | text     | Classification |
 //! | [`sentiment_sentences`]                               | 3,000   | text     | Classification |
+//! | [`newsgroups20`]                                      | 11,314 / 18,846 | text | Classification |
 //!
 //! # Example
 //!
@@ -176,6 +177,17 @@ pub mod linnerud;
 /// a single-letter string code, so `features()` returns a single `Array2<String>`.
 pub mod mushroom;
 
+/// 20 Newsgroups dataset module.
+///
+/// Contains the classic 20 Newsgroups dataset (Lang 1995; the `bydate` version)
+/// for multi-class **text** classification: labelling ~18,846 Usenet posts with
+/// one of 20 newsgroups. The framework-agnostic analogue of scikit-learn's
+/// `fetch_20newsgroups` and the crate's first **multi-class** text loader. Like
+/// [`sms_spam`] it is a text-modality loader (document accessor `texts()`, not
+/// `features()`); `new`/`new_test`/`new_all` mirror scikit-learn's train/test/all
+/// subsets. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
+pub mod newsgroups20;
+
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
@@ -250,6 +262,7 @@ pub use iris::Iris;
 pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
 pub use mushroom::Mushroom;
+pub use newsgroups20::Newsgroups20;
 pub use palmer_penguins::PalmerPenguins;
 pub use sentiment_sentences::SentimentSentences;
 pub use sms_spam::SmsSpam;

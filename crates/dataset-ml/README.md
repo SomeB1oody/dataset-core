@@ -18,7 +18,7 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 ## Overview
 
-`dataset-ml` ships with loaders for 24 classic ML datasets. Each loader:
+`dataset-ml` ships with loaders for 25 classic ML datasets. Each loader:
 
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
@@ -62,6 +62,7 @@ dataset-ml = "0.2"
 | `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
 | `YoutubeSpam`                              | `dataset_ml::youtube_spam`                         | 1,956   | text     | Classification | UCI ML Repository |
 | `SentimentSentences`                       | `dataset_ml::sentiment_sentences`                  | 3,000   | text     | Classification | UCI ML Repository |
+| `Newsgroups20`                             | `dataset_ml::newsgroups20`                         | 11,314 / 18,846 | text | Classification | Jason Rennie / 20 Newsgroups |
 
 All structs are also re-exported at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
 
@@ -96,7 +97,7 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()` — reference to label/target vector
 - `data()` — all references at once
 
-> The text loaders **SmsSpam**, **YoutubeSpam**, and **SentimentSentences** are the exception: instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents), since a text corpus has no fixed feature matrix. **SentimentSentences** additionally exposes `sources()` (the review site each sentence came from).
+> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, and **Newsgroups20** are the exception: instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents), since a text corpus has no fixed feature matrix. **SentimentSentences** additionally exposes `sources()` (the review site each sentence came from); **Newsgroups20** is the only **multi-class** text loader (20 classes) and offers `new`/`new_test`/`new_all` subset constructors.
 
 > **Note**: Titanic, Palmer Penguins, Adult, BankMarketing, Kddcup99, and Abalone are mixed-type: `features()` returns `(&Array2<String>, &Array2<f64>)` (string + numeric features), and `data()` returns a triple. All are classification (a `labels()` accessor) **except Abalone**, which is regression — its third element is an `Array1<f64>` target exposed via `targets()`. Palmer Penguins also represents missing values as `NaN` (numeric) or `""` (string).
 >
@@ -129,6 +130,8 @@ Each dataset struct follows the same pattern:
 > **Note**: YouTube Spam is a second **text** dataset and a sibling of SMS Spam (same authors). Like SMS Spam it has no feature matrix: `texts()` returns an `Array1<String>` of the 1,956 raw YouTube comment bodies (the source `CONTENT` column) and `labels()` returns an `Array1<&'static str>` of `"ham"` / `"spam"` (mapped from the source `CLASS` codes `0` / `1`); `data()` returns the `(texts, labels)` pair. It is sourced from a **ZIP archive** of **five** per-video CSVs (comments on music videos by Psy, Katy Perry, LMFAO, Eminem, and Shakira); the loader concatenates them in a fixed order into a single `youtube_spam.csv` covered by one pinned SHA-256, then parses standard comma-separated CSV with quote handling **enabled** (unlike SMS Spam — the comments are properly quoted, one even spanning a newline) and skips each file's repeated header row. The per-comment metadata columns (`COMMENT_ID`, `AUTHOR`, `DATE`) are not exposed.
 >
 > **Note**: Sentiment Labelled Sentences is a third **text** dataset and the first to carry per-sample **metadata**. It has 3,000 review sentences (1,000 each from Amazon, IMDb, and Yelp; 500 positive + 500 negative per site, so it is perfectly balanced). `texts()` returns an `Array1<String>` of the sentences and `labels()` returns an `Array1<&'static str>` of `"positive"` / `"negative"` (mapped from the source labels `1` / `0`); in addition, `sources()` returns an `Array1<&'static str>` of `"amazon"` / `"imdb"` / `"yelp"` so you can slice the corpus by domain (or set up cross-domain transfer experiments). Because of that extra column, `SentimentSentencesData` is a **triple** `(texts, sources, labels)` and `data()` returns all three. It is sourced from a **ZIP archive** of three per-site `sentence<TAB>label` files; since those files carry no source column, the loader tags each line with its site and combines them into a single `source<TAB>sentence<TAB>label` corpus (`sentiment_sentences.csv`, covered by one pinned SHA-256), parsed tab-separated with quote handling disabled (like SMS Spam).
+>
+> **Note**: 20 Newsgroups is the first **multi-class** text dataset (20 classes) and the framework-agnostic analogue of scikit-learn's `fetch_20newsgroups`. `texts()` returns an `Array1<String>` of the full raw Usenet posts — **including** the email-style headers, nothing stripped, matching scikit-learn's default — and `labels()` returns an `Array1<&'static str>` of the 20 newsgroup names (e.g. `"sci.space"`). Mirroring scikit-learn's `subset` argument there are three constructors, all sharing one cached archive: `new` (train, 11,314 posts — the default), `new_test` (test, 7,532), and `new_all` (18,846). It uses the canonical **"bydate"** `.tar.gz`, decompressed with `dataset-core`'s `untar_gz`; unlike the other text loaders (which cache a combined CSV), the posts are multi-line raw documents, so the loader caches the tarball as-is (its SHA-256 is the integrity check) and re-extracts it in memory on load, decoding each file as Latin-1 (like scikit-learn) so non-UTF-8 bytes are preserved. Samples are walked in a deterministic (category-then-file lexicographic) order.
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -185,6 +188,7 @@ The bundled datasets are classic machine learning datasets widely used for educa
 - **SMS Spam Collection**: Almeida & Hidalgo (2011), UCI Machine Learning Repository, from Grumbletext, the NUS SMS Corpus, and a PhD thesis collection
 - **YouTube Spam Collection**: Alberto, Lochter & Almeida (2017), UCI Machine Learning Repository, comments collected from five popular music videos
 - **Sentiment Labelled Sentences**: Kotzias, Denil, de Freitas & Smyth (2015), UCI Machine Learning Repository, sentences from Amazon, IMDb, and Yelp reviews
+- **20 Newsgroups**: Lang (1995), the `bydate` version curated by Jason Rennie (<http://qwone.com/~jason/20Newsgroups/>), the same tarball scikit-learn's `fetch_20newsgroups` uses
 - **Wine Recognition**: Aeberhard & Forina (1991), UCI Machine Learning Repository
 - **Wine Quality**: UCI Machine Learning Repository
 

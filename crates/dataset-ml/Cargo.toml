@@ -17,6 +17,7 @@ dataset-core = { workspace = true, features = ["utils"] }
 ndarray = { workspace = true }
 csv = { workspace = true }
 serde = { workspace = true }
+tempfile = { workspace = true }
 
 [dev-dependencies]
 sha2 = { workspace = true }
