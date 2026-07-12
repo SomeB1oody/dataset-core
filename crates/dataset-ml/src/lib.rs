@@ -33,6 +33,7 @@
 //! | [`wine_quality::red_wine_quality`]                    | 1,599   | 11       | Regression     |
 //! | [`wine_quality::white_wine_quality`]                  | 4,898   | 11       | Regression     |
 //! | [`youtube_spam`]                                      | 1,956   | text     | Classification |
+//! | [`sentiment_sentences`]                               | 3,000   | text     | Classification |
 //!
 //! # Example
 //!
@@ -182,6 +183,18 @@ pub mod mushroom;
 /// body mass, and categorical island/sex features. A modern alternative to Iris.
 pub mod palmer_penguins;
 
+/// Sentiment Labelled Sentences dataset module.
+///
+/// Contains the Sentiment Labelled Sentences dataset (UCI, Kotzias et al. 2015)
+/// for binary **text** classification: labelling 3,000 review sentences from
+/// three sites (Amazon, IMDb, Yelp) as `positive` or `negative`. Like
+/// [`sms_spam`]/[`youtube_spam`] it is a text-modality loader (document accessor
+/// `texts()`, not `features()`), but it also carries per-sample **metadata** —
+/// which site each sentence came from — via a `sources()` accessor, making
+/// `SentimentSentencesData` a `(texts, sources, labels)` triple. Sourced from a
+/// ZIP archive of three per-site files.
+pub mod sentiment_sentences;
+
 /// SMS Spam Collection dataset module.
 ///
 /// Contains the SMS Spam Collection dataset (UCI, Almeida & Hidalgo 2011) for
@@ -238,6 +251,7 @@ pub use kddcup99::Kddcup99;
 pub use linnerud::Linnerud;
 pub use mushroom::Mushroom;
 pub use palmer_penguins::PalmerPenguins;
+pub use sentiment_sentences::SentimentSentences;
 pub use sms_spam::SmsSpam;
 pub use titanic::Titanic;
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
