@@ -31,7 +31,7 @@
 
 ```toml
 [dependencies]
-dataset-ml = "0.2"
+dataset-ml = "0.3"
 ```
 
 ## 数据集
@@ -142,7 +142,7 @@ fn main() {
 
 ```diff
 - dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.2"
++ dataset-ml = "0.3"
 ```
 
 | 旧路径                                                                         | 新路径                                                         |

@@ -31,7 +31,7 @@ Each module is also a complete reference implementation of the pattern for wrapp
 
 ```toml
 [dependencies]
-dataset-ml = "0.2"
+dataset-ml = "0.3"
 ```
 
 ## Datasets
@@ -142,7 +142,7 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 
 ```diff
 - dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.2"
++ dataset-ml = "0.3"
 ```
 
 | Old path                                                                     | New path                                                         |

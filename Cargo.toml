@@ -13,7 +13,7 @@ license = "MIT"
 repository = "https://github.com/SomeB1oody/dataset-core"
 
 [workspace.dependencies]
-dataset-core = { version = "0.3.0", path = "crates/dataset-core" }
+dataset-core = { version = "0.4.0", path = "crates/dataset-core" }
 
 ndarray = "0.17.2"
 ureq = "3.3.0"

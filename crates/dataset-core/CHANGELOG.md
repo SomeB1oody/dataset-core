@@ -6,7 +6,7 @@ This crate provides `Dataset<T, E>` plus the optional `utils` feature (download 
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 
-## [Unreleased]
+## [0.4.0] - 2026-07-17
 ### Added
 - `untar(file_path, extract_dir)` and `untar_gz(file_path, extract_dir)` in the `utils` module (feature `utils`): extract a tar archive, and a gzip-compressed tar (`.tar.gz` / `.tgz`) archive, into a directory. `untar` is the tar counterpart to `unzip`; `untar_gz` composes the gzip and tar layers in one streaming pass (bytes flow through `flate2::read::GzDecoder` straight into `tar::Archive`), so the intermediate uncompressed `.tar` is never written to disk — suitable for large `.tar.gz` datasets (e.g. 20 Newsgroups). Both are re-exported at the crate root (`dataset_core::untar`, `dataset_core::untar_gz`). This adds `tar` (pure-Rust) as an optional dependency enabled by the `utils` feature. Extraction failures surface as `DatasetError::IoError`, so no new error variant was introduced.
 - `gunzip(file_path, output_path)` in the `utils` module (feature `utils`): decompresses a gzip (`.gz`) file into a single output file, streaming through `flate2::read::GzDecoder` so the whole file is never held in memory at once. It is the gzip counterpart to `unzip` and is re-exported at the crate root (`dataset_core::gunzip`). This adds `flate2` (pure-Rust `miniz_oxide` backend) as an optional dependency enabled by the `utils` feature. Decompression failures surface as `DatasetError::IoError`, so no new error variant was introduced.

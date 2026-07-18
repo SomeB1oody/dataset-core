@@ -34,14 +34,14 @@ Looking for ready-to-use loaders for classic ML datasets? The companion crate [`
 
 ```toml
 [dependencies]
-dataset-core = "0.3"
+dataset-core = "0.4"
 ```
 
 **With utilities**:
 
 ```toml
 [dependencies]
-dataset-core = { version = "0.3", features = ["utils"] }
+dataset-core = { version = "0.4", features = ["utils"] }
 ```
 
 ## Feature Flags
