@@ -26,7 +26,7 @@
 
 - **`utils`** — 用于下载文件、解压归档、验证 SHA-256 哈希值和管理临时目录的辅助工具。
 
-需要经典机器学习数据集（Iris、Breast Cancer、Boston/California Housing、Diabetes、Titanic、Palmer Penguins、Wine Recognition、Wine Quality）的开箱即用加载器？请参见同一工作区中的配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml)，它在启用 `utils` 特性的前提下依赖 `dataset-core`。
+需要经典机器学习数据集的开箱即用加载器？配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 提供 26 个加载器——从 Iris、Breast Cancer、California Housing 到 Covertype、KDD Cup '99 和 20 Newsgroups——它在启用 `utils` 特性的前提下依赖 `dataset-core`。
 
 ## 安装
 

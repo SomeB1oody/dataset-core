@@ -2,7 +2,7 @@
 
 All notable changes to the `dataset-core` crate will be documented in this file.
 
-This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / gunzip / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
+This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / gunzip / untar / untar_gz / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 

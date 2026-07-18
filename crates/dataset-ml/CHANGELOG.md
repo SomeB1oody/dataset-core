@@ -2,7 +2,7 @@
 
 All notable changes to the `dataset-ml` crate will be documented in this file.
 
-This crate provides ready-to-use loaders for classic machine learning datasets (Iris, Breast Cancer, Boston/California Housing, Diabetes, Titanic, Palmer Penguins, Wine Recognition, Wine Quality), built on top of [`dataset-core`](https://crates.io/crates/dataset-core).
+This crate provides ready-to-use loaders for 26 classic machine learning datasets — tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …) — built on top of [`dataset-core`](https://crates.io/crates/dataset-core).
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
 

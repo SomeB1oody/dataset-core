@@ -22,7 +22,7 @@
 
 - 在首次访问时下载源文件（通过 `ureq`）。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
-- 使用 [`ndarray`](https://crates.io/crates/ndarray) 将 CSV 解析为 `Array1` / `Array2`。
+- 将源数据（CSV，文本语料则为从归档中解出的原始文档）用 [`ndarray`](https://crates.io/crates/ndarray) 解析为 `Array1` / `Array2`。
 - 通过 `dataset_core::Dataset<T, E>` 在内存中缓存解析结果——后续访问会直接返回 `&` 引用，零 I/O。
 
 每个模块同时也是封装 `Dataset<T, E>` 处理具体数据源的完整参考实现。
@@ -77,7 +77,7 @@ fn main() {
 
     // 惰性加载：首次访问时下载并解析，之后使用缓存。
     let features = iris.features().unwrap();  // &Array2<f64>
-    let labels   = iris.labels().unwrap();    // &Array1<String>
+    let labels   = iris.labels().unwrap();    // &Array1<&'static str>
 
     // 或者一次性获取全部数据：
     let (features, labels) = iris.data().unwrap();

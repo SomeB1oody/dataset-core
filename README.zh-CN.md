@@ -19,7 +19,7 @@
 
 | Crate                                     | 路径                       | 提供的内容                                                                                                          |
 |-------------------------------------------|----------------------------|---------------------------------------------------------------------------------------------------------------------|
-| [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T, E>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压、SHA-256 等）                       |
+| [`dataset-core`](crates/dataset-core)     | `crates/dataset-core`      | `Dataset<T, E>` 类型（线程安全、惰性、缓存）以及可选的 `utils` 模块（下载、解压 zip、gunzip、tar / tar.gz 解包、SHA-256 等）                       |
 | [`dataset-ml`](crates/dataset-ml)         | `crates/dataset-ml`        | 基于 `dataset-core` 的 26 个经典 ML 数据集开箱即用加载器：Iris、Adult、Titanic、Covtype、Abalone、SMS Spam、20 Newsgroups 等 |
 
 ```
@@ -41,7 +41,7 @@ dataset-core （工作区根目录）
 [dependencies]
 dataset-core = "0.3"
 
-# 还需要下载 / 解压 / SHA-256 辅助函数
+# 还需要下载 / 解压 / gunzip / untar / SHA-256 辅助函数
 [dependencies]
 dataset-core = { version = "0.3", features = ["utils"] }
 

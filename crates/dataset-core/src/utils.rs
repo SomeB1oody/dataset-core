@@ -103,18 +103,25 @@ fn filename_from_url(url: &str) -> Option<&str> {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_core::{download_to, unzip};
+/// use dataset_core::unzip;
+/// use std::fs::File;
+/// use std::io::Write;
 /// use std::path::Path;
+/// use zip::write::SimpleFileOptions;
 ///
-/// let work_dir = "./unzip_example";
+/// let work_dir = Path::new("./unzip_example");
 /// std::fs::create_dir_all(work_dir).unwrap();
 ///
-/// // First download a file
-/// let url = "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv";
-/// download_to(url, Path::new(work_dir), None).unwrap();
+/// // Build a small `.zip` containing a single `hello.txt` entry.
+/// let archive_path = work_dir.join("data.zip");
+/// let mut zip = zip::ZipWriter::new(File::create(&archive_path).unwrap());
+/// zip.start_file("hello.txt", SimpleFileOptions::default()).unwrap();
+/// zip.write_all(b"hello world").unwrap();
+/// zip.finish().unwrap();
 ///
-/// // The file is already a CSV (no extraction needed in this example)
-/// assert!(Path::new(work_dir).join("iris.csv").exists());
+/// // Extract it into `work_dir`.
+/// unzip(&archive_path, work_dir).unwrap();
+/// assert!(work_dir.join("hello.txt").exists());
 /// ```
 pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
     let file = File::open(file_path).map_err(|e| DatasetError::from(ZipError::Io(e)))?;

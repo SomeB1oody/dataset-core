@@ -11,10 +11,10 @@
 //! - **`utils`** — helper functions for downloading files, extracting archives,
 //!   verifying SHA-256 hashes, and managing temporary directories.
 //!
-//! Ready-to-use loaders for classic ML datasets (Iris, Boston Housing, Diabetes,
-//! Titanic, Wine Quality) live in the companion crate
-//! [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends on
-//! `dataset-core` with the `utils` feature enabled and serves as the reference
+//! Ready-to-use loaders for 26 classic ML datasets — from Iris, Breast Cancer, and
+//! Titanic to Forest CoverType, KDD Cup '99, and 20 Newsgroups — live in the
+//! companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends
+//! on `dataset-core` with the `utils` feature enabled and serves as the reference
 //! implementation for wrapping `Dataset<T, E>`.
 //!
 //! # Feature Flags
@@ -120,8 +120,9 @@ type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 /// through the loader passed to [`Dataset::new`] and run on first access by
 /// [`Dataset::load`].
 ///
-/// This struct is designed to be the building block for both the built-in datasets
-/// shipped with this crate and any custom datasets defined by external users.
+/// This struct is designed to be the building block for both the loaders shipped in
+/// the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) and any
+/// custom datasets defined by external users.
 ///
 /// # Type Parameters
 ///

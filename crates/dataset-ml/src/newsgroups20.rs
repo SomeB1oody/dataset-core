@@ -4,7 +4,10 @@
 //! Usenet posts partitioned (nearly evenly) across 20 different newsgroups. It is
 //! the multi-class counterpart to the binary text loaders
 //! ([`SmsSpam`](crate::sms_spam::SmsSpam),
-//! [`YoutubeSpam`](crate::youtube_spam::YoutubeSpam)) and the framework-agnostic
+//! [`YoutubeSpam`](crate::youtube_spam::YoutubeSpam),
+//! [`SentimentSentences`](crate::sentiment_sentences::SentimentSentences),
+//! [`MovieReviewPolarity`](crate::movie_review_polarity::MovieReviewPolarity)) and
+//! the framework-agnostic
 //! analogue of scikit-learn's `fetch_20newsgroups`. Like those loaders it is a
 //! **text** dataset, so the document accessor is [`Newsgroups20::texts`] (an
 //! `Array1<String>` of raw posts), not `features()`.

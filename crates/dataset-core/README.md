@@ -26,7 +26,7 @@ On top of this core type, an **optional** feature-gated module is available:
 
 - **`utils`** — helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-Looking for ready-to-use loaders for classic ML datasets (Iris, Breast Cancer, Boston/California Housing, Diabetes, Titanic, Palmer Penguins, Wine Recognition, Wine Quality)? They live in the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends on `dataset-core` with the `utils` feature enabled.
+Looking for ready-to-use loaders for classic ML datasets? The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) ships 26 loaders — from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups — and depends on `dataset-core` with the `utils` feature enabled.
 
 ## Installation
 
@@ -99,7 +99,7 @@ fn main() {
 
 ## Building Your Own Dataset
 
-`Dataset<T>` is designed to be wrapped. The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) demonstrates the recommended pattern; here is a simplified outline:
+`Dataset<T, E>` is designed to be wrapped. The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) demonstrates the recommended pattern; here is a simplified outline:
 
 ```rust,ignore
 use dataset_core::Dataset;

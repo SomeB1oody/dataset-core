@@ -22,7 +22,7 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 - Downloads the source file on first access (with `ureq`).
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
-- Parses the CSV into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
+- Parses the source (CSV, or raw documents extracted from an archive for the text corpora) into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
 - Caches the parsed result in memory via `dataset_core::Dataset<T, E>` — subsequent accesses return a `&` reference with zero I/O.
 
 Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
@@ -77,7 +77,7 @@ fn main() {
 
     // Lazy: downloads and parses on first access, then cached.
     let features = iris.features().unwrap();  // &Array2<f64>
-    let labels   = iris.labels().unwrap();    // &Array1<String>
+    let labels   = iris.labels().unwrap();    // &Array1<&'static str>
 
     // Or get both at once:
     let (features, labels) = iris.data().unwrap();

@@ -3,8 +3,8 @@
 //! `dataset-ml` provides ready-to-use loaders for classic ML datasets built on top
 //! of [`dataset_core::Dataset`]. Each module is a worked example showing how to wrap
 //! `Dataset<T, E>` for a concrete data source: downloading from a URL, verifying a
-//! SHA-256 hash, parsing CSV records, and exposing typed accessors backed by
-//! [`ndarray`].
+//! SHA-256 hash, parsing CSV records (or extracting raw documents from an archive),
+//! and exposing typed accessors backed by [`ndarray`].
 //!
 //! # Datasets
 //!
@@ -24,7 +24,7 @@
 //! | [`heart_disease`]                                     | 303     | 13       | Classification |
 //! | [`ionosphere`]                                        | 351     | 34       | Classification |
 //! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
-//! | [`linnerud`]                                          | 20      | 3        | Regression     |
+//! | [`linnerud`]                                          | 20      | 3        | Regression (multi-output) |
 //! | [`mushroom`]                                          | 8,124   | 22       | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |

@@ -19,7 +19,7 @@ A Cargo workspace for building and consuming Rust dataset loaders. The architect
 
 | Crate                                        | Path                       | What it provides                                                                                                  |
 |----------------------------------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------|
-| [`dataset-core`](crates/dataset-core)        | `crates/dataset-core`      | The `Dataset<T, E>` type (thread-safe, lazy, cached) and the optional `utils` module (download, unzip, SHA-256, etc.) |
+| [`dataset-core`](crates/dataset-core)        | `crates/dataset-core`      | The `Dataset<T, E>` type (thread-safe, lazy, cached) and the optional `utils` module (download, unzip, gunzip, tar / tar.gz extraction, SHA-256, etc.) |
 | [`dataset-ml`](crates/dataset-ml)            | `crates/dataset-ml`        | Ready-to-use loaders for 26 classic ML datasets (Iris, Adult, Titanic, Covtype, Abalone, SMS Spam, 20 Newsgroups, …), built on `dataset-core` |
 
 ```
@@ -41,7 +41,7 @@ dataset-core (workspace root)
 [dependencies]
 dataset-core = "0.3"
 
-# Need download / unzip / SHA-256 helpers too
+# Need download / unzip / gunzip / untar / SHA-256 helpers too
 [dependencies]
 dataset-core = { version = "0.3", features = ["utils"] }
 
