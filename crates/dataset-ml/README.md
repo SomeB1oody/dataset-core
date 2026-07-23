@@ -18,14 +18,19 @@ Ready-to-use loaders for classic machine learning datasets, built on [`dataset-c
 
 ## Overview
 
-`dataset-ml` ships with loaders for 26 classic ML datasets. Each loader:
+`dataset-ml` ships with loaders for 29 classic ML datasets. Each loader:
 
-- Downloads the source file on first access (with `ureq`).
+- Downloads the source file on first access (with `ureq`), retrying transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
 - Parses the source (CSV, or raw documents extracted from an archive for the text corpora) into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
 - Caches the parsed result in memory via `dataset_core::Dataset<T, E>` — subsequent accesses return a `&` reference with zero I/O.
 
 Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
+
+Two modules apply to every dataset rather than to one of them:
+
+- [`preprocessing`](#preprocessing) — seeded train/test and k-fold splits (plain or class-stratified), feature scaling, one-hot encoding, and label encoding.
+- [`traits`](#the-mldataset-trait) — the `MlDataset` trait every loader implements, for code written generically over "some dataset".
 
 ## Installation
 
@@ -41,6 +46,7 @@ dataset-ml = "0.3"
 | `Abalone`                                  | `dataset_ml::abalone`                              | 4,177   | 8        | Regression     | UCI ML Repository |
 | `Adult`                                    | `dataset_ml::adult`                                | 32,561  | 14       | Classification | UCI ML Repository |
 | `BankMarketing`                            | `dataset_ml::bank_marketing`                       | 45,211  | 16       | Classification | UCI ML Repository |
+| `BanknoteAuthentication`                   | `dataset_ml::banknote_authentication`              | 1,372   | 4        | Classification | UCI ML Repository |
 | `Iris`                                     | `dataset_ml::iris`                                 | 150     | 4        | Classification | UCI ML Repository |
 | `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
 | `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
@@ -52,8 +58,10 @@ dataset-ml = "0.3"
 | `HeartDisease`                             | `dataset_ml::heart_disease`                        | 303     | 13       | Classification | UCI ML Repository |
 | `Ionosphere`                               | `dataset_ml::ionosphere`                           | 351     | 34       | Classification | UCI ML Repository |
 | `Kddcup99`                                 | `dataset_ml::kddcup99`                             | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
+| `LetterRecognition`                        | `dataset_ml::letter_recognition`                   | 20,000  | 16       | Classification (26 classes) | UCI ML Repository |
 | `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
 | `Mushroom`                                 | `dataset_ml::mushroom`                             | 8,124   | 22       | Classification | UCI ML Repository |
+| `Spambase`                                 | `dataset_ml::spambase`                             | 4,601   | 57       | Classification | UCI ML Repository |
 | `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
 | `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
 | `SmsSpam`                                  | `dataset_ml::sms_spam`                             | 5,574   | text     | Classification | UCI ML Repository |
@@ -99,6 +107,73 @@ Each dataset struct follows the same pattern:
 - `data()` — all references at once
 
 > The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception: instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents), since a text corpus has no fixed feature matrix. **SentimentSentences** additionally exposes `sources()` (the review site each sentence came from); **Newsgroups20** is the only **multi-class** text loader (20 classes) and offers `new`/`new_test`/`new_all` subset constructors.
+
+## The `MlDataset` trait
+
+Every loader implements `dataset_ml::traits::MlDataset`, which covers the container operations that are the same whatever the loader parses into — so you can write a function over "some dataset" instead of one concrete struct:
+
+```rust
+use dataset_ml::traits::MlDataset;
+use dataset_ml::{Iris, SmsSpam};
+
+fn describe<D: MlDataset>(dataset: &D) -> String {
+    format!("{} ({} samples)", D::NAME, dataset.n_samples().unwrap())
+}
+
+fn main() {
+    println!("{}", describe(&Iris::new("./data")));     // iris (150 samples)
+    println!("{}", describe(&SmsSpam::new("./data")));  // sms_spam (5574 samples)
+}
+```
+
+| Method                          | Description                                                                     |
+|---------------------------------|---------------------------------------------------------------------------------|
+| `load()` / `load_mut()`         | Load if needed, then borrow the parsed data (`load_mut` for in-place edits)     |
+| `peek()`                        | Borrow the parsed data **without** triggering a load                            |
+| `unload()`                      | Move the parsed data out, leaving the loader reusable                           |
+| `n_samples()`                   | Sample count, uniform across pair- and triple-shaped datasets                   |
+| `is_loaded()` / `storage_dir()` | Inspect the loader without touching the data                                    |
+| `invalidate()`                  | Drop the in-memory cache — reclaims the memory a large dataset holds            |
+
+The trait's names deliberately differ from the inherent `data()` / `get_data()` / `take_data()`, so neither set ever shadows the other. Both are always available and always agree.
+
+## Preprocessing
+
+`dataset_ml::preprocessing` turns what the loaders return into what a model consumes. Everything is deterministic given a seed and pulls in no extra crates.
+
+```rust
+use dataset_ml::preprocessing::{stratified_split, standardize, label_encode};
+use dataset_ml::Iris;
+use ndarray::Axis;
+
+fn main() {
+    let iris = Iris::new("./data");
+    let (features, labels) = iris.data().unwrap();
+
+    // Split with each species proportionally represented on both sides.
+    let (train, test) = stratified_split(labels.as_slice().unwrap(), 0.2, 42).unwrap();
+
+    // Fit the scaler on the training rows only, then replay it on the test rows.
+    let (train_x, scaler) = standardize(&features.select(Axis(0), &train)).unwrap();
+    let (codes, classes) = label_encode(&labels.select(Axis(0), &train)).unwrap();
+
+    assert_eq!(train_x.nrows(), 120);
+    assert_eq!(classes.len(), 3);
+}
+```
+
+| Function                                    | Purpose                                                                        |
+|---------------------------------------------|--------------------------------------------------------------------------------|
+| `train_test_split(n, ratio, seed)`          | Shuffled train/test row indices                                                |
+| `stratified_split(labels, ratio, seed)`     | The same, preserving each class's proportion — for the imbalanced datasets     |
+| `k_fold_indices(n, k, seed)`                | `k` `(train, validation)` index pairs; each sample validated exactly once      |
+| `shuffled_indices(n, seed)`                 | A deterministic permutation of `0..n`                                          |
+| `standardize` / `min_max_scale`             | Per-column scaling, returning the fitted `Scaler`                              |
+| `apply_scaler(features, &scaler)`           | Replay a fitted scaler on new data, without refitting                          |
+| `one_hot_encode(categorical, names)`        | Expand the categorical `Array2<String>` into indicator columns                 |
+| `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes; count samples per class                    |
+
+The splitting functions return **row indices** rather than arrays, because a sample is spread across two or three parallel arrays and one index list keeps them aligned — materialize with ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column, so the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing instead of poisoning the column.
 
 ## Migration from `dataset-core` 0.1.x
 

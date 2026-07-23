@@ -13,6 +13,7 @@
 //! | [`abalone`]                                           | 4,177   | 8        | Regression     |
 //! | [`adult`]                                             | 32,561  | 14       | Classification |
 //! | [`bank_marketing`]                                    | 45,211  | 16       | Classification |
+//! | [`banknote_authentication`]                           | 1,372   | 4        | Classification |
 //! | [`iris`]                                              | 150     | 4        | Classification |
 //! | [`breast_cancer`]                                     | 569     | 30       | Classification |
 //! | [`boston_housing`]                                    | 506     | 13       | Regression     |
@@ -24,8 +25,10 @@
 //! | [`heart_disease`]                                     | 303     | 13       | Classification |
 //! | [`ionosphere`]                                        | 351     | 34       | Classification |
 //! | [`kddcup99`]                                          | 494,021 / 4,898,431 | 41 | Classification |
+//! | [`letter_recognition`]                                | 20,000  | 16       | Classification (26 classes) |
 //! | [`linnerud`]                                          | 20      | 3        | Regression (multi-output) |
 //! | [`mushroom`]                                          | 8,124   | 22       | Classification |
+//! | [`spambase`]                                          | 4,601   | 57       | Classification |
 //! | [`titanic`]                                           | 891     | 11       | Classification |
 //! | [`palmer_penguins`]                                   | 344     | 7        | Classification |
 //! | [`sms_spam`]                                          | 5,574   | text     | Classification |
@@ -50,6 +53,35 @@
 //! All loaders are lazy: the first call downloads and parses the file, every
 //! subsequent call returns a cached reference. See the individual module docs
 //! for features, target, sample count, and source.
+//!
+//! # Beyond the loaders
+//!
+//! Two modules apply to every dataset here rather than to one of them:
+//!
+//! - [`preprocessing`] — seeded train/test and k-fold splits (plain or
+//!   class-stratified), feature scaling, one-hot encoding, and label encoding, so
+//!   the arrays a loader returns can be fed to a model without hand-rolling the
+//!   usual glue.
+//! - [`traits`] — the [`MlDataset`] trait every loader implements, for code written
+//!   generically over "some dataset": cache inspection and invalidation, and a
+//!   uniform `n_samples()`.
+//!
+//! ```no_run
+//! use dataset_ml::preprocessing::{stratified_split, standardize};
+//! use dataset_ml::traits::MlDataset;
+//! use dataset_ml::Iris;
+//! use ndarray::Axis;
+//!
+//! let iris = Iris::new("./data");
+//! let (features, labels) = iris.data().unwrap();
+//!
+//! // Split with each species proportionally represented on both sides.
+//! let (train, test) = stratified_split(labels.as_slice().unwrap(), 0.2, 42).unwrap();
+//! let (scaled_train, scaler) = standardize(&features.select(Axis(0), &train)).unwrap();
+//!
+//! assert_eq!(scaled_train.nrows(), 120);
+//! assert_eq!(iris.n_samples().unwrap(), 150); // from the `MlDataset` trait
+//! ```
 
 /// How many extra download attempts every loader in this crate makes before giving up.
 ///
@@ -184,6 +216,16 @@ pub mod iris;
 /// (4,898,431 samples). Like `covtype`, it is sourced from a gzip-compressed file
 /// and decompressed with `gunzip`.
 pub mod kddcup99;
+
+/// Letter Recognition dataset module.
+///
+/// Contains the Letter Recognition dataset (UCI, Slate 1991) for multi-class
+/// classification: identifying which of the 26 capital letters a distorted glyph
+/// shows, from 16 integer statistics of its pixel image. The crate's widest
+/// classification problem by class count, and the only loader whose label is an
+/// `Array1<char>` — a one-letter class is naturally a `char`, so no lookup table
+/// is needed.
+pub mod letter_recognition;
 
 /// Linnerud dataset module.
 ///
@@ -321,6 +363,7 @@ pub use heart_disease::HeartDisease;
 pub use ionosphere::Ionosphere;
 pub use iris::Iris;
 pub use kddcup99::Kddcup99;
+pub use letter_recognition::LetterRecognition;
 pub use linnerud::Linnerud;
 pub use movie_review_polarity::MovieReviewPolarity;
 pub use mushroom::Mushroom;
