@@ -20,8 +20,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C55C7W>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -199,7 +201,12 @@ impl Abalone {
             ABALONE_DATASET_NAME,
             Some(ABALONE_SHA256),
             |temp_path| {
-                download_to(ABALONE_DATA_URL, temp_path, Some(ABALONE_FILENAME))?;
+                download_to_with_retries(
+                    ABALONE_DATA_URL,
+                    temp_path,
+                    Some(ABALONE_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(ABALONE_FILENAME))
             },
         )?;
@@ -447,3 +454,5 @@ impl Abalone {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Abalone, AbaloneData, "abalone");

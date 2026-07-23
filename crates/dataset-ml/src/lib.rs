@@ -51,6 +51,19 @@
 //! subsequent call returns a cached reference. See the individual module docs
 //! for features, target, sample count, and source.
 
+/// How many extra download attempts every loader in this crate makes before giving up.
+///
+/// The datasets are hosted on university archives and personal pages that
+/// intermittently time out or reset a connection; a run that fails for that reason
+/// is not a bug in the data. Every loader therefore fetches through
+/// [`download_to_with_retries`](dataset_core::download_to_with_retries) with this
+/// many retries, waiting 500 ms then 1 s between attempts, so a single blip does
+/// not surface as a `DownloadError`.
+///
+/// Errors that retrying cannot fix are still returned immediately, and a genuinely
+/// unreachable host costs at most 1.5 s of waiting before it fails.
+pub const DOWNLOAD_RETRIES: u32 = 2;
+
 /// Abalone dataset module.
 ///
 /// Contains the Abalone dataset (UCI, Nash et al. 1994) for **regression**:
@@ -233,6 +246,14 @@ pub mod sms_spam;
 /// on features like passenger class, sex, age, and fare.
 pub mod titanic;
 
+/// The [`traits::MlDataset`] trait implemented by every loader in this crate.
+///
+/// Provides the container operations that are the same whatever a loader parses
+/// into — lazy access, cache inspection, cache invalidation, and a uniform sample
+/// count — so code can be written generically over "some dataset" instead of one
+/// concrete struct.
+pub mod traits;
+
 /// Wine Quality dataset module.
 ///
 /// Contains wine quality assessment data for predicting quality scores
@@ -279,6 +300,7 @@ pub use palmer_penguins::PalmerPenguins;
 pub use sentiment_sentences::SentimentSentences;
 pub use sms_spam::SmsSpam;
 pub use titanic::Titanic;
+pub use traits::{MlDataset, NumSamples};
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
 pub use wine_recognition::WineRecognition;
 pub use youtube_spam::YoutubeSpam;

@@ -24,7 +24,9 @@
 //! **Source:** Jason Rennie's 20 Newsgroups page (the `bydate` tarball, the same
 //! one scikit-learn downloads) <http://qwone.com/~jason/20Newsgroups/>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, untar_gz};
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, untar_gz};
 use ndarray::Array1;
 use std::fs;
 use std::path::Path;
@@ -259,10 +261,11 @@ impl Newsgroups20 {
             NEWSGROUPS20_DATASET_NAME,
             Some(NEWSGROUPS20_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     NEWSGROUPS20_DATA_URL,
                     temp_path,
                     Some(NEWSGROUPS20_ARCHIVE_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(NEWSGROUPS20_ARCHIVE_FILENAME))
             },
@@ -473,3 +476,5 @@ fn sorted_child_names(path: &Path, dirs: bool) -> Result<Vec<String>, DatasetErr
     names.sort();
     Ok(names)
 }
+
+impl_ml_dataset!(Newsgroups20, Newsgroups20Data, "newsgroups20");

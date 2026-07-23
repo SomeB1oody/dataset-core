@@ -33,8 +33,10 @@
 //! (2004), "Least Angle Regression," *Annals of Statistics* (with discussion),
 //! 407–499. <https://www4.stat.ncsu.edu/~boos/var.select/diabetes.html>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -202,7 +204,12 @@ impl Diabetes {
             DIABETES_DATASET_NAME,
             Some(DIABETES_SHA256),
             |temp_path| {
-                download_to(DIABETES_DATA_URL, temp_path, Some(DIABETES_FILENAME))?;
+                download_to_with_retries(
+                    DIABETES_DATA_URL,
+                    temp_path,
+                    Some(DIABETES_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(DIABETES_FILENAME))
             },
         )?;
@@ -444,3 +451,5 @@ impl Diabetes {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Diabetes, DiabetesData, "diabetes");

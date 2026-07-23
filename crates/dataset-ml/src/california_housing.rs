@@ -37,8 +37,10 @@
 //! Autoregressions," *Statistics and Probability Letters*. Distributed via
 //! Géron's *Hands-On Machine Learning* repository.
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -220,10 +222,11 @@ impl CaliforniaHousing {
             CALIFORNIA_HOUSING_DATASET_NAME,
             Some(CALIFORNIA_HOUSING_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     CALIFORNIA_HOUSING_DATA_URL,
                     temp_path,
                     Some(CALIFORNIA_HOUSING_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(CALIFORNIA_HOUSING_FILENAME))
             },
@@ -444,3 +447,9 @@ impl CaliforniaHousing {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(
+    CaliforniaHousing,
+    CaliforniaHousingData,
+    "california_housing"
+);

@@ -7,8 +7,10 @@
 //! **Feature shape:** `(4898, 11)`
 //! **Target shape:** `(4898,)`
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use crate::wine_quality::{WineData, parse_wine_data_to_array};
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -134,7 +136,7 @@ impl WhiteWineQuality {
             "white_wine_quality",
             Some(WHITE_WINE_QUALITY_SHA256),
             |temp_path| {
-                download_to(WHITE_WINE_DATA_URL, temp_path, None)?;
+                download_to_with_retries(WHITE_WINE_DATA_URL, temp_path, None, DOWNLOAD_RETRIES)?;
                 Ok(temp_path.join(WHITE_WINE_QUALITY_FILENAME))
             },
         )?;
@@ -313,3 +315,5 @@ impl WhiteWineQuality {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(WhiteWineQuality, WineData, "white_wine_quality");

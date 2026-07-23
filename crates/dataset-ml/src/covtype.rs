@@ -32,8 +32,10 @@
 //! `covtype.data.gz` mirror that scikit-learn's `fetch_covtype` downloads.
 //! <https://archive.ics.uci.edu/dataset/31/covertype>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, gunzip};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, gunzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -209,7 +211,12 @@ impl Covtype {
             COVTYPE_DATASET_NAME,
             Some(COVTYPE_SHA256),
             |temp_path| {
-                download_to(COVTYPE_DATA_URL, temp_path, Some(COVTYPE_GZ_FILENAME))?;
+                download_to_with_retries(
+                    COVTYPE_DATA_URL,
+                    temp_path,
+                    Some(COVTYPE_GZ_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 let gz_path = temp_path.join(COVTYPE_GZ_FILENAME);
                 let csv_path = temp_path.join(COVTYPE_FILENAME);
                 gunzip(&gz_path, &csv_path)?;
@@ -437,3 +444,5 @@ impl Covtype {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Covtype, CovtypeData, "covtype");

@@ -30,7 +30,9 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C52P4X>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -213,10 +215,11 @@ impl HeartDisease {
             HEART_DISEASE_DATASET_NAME,
             Some(HEART_DISEASE_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     HEART_DISEASE_DATA_URL,
                     temp_path,
                     Some(HEART_DISEASE_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(HEART_DISEASE_FILENAME))
             },
@@ -444,3 +447,5 @@ impl HeartDisease {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(HeartDisease, HeartDiseaseData, "heart_disease");

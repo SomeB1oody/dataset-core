@@ -26,8 +26,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5C88K>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -187,7 +189,12 @@ impl BostonHousing {
             BOSTON_HOUSING_DATASET_NAME,
             Some(BOSTON_HOUSING_SHA256),
             |temp_path| {
-                download_to(BOSTON_HOUSING_DATA_URL, temp_path, None)?;
+                download_to_with_retries(
+                    BOSTON_HOUSING_DATA_URL,
+                    temp_path,
+                    None,
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(BOSTON_HOUSING_FILENAME))
             },
         )?;
@@ -409,3 +416,5 @@ impl BostonHousing {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(BostonHousing, BostonHousingData, "boston_housing");

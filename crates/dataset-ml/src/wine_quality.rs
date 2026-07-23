@@ -40,7 +40,7 @@ use ndarray::{Array1, Array2};
 use serde::Deserialize;
 
 /// Type alias shared by both Wine Quality subsets: (features, targets).
-pub(crate) type WineData = (Array2<f64>, Array1<f64>);
+pub type WineData = (Array2<f64>, Array1<f64>);
 
 /// One CSV record of a Wine Quality file (red or white): 11 `f64` feature
 /// columns followed by the `quality` target.

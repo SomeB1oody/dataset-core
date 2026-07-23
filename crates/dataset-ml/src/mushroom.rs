@@ -21,8 +21,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/73/mushroom>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -220,7 +222,12 @@ impl Mushroom {
             MUSHROOM_DATASET_NAME,
             Some(MUSHROOM_SHA256),
             |temp_path| {
-                download_to(MUSHROOM_DATA_URL, temp_path, Some(MUSHROOM_FILENAME))?;
+                download_to_with_retries(
+                    MUSHROOM_DATA_URL,
+                    temp_path,
+                    Some(MUSHROOM_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(MUSHROOM_FILENAME))
             },
         )?;
@@ -442,3 +449,5 @@ impl Mushroom {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Mushroom, MushroomData, "mushroom");

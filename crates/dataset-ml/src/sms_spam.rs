@@ -17,8 +17,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5CC84>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, unzip};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
 use ndarray::Array1;
 use std::fs::File;
 
@@ -163,7 +165,12 @@ impl SmsSpam {
             SMS_SPAM_DATASET_NAME,
             Some(SMS_SPAM_SHA256),
             |temp_path| {
-                download_to(SMS_SPAM_DATA_URL, temp_path, Some(SMS_SPAM_ZIP_FILENAME))?;
+                download_to_with_retries(
+                    SMS_SPAM_DATA_URL,
+                    temp_path,
+                    Some(SMS_SPAM_ZIP_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 unzip(&temp_path.join(SMS_SPAM_ZIP_FILENAME), temp_path)?;
                 Ok(temp_path.join(SMS_SPAM_SOURCE_FILENAME))
             },
@@ -389,3 +396,5 @@ impl SmsSpam {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(SmsSpam, SmsSpamData, "sms_spam");

@@ -18,8 +18,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C56C76>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -163,7 +165,7 @@ impl Iris {
             IRIS_DATASET_NAME,
             Some(IRIS_SHA256),
             |temp_path| {
-                download_to(IRIS_DATA_URL, temp_path, None)?;
+                download_to_with_retries(IRIS_DATA_URL, temp_path, None, DOWNLOAD_RETRIES)?;
                 Ok(temp_path.join(IRIS_FILENAME))
             },
         )?;
@@ -377,3 +379,5 @@ impl Iris {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Iris, IrisData, "iris");

@@ -20,8 +20,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/222/bank+marketing>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, unzip};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -228,7 +230,12 @@ impl BankMarketing {
             BANK_DATASET_NAME,
             Some(BANK_SHA256),
             |temp_path| {
-                download_to(BANK_DATA_URL, temp_path, Some(BANK_ZIP_FILENAME))?;
+                download_to_with_retries(
+                    BANK_DATA_URL,
+                    temp_path,
+                    Some(BANK_ZIP_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 unzip(&temp_path.join(BANK_ZIP_FILENAME), temp_path)?;
                 Ok(temp_path.join(BANK_SOURCE_FILENAME))
             },
@@ -494,3 +501,5 @@ impl BankMarketing {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(BankMarketing, BankMarketingData, "bank_marketing");

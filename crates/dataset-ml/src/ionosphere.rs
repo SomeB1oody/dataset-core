@@ -20,7 +20,9 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5W01B>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -180,7 +182,12 @@ impl Ionosphere {
             IONOSPHERE_DATASET_NAME,
             Some(IONOSPHERE_SHA256),
             |temp_path| {
-                download_to(IONOSPHERE_DATA_URL, temp_path, Some(IONOSPHERE_FILENAME))?;
+                download_to_with_retries(
+                    IONOSPHERE_DATA_URL,
+                    temp_path,
+                    Some(IONOSPHERE_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(IONOSPHERE_FILENAME))
             },
         )?;
@@ -409,3 +416,5 @@ impl Ionosphere {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Ionosphere, IonosphereData, "ionosphere");

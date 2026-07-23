@@ -29,7 +29,9 @@
 //! Paris: Editions Technip; distributed with scikit-learn as
 //! `linnerud_exercise.csv` and `linnerud_physiological.csv`.
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::Array2;
 use std::path::Path;
 
@@ -226,10 +228,11 @@ impl Linnerud {
             LINNERUD_DATASET_NAME,
             Some(LINNERUD_EXERCISE_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     LINNERUD_EXERCISE_URL,
                     temp_path,
                     Some(LINNERUD_EXERCISE_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(LINNERUD_EXERCISE_FILENAME))
             },
@@ -241,10 +244,11 @@ impl Linnerud {
             LINNERUD_DATASET_NAME,
             Some(LINNERUD_PHYSIOLOGICAL_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     LINNERUD_PHYSIOLOGICAL_URL,
                     temp_path,
                     Some(LINNERUD_PHYSIOLOGICAL_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(LINNERUD_PHYSIOLOGICAL_FILENAME))
             },
@@ -424,3 +428,5 @@ impl Linnerud {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Linnerud, LinnerudData, "linnerud");

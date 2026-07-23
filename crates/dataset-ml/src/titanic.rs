@@ -15,8 +15,10 @@
 //! **Source:** Kaggle competition
 //! <https://www.kaggle.com/c/titanic/data>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -190,7 +192,7 @@ impl Titanic {
             TITANIC_DATASET_NAME,
             Some(TITANIC_SHA256),
             |temp_path| {
-                download_to(TITANIC_DATA_URL, temp_path, None)?;
+                download_to_with_retries(TITANIC_DATA_URL, temp_path, None, DOWNLOAD_RETRIES)?;
                 Ok(temp_path.join(TITANIC_FILENAME))
             },
         )?;
@@ -445,3 +447,5 @@ impl Titanic {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Titanic, TitanicData, "titanic");

@@ -20,7 +20,9 @@
 //! **Source:** Cornell movie-review data (polarity dataset v2.0)
 //! <http://www.cs.cornell.edu/people/pabo/movie-review-data/>
 
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, untar_gz};
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, untar_gz};
 use ndarray::Array1;
 use std::fs;
 use std::path::Path;
@@ -164,10 +166,11 @@ impl MovieReviewPolarity {
             MOVIE_REVIEW_POLARITY_DATASET_NAME,
             Some(MOVIE_REVIEW_POLARITY_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     MOVIE_REVIEW_POLARITY_DATA_URL,
                     temp_path,
                     Some(MOVIE_REVIEW_POLARITY_ARCHIVE_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(MOVIE_REVIEW_POLARITY_ARCHIVE_FILENAME))
             },
@@ -380,3 +383,9 @@ fn sorted_file_names(path: &Path) -> Result<Vec<String>, DatasetError> {
     names.sort();
     Ok(names)
 }
+
+impl_ml_dataset!(
+    MovieReviewPolarity,
+    MovieReviewPolarityData,
+    "movie_review_polarity"
+);

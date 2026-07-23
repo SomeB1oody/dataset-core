@@ -20,8 +20,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/2/adult>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::{ReaderBuilder, Trim};
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -216,7 +218,12 @@ impl Adult {
             Some(ADULT_SHA256),
             |temp_path| {
                 // The source file is `adult.data`; cache it under `adult.csv`.
-                download_to(ADULT_DATA_URL, temp_path, Some(ADULT_FILENAME))?;
+                download_to_with_retries(
+                    ADULT_DATA_URL,
+                    temp_path,
+                    Some(ADULT_FILENAME),
+                    DOWNLOAD_RETRIES,
+                )?;
                 Ok(temp_path.join(ADULT_FILENAME))
             },
         )?;
@@ -482,3 +489,5 @@ impl Adult {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Adult, AdultData, "adult");

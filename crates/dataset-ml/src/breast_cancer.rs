@@ -21,8 +21,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5DW2B>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -238,10 +240,11 @@ impl BreastCancer {
             BREAST_CANCER_DATASET_NAME,
             Some(BREAST_CANCER_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     BREAST_CANCER_DATA_URL,
                     temp_path,
                     Some(BREAST_CANCER_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(BREAST_CANCER_FILENAME))
             },
@@ -510,3 +513,5 @@ impl BreastCancer {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(BreastCancer, BreastCancerData, "breast_cancer");

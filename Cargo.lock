@@ -198,7 +198,6 @@ dependencies = [
  "dataset-core",
  "ndarray",
  "serde",
- "sha2",
  "tempfile",
 ]
 

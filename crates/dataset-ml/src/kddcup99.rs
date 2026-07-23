@@ -38,8 +38,10 @@
 //! `(4898431, 38)` numeric matrix alone is ~1.5 GB), so [`Kddcup99::new_full`]
 //! takes noticeable time and memory. The default 10% subset is ~10× smaller.
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to, gunzip};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, gunzip};
 use ndarray::{Array1, Array2};
 use std::fs::File;
 
@@ -353,7 +355,12 @@ impl Kddcup99 {
             KDDCUP99_DATASET_NAME,
             Some(subset.sha256()),
             |temp_path| {
-                download_to(subset.url(), temp_path, Some(gz_filename))?;
+                download_to_with_retries(
+                    subset.url(),
+                    temp_path,
+                    Some(gz_filename),
+                    DOWNLOAD_RETRIES,
+                )?;
                 let gz_path = temp_path.join(gz_filename);
                 let csv_path = temp_path.join(filename);
                 gunzip(&gz_path, &csv_path)?;
@@ -610,3 +617,5 @@ impl Kddcup99 {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(Kddcup99, Kddcup99Data, "kddcup99");

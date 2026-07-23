@@ -22,8 +22,10 @@
 //! **Source:** Horst AM, Hill AP, Gorman KB (2020). palmerpenguins R package.
 //! <https://allisonhorst.github.io/palmerpenguins/>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -229,7 +231,7 @@ impl PalmerPenguins {
             PENGUINS_DATASET_NAME,
             Some(PENGUINS_SHA256),
             |temp_path| {
-                download_to(PENGUINS_DATA_URL, temp_path, None)?;
+                download_to_with_retries(PENGUINS_DATA_URL, temp_path, None, DOWNLOAD_RETRIES)?;
                 Ok(temp_path.join(PENGUINS_FILENAME))
             },
         )?;
@@ -486,3 +488,5 @@ impl PalmerPenguins {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(PalmerPenguins, PenguinsData, "palmer_penguins");

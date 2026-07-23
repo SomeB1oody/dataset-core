@@ -33,8 +33,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5PC7J>
 
+use crate::DOWNLOAD_RETRIES;
+use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
-use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to};
+use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use serde::Deserialize;
 use std::fs::File;
@@ -209,10 +211,11 @@ impl WineRecognition {
             WINE_RECOGNITION_DATASET_NAME,
             Some(WINE_RECOGNITION_SHA256),
             |temp_path| {
-                download_to(
+                download_to_with_retries(
                     WINE_RECOGNITION_DATA_URL,
                     temp_path,
                     Some(WINE_RECOGNITION_FILENAME),
+                    DOWNLOAD_RETRIES,
                 )?;
                 Ok(temp_path.join(WINE_RECOGNITION_FILENAME))
             },
@@ -450,3 +453,5 @@ impl WineRecognition {
             .expect("data is present after a successful load"))
     }
 }
+
+impl_ml_dataset!(WineRecognition, WineRecognitionData, "wine_recognition");
