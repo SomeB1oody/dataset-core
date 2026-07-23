@@ -98,7 +98,7 @@
 
 #[cfg(feature = "utils")]
 pub use error::{DataFormatErrorKind, DatasetError};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 #[cfg(feature = "utils")]
 pub use utils::{acquire_dataset, download_to, gunzip, untar, untar_gz, unzip};
 
@@ -107,9 +107,9 @@ pub use utils::{acquire_dataset, download_to, gunzip, untar, untar_gz, unzip};
 /// A loader takes the storage directory path and returns the parsed dataset (or
 /// an error). It is stored behind a `Box<dyn Fn ...>` so the concrete closure
 /// type does not leak into `Dataset`'s type parameters. The `Send + Sync` bound
-/// keeps `Dataset<T, E>` shareable across threads (matching the guarantee given
-/// by the internal `OnceLock`); the implied `'static` bound means the loader may
-/// not borrow from its environment — capture by value or clone instead.
+/// keeps `Dataset<T, E>` shareable across threads; the implied `'static` bound
+/// means the loader may not borrow from its environment — capture by value or
+/// clone instead.
 type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 
 /// A generic, thread-safe dataset container with lazy loading and in-memory caching.
@@ -136,8 +136,10 @@ type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 /// # Thread Safety
 ///
 /// `Dataset<T, E>` is `Send + Sync` when `T` is `Send + Sync` (the stored loader is
-/// always `Send + Sync`). The internal `OnceLock` ensures that the loader runs at
-/// most once, even when multiple threads call [`Dataset::load`] concurrently.
+/// always `Send + Sync`). The loader runs at most once even when multiple threads
+/// call [`Dataset::load`] concurrently: an internal mutex serializes the first
+/// load, so late arrivals wait for it and then share its result rather than each
+/// starting a download of their own.
 ///
 /// # Example
 ///
@@ -186,6 +188,13 @@ pub struct Dataset<T, E> {
     storage_dir: String,
     loader: Loader<T, E>,
     data: OnceLock<T>,
+    /// Serializes the loader so that concurrent [`Dataset::load`] calls run it
+    /// **once** rather than racing to produce a value only one of them keeps.
+    ///
+    /// The mutex guards no data of its own — it exists purely to make the
+    /// check-run-store sequence in `load` atomic — so a poisoned lock (a loader
+    /// that panicked on another thread) is recovered from rather than propagated.
+    init_lock: Mutex<()>,
 }
 
 impl<T, E> Dataset<T, E> {
@@ -216,6 +225,7 @@ impl<T, E> Dataset<T, E> {
             storage_dir: storage_dir.to_string(),
             loader: Box::new(loader),
             data: OnceLock::new(),
+            init_lock: Mutex::new(()),
         }
     }
 
@@ -226,6 +236,17 @@ impl<T, E> Dataset<T, E> {
     /// returned value is cached internally. All subsequent calls — from any thread —
     /// return a reference to the cached value without running the loader again.
     ///
+    /// # Concurrency
+    ///
+    /// The loader runs **at most once**, even when several threads call `load`
+    /// simultaneously: threads that arrive while a load is in flight block until it
+    /// finishes and then share its result. This matters for the typical loader,
+    /// which downloads into `storage_dir` — concurrent callers would otherwise each
+    /// start their own download of the same file.
+    ///
+    /// A loader that returns `Err` leaves the `Dataset` unloaded, so a later `load`
+    /// retries it (the error is not cached).
+    ///
     /// # Returns
     ///
     /// - `Ok(&T)` - A reference to the cached dataset.
@@ -235,6 +256,16 @@ impl<T, E> Dataset<T, E> {
     /// Returns any error produced by the loader on first invocation. Once data is
     /// successfully loaded and cached, this method never returns an error.
     pub fn load(&self) -> Result<&T, E> {
+        // Fast path: already loaded, no locking needed.
+        if let Some(data) = self.data.get() {
+            return Ok(data);
+        }
+
+        // A poisoned lock only means some other thread's loader panicked; the guard
+        // protects no invariant of its own, so recover and carry on.
+        let _guard = self.init_lock.lock().unwrap_or_else(|e| e.into_inner());
+
+        // Re-check: another thread may have loaded while we waited for the lock.
         if let Some(data) = self.data.get() {
             return Ok(data);
         }
@@ -245,6 +276,47 @@ impl<T, E> Dataset<T, E> {
         Ok(self
             .data
             .get()
+            .expect("data should be set after successful load"))
+    }
+
+    /// Load the dataset if needed, then return a **mutable** reference to it.
+    ///
+    /// This is the loading counterpart of [`Dataset::get_mut`]: where `get_mut`
+    /// returns `None` when nothing is cached yet, `load_mut` runs the loader first,
+    /// so it always hands back a mutable reference on success. Use it to load and
+    /// then adjust the data in one step (e.g. normalize features right after
+    /// parsing) instead of calling [`Dataset::load`] and [`Dataset::get_mut`] in
+    /// sequence.
+    ///
+    /// As with `get_mut`, the edits are made in place and persist in the cache.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(&mut T)` - A mutable reference to the cached dataset.
+    ///
+    /// # Errors
+    ///
+    /// Returns any error produced by the loader on first invocation.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use dataset_core::Dataset;
+    ///
+    /// let mut ds: Dataset<Vec<i32>, std::convert::Infallible> =
+    ///     Dataset::new("./data", |_| Ok(vec![1, 2, 3]));
+    ///
+    /// // Loads on first call, then hands back a mutable reference.
+    /// ds.load_mut().unwrap().push(4);
+    /// assert_eq!(ds.get(), Some(&vec![1, 2, 3, 4])); // the change persisted
+    /// ```
+    pub fn load_mut(&mut self) -> Result<&mut T, E> {
+        // Ensure the value is present; the shared borrow ends with this statement.
+        self.load()?;
+
+        Ok(self
+            .data
+            .get_mut()
             .expect("data should be set after successful load"))
     }
 
