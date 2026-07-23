@@ -76,6 +76,78 @@ pub fn download_to(
     Ok(())
 }
 
+/// Download a remote file into the given directory, retrying transient failures.
+///
+/// A wrapper around [`download_to`] for the unreliable hosts many public datasets
+/// live on: if the download fails, it is retried up to `retries` more times, waiting
+/// twice as long before each attempt (500 ms, then 1 s, 2 s, …). Passing `retries = 0`
+/// makes this exactly equivalent to [`download_to`].
+///
+/// Only the download is retried. A failure that cannot be fixed by trying again —
+/// a filename that cannot be derived from the URL, or a local file that cannot be
+/// created — is returned immediately, and the last download error is returned once
+/// the attempts are exhausted.
+///
+/// # Parameters
+///
+/// - `url` - The URL to download.
+/// - `storage_path` - The directory to store the downloaded file in.
+/// - `filename` - Optional custom filename (with extension). If `None`, the filename is extracted
+///   from the last segment of the URL.
+/// - `retries` - How many **additional** attempts to make after the first one fails.
+///
+/// # Errors
+///
+/// - `DatasetError` - Returned when every attempt fails (the last error is
+///   propagated), or immediately for a non-retryable error.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::download_to_with_retries;
+/// use std::path::Path;
+///
+/// let download_dir = Path::new("./download_retry_example");
+/// std::fs::create_dir_all(download_dir).unwrap();
+///
+/// // Try up to three times in total before giving up.
+/// download_to_with_retries(
+///     "https://archive.ics.uci.edu/static/public/53/iris.zip",
+///     download_dir,
+///     Some("iris.zip"),
+///     2,
+/// )
+/// .unwrap();
+/// ```
+pub fn download_to_with_retries(
+    url: &str,
+    storage_path: &Path,
+    filename: Option<&str>,
+    retries: u32,
+) -> Result<(), DatasetError> {
+    let mut attempt = 0;
+
+    loop {
+        match download_to(url, storage_path, filename) {
+            Ok(()) => return Ok(()),
+            // Retrying cannot make a malformed URL or an unwritable target work.
+            Err(e @ (DatasetError::ValidationError(_) | DatasetError::IoError(_))) => {
+                return Err(e);
+            }
+            Err(e) => {
+                if attempt >= retries {
+                    return Err(e);
+                }
+                std::thread::sleep(RETRY_BASE_DELAY * 2u32.pow(attempt));
+                attempt += 1;
+            }
+        }
+    }
+}
+
+/// How long [`download_to_with_retries`] waits before its first retry; each further
+/// retry doubles it.
+const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
+
 /// Derive a filename from the last path segment of a URL.
 ///
 /// Strips any `?query` / `#fragment` suffix and returns `None` when the resulting
@@ -268,15 +340,37 @@ fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError>
     Ok(temp_dir)
 }
 
-/// Verify that a file's SHA256 hash matches an expected value (case-insensitive).
+/// Compute a file's SHA256 hash and return it as a lowercase hex string.
 ///
-/// Used internally by [`acquire_dataset`] to validate cached and freshly prepared files.
-/// Returns `true` when the computed hash matches `expected_hex`.
+/// The file is streamed in 8 KiB chunks, so hashing a multi-gigabyte dataset costs
+/// no more memory than hashing a small one.
+///
+/// This is the helper to reach for when **pinning** a hash: run it once against a
+/// freshly downloaded file and paste the result into the `expected_sha256` you pass
+/// to [`acquire_dataset`]. To check a file against a hash you already have, use
+/// [`verify_sha256`] instead of comparing strings yourself.
+///
+/// # Parameters
+///
+/// - `path` - Path to the file to hash.
+///
+/// # Returns
+///
+/// - `String` - The SHA256 digest as 64 lowercase hex characters.
 ///
 /// # Errors
 ///
-/// - `DatasetError::IoError` - Returned when file I/O operations fail (opening file, reading data).
-fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
+/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::sha256_file;
+/// use std::path::Path;
+///
+/// let digest = sha256_file(Path::new("./data/iris.csv")).unwrap();
+/// println!("pin this: {digest}");
+/// ```
+pub fn sha256_file(path: &Path) -> Result<String, DatasetError> {
     let mut file = File::open(path)?;
 
     let mut hasher = Sha256::new();
@@ -291,12 +385,85 @@ fn file_sha256_matches(path: &Path, expected_hex: &str) -> Result<bool, DatasetE
     }
 
     let digest = hasher.finalize();
-    let mut actual_hex = String::with_capacity(digest.len() * 2);
+    let mut hex = String::with_capacity(digest.len() * 2);
     for b in digest {
         // Writing formatted bytes into a `String` is infallible.
-        let _ = write!(actual_hex, "{:02x}", b);
+        let _ = write!(hex, "{:02x}", b);
     }
-    Ok(actual_hex.eq_ignore_ascii_case(expected_hex))
+
+    Ok(hex)
+}
+
+/// Verify that a file's SHA256 hash matches an expected value (case-insensitive).
+///
+/// This is the same check [`acquire_dataset`] performs internally on cached and
+/// freshly prepared files, exposed for callers that need to validate a file outside
+/// that workflow — most commonly a test asserting that the file on disk is the
+/// expected one. Returns `true` when the computed hash matches `expected_hex`.
+///
+/// # Parameters
+///
+/// - `path` - Path to the file to verify.
+/// - `expected_hex` - The expected SHA256 digest, in hex (either case).
+///
+/// # Returns
+///
+/// - `bool` - `true` if the file's hash matches `expected_hex`, `false` otherwise.
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::verify_sha256;
+/// use std::path::Path;
+///
+/// const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930";
+///
+/// assert!(verify_sha256(Path::new("./data/iris.csv"), IRIS_SHA256).unwrap());
+/// ```
+pub fn verify_sha256(path: &Path, expected_hex: &str) -> Result<bool, DatasetError> {
+    Ok(sha256_file(path)?.eq_ignore_ascii_case(expected_hex))
+}
+
+/// Read a file as Latin-1 (ISO-8859-1) text.
+///
+/// Every byte is mapped to the Unicode scalar with the same value, which is exactly
+/// what Latin-1 decoding means and what scikit-learn does for the older text
+/// corpora. Unlike [`std::fs::read_to_string`], this never fails on non-UTF-8 input
+/// and never replaces bytes with `U+FFFD`: the decoding is lossless and reversible,
+/// so a corpus whose encoding is unknown or mixed survives the round trip.
+///
+/// Use it for raw document collections (newsgroup posts, movie reviews, …) that
+/// predate UTF-8; for data you know is UTF-8, prefer `std::fs::read_to_string`.
+///
+/// # Parameters
+///
+/// - `path` - Path to the file to read.
+///
+/// # Returns
+///
+/// - `String` - The file's contents, decoded byte-for-byte as Latin-1.
+///
+/// # Errors
+///
+/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+///
+/// # Example
+/// ```no_run
+/// use dataset_core::read_latin1;
+/// use std::path::Path;
+///
+/// // A byte that is invalid UTF-8 decodes to the matching Latin-1 character
+/// // instead of failing the read.
+/// let text = read_latin1(Path::new("./corpus/post_00001")).unwrap();
+/// assert!(!text.is_empty());
+/// ```
+pub fn read_latin1(path: &Path) -> Result<String, DatasetError> {
+    let bytes = std::fs::read(path)?;
+
+    Ok(bytes.iter().map(|&b| b as char).collect())
 }
 
 /// State of the destination file relative to the dataset we want to cache.
@@ -326,7 +493,7 @@ fn inspect_cache(
     }
 
     match expected_sha256 {
-        Some(hash) if !file_sha256_matches(dst, hash)? => Ok(CacheState::Stale),
+        Some(hash) if !verify_sha256(dst, hash)? => Ok(CacheState::Stale),
         _ => Ok(CacheState::Fresh),
     }
 }
@@ -451,7 +618,7 @@ where
 
     // Validate the freshly prepared file before it lands at the final path.
     if let Some(hash) = expected_sha256
-        && !file_sha256_matches(&src, hash)?
+        && !verify_sha256(&src, hash)?
     {
         return Err(DatasetError::sha256_validation_failed(
             dataset_name,
@@ -647,8 +814,8 @@ mod tests {
     }
 
     #[test]
-    fn file_sha256_matches_correct_hash() {
-        let dir = "./test_file_sha256_matches_correct_hash";
+    fn verify_sha256_correct_hash() {
+        let dir = "./test_verify_sha256_correct_hash";
         create_dir_all(dir).unwrap();
         let path = Path::new(dir).join("f.txt");
         File::create(&path)
@@ -656,14 +823,14 @@ mod tests {
             .write_all(b"hello world")
             .unwrap();
 
-        assert!(file_sha256_matches(&path, HELLO_WORLD_SHA256).unwrap());
+        assert!(verify_sha256(&path, HELLO_WORLD_SHA256).unwrap());
 
         remove_dir_all(dir).unwrap();
     }
 
     #[test]
-    fn file_sha256_matches_uppercase_hash() {
-        let dir = "./test_file_sha256_matches_uppercase_hash";
+    fn verify_sha256_uppercase_hash() {
+        let dir = "./test_verify_sha256_uppercase_hash";
         create_dir_all(dir).unwrap();
         let path = Path::new(dir).join("f.txt");
         File::create(&path)
@@ -671,14 +838,14 @@ mod tests {
             .write_all(b"hello world")
             .unwrap();
 
-        assert!(file_sha256_matches(&path, &HELLO_WORLD_SHA256.to_uppercase()).unwrap());
+        assert!(verify_sha256(&path, &HELLO_WORLD_SHA256.to_uppercase()).unwrap());
 
         remove_dir_all(dir).unwrap();
     }
 
     #[test]
-    fn file_sha256_matches_wrong_hash_returns_false() {
-        let dir = "./test_file_sha256_matches_wrong_hash_returns_false";
+    fn verify_sha256_wrong_hash_returns_false() {
+        let dir = "./test_verify_sha256_wrong_hash_returns_false";
         create_dir_all(dir).unwrap();
         let path = Path::new(dir).join("f.txt");
         File::create(&path)
@@ -686,27 +853,134 @@ mod tests {
             .write_all(b"hello world")
             .unwrap();
 
-        assert!(!file_sha256_matches(&path, ZERO_SHA256).unwrap());
+        assert!(!verify_sha256(&path, ZERO_SHA256).unwrap());
 
         remove_dir_all(dir).unwrap();
     }
 
     #[test]
-    fn file_sha256_matches_empty_file() {
-        let dir = "./test_file_sha256_matches_empty_file";
+    fn verify_sha256_empty_file() {
+        let dir = "./test_verify_sha256_empty_file";
         create_dir_all(dir).unwrap();
         let path = Path::new(dir).join("empty.txt");
         File::create(&path).unwrap();
 
-        assert!(file_sha256_matches(&path, EMPTY_SHA256).unwrap());
+        assert!(verify_sha256(&path, EMPTY_SHA256).unwrap());
 
         remove_dir_all(dir).unwrap();
     }
 
     #[test]
-    fn file_sha256_matches_nonexistent_file_errors() {
-        let result = file_sha256_matches(Path::new("./no_such_file_sha256_test.txt"), ZERO_SHA256);
+    fn verify_sha256_nonexistent_file_errors() {
+        let result = verify_sha256(Path::new("./no_such_file_sha256_test.txt"), ZERO_SHA256);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn sha256_file_returns_lowercase_hex_digest() {
+        let dir = "./test_sha256_file_returns_lowercase_hex_digest";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("f.txt");
+        File::create(&path)
+            .unwrap()
+            .write_all(b"hello world")
+            .unwrap();
+
+        let digest = sha256_file(&path).unwrap();
+        assert_eq!(digest, HELLO_WORLD_SHA256);
+        assert_eq!(digest.len(), 64);
+        assert!(
+            digest
+                .chars()
+                .all(|c| c.is_ascii_hexdigit() && !c.is_ascii_uppercase())
+        );
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn sha256_file_hashes_larger_than_one_chunk() {
+        let dir = "./test_sha256_file_hashes_larger_than_one_chunk";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("big.bin");
+        // Larger than the 8 KiB read buffer, so the streaming loop runs several times.
+        let payload = vec![0xABu8; 8192 * 3 + 17];
+        fs::write(&path, &payload).unwrap();
+
+        // The streamed digest must equal the one-shot digest of the same bytes.
+        let expected = {
+            let mut hasher = Sha256::new();
+            hasher.update(&payload);
+            hasher
+                .finalize()
+                .iter()
+                .map(|b| format!("{:02x}", b))
+                .collect::<String>()
+        };
+        assert_eq!(sha256_file(&path).unwrap(), expected);
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn sha256_file_nonexistent_file_errors() {
+        assert!(sha256_file(Path::new("./no_such_file_for_sha256_file_test.bin")).is_err());
+    }
+
+    #[test]
+    fn read_latin1_decodes_every_byte() {
+        let dir = "./test_read_latin1_decodes_every_byte";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("latin1.txt");
+        // All 256 byte values, including sequences that are invalid UTF-8.
+        let bytes: Vec<u8> = (0u8..=255).collect();
+        fs::write(&path, &bytes).unwrap();
+
+        let text = read_latin1(&path).unwrap();
+
+        // One character per source byte, each with the byte's own scalar value.
+        assert_eq!(text.chars().count(), 256);
+        for (i, c) in text.chars().enumerate() {
+            assert_eq!(c as u32, i as u32, "byte {i} decoded to {c:?}");
+        }
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn read_latin1_empty_file_is_empty_string() {
+        let dir = "./test_read_latin1_empty_file_is_empty_string";
+        create_dir_all(dir).unwrap();
+        let path = Path::new(dir).join("empty.txt");
+        File::create(&path).unwrap();
+
+        assert_eq!(read_latin1(&path).unwrap(), "");
+
+        remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn read_latin1_nonexistent_file_errors() {
+        assert!(read_latin1(Path::new("./no_such_file_for_read_latin1_test.txt")).is_err());
+    }
+
+    #[test]
+    fn download_to_with_retries_does_not_retry_unusable_url() {
+        let dir = "./test_download_to_with_retries_does_not_retry_unusable_url";
+        create_dir_all(dir).unwrap();
+
+        // A URL ending in `/` yields no filename — retrying cannot fix that, so this
+        // must fail immediately rather than sleeping through the retry schedule.
+        let started = std::time::Instant::now();
+        let result = download_to_with_retries("https://x.test/a/", Path::new(dir), None, 5);
+
+        assert!(matches!(result, Err(DatasetError::ValidationError(_))));
+        assert!(
+            started.elapsed() < RETRY_BASE_DELAY,
+            "a non-retryable error must not wait for a retry"
+        );
+
+        remove_dir_all(dir).unwrap();
     }
 
     #[test]

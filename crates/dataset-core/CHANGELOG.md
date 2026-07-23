@@ -2,9 +2,25 @@
 
 All notable changes to the `dataset-core` crate will be documented in this file.
 
-This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / gunzip / untar / untar_gz / temp dir / SHA-256 / `acquire_dataset`) and the `error` module.
+This crate provides `Dataset<T, E>` plus the optional `utils` feature (download / unzip / gunzip / untar / untar_gz / temp dir / SHA-256 / Latin-1 / `acquire_dataset`) and the `error` module.
 
 Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more info.
+
+## [Unreleased]
+### Fixed
+- `Dataset::load` now genuinely runs the loader **at most once** under concurrent access. The documented guarantee was not actually held: `OnceLock::set` only decides whose value is *kept*, so every thread that found the cache empty ran the loader, and only the first to finish had its result stored. For the typical loader — which downloads into `storage_dir` — that meant N threads starting N downloads of the same file into the same directory, with N-1 parsed results built and thrown away. `Dataset` now holds an internal `Mutex<()>` that serializes the first load: a thread arriving mid-load blocks until it completes and then shares its result. The fast path (already loaded) is unchanged and still takes no lock, and a poisoned mutex is recovered from rather than propagated, since the guard protects no invariant of its own. This adds a private field to `Dataset<T, E>`, which is not a breaking change (the struct's fields were already private) and does not affect its `Send`/`Sync` bounds. A loader that returns `Err` still leaves the dataset unloaded, so a later `load` retries it.
+
+### Added
+- `Dataset::load_mut(&mut self) -> Result<&mut T, E>`: loads the dataset if needed, then returns a mutable reference to the cached value. It is the loading counterpart of `get_mut` (which returns `None` when nothing is cached), so loading and then adjusting the data — normalizing features right after parsing, say — no longer needs a `load()` call followed by a `get_mut().expect(...)`. Edits are made in place and persist in the cache.
+- `sha256_file(path) -> Result<String, DatasetError>` and `verify_sha256(path, expected_hex) -> Result<bool, DatasetError>` in the `utils` module (feature `utils`), both re-exported at the crate root. `sha256_file` streams the file in 8 KiB chunks and returns the digest as 64 lowercase hex characters — this is the helper for **pinning** a hash when adding a new dataset. `verify_sha256` is the check `acquire_dataset` performs internally, exposed for use outside that workflow (most commonly a test asserting which file ended up on disk); it is case-insensitive. In 0.3.0 the equivalent private helper `file_sha256_matches` was deliberately removed from the public API because callers were composing the acquisition workflow by hand; these two are scoped to the cases `acquire_dataset` does not cover, and `acquire_dataset` remains the way to acquire a file.
+- `read_latin1(path) -> Result<String, DatasetError>` in the `utils` module (feature `utils`), re-exported at the crate root: reads a file as Latin-1 (ISO-8859-1) text by mapping each byte to the Unicode scalar of the same value. Unlike `std::fs::read_to_string` it never fails on non-UTF-8 input and never substitutes `U+FFFD`, so the decoding is lossless and reversible — what the older raw-document corpora (20 Newsgroups, Movie Review Polarity) need, and what scikit-learn does for them.
+- `download_to_with_retries(url, storage_path, filename, retries)` in the `utils` module (feature `utils`), re-exported at the crate root: `download_to` with bounded retries for the university archives and personal pages that host public datasets and intermittently time out. Failed attempts are retried up to `retries` more times with exponential backoff (500 ms, then 1 s, 2 s, …); `retries = 0` makes it exactly equivalent to `download_to`. Errors that retrying cannot fix — a URL with no derivable filename, or a local file that cannot be created — are returned immediately rather than slept through, and the last download error is propagated once the attempts are exhausted.
+
+### Changed
+- Corrected the thread-safety documentation on `Dataset<T, E>` and the `Loader` type alias, which credited the "runs at most once" guarantee to `OnceLock` alone. `load`'s docs gained a `# Concurrency` section stating what is now actually guaranteed, including that a failing loader is not cached.
+
+### Testing
+- Added `tests/dataset_test.rs`, the first integration test suite for the container itself (previously covered only by doctests): 12 tests over the lazy-loading contract, `load_mut`, the cache-invalidating operations (`invalidate` / `set_loader` / `take` / `into_inner`), the non-loading accessors, and the `Debug` output. It includes a regression test for the concurrency fix — 16 threads racing on `load` with a counting loader, asserting exactly one invocation — and one asserting that a failed load is not cached.
 
 ## [0.4.0] - 2026-07-17
 ### Added

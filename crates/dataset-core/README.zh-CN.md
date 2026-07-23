@@ -26,7 +26,7 @@
 
 - **`utils`** — 用于下载文件、解压归档、验证 SHA-256 哈希值和管理临时目录的辅助工具。
 
-需要经典机器学习数据集的开箱即用加载器？配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 提供 26 个加载器——从 Iris、Breast Cancer、California Housing 到 Covertype、KDD Cup '99 和 20 Newsgroups——它在启用 `utils` 特性的前提下依赖 `dataset-core`。
+需要经典机器学习数据集的开箱即用加载器？配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 提供 29 个加载器——从 Iris、Breast Cancer、California Housing 到 Covertype、KDD Cup '99 和 20 Newsgroups——它在启用 `utils` 特性的前提下依赖 `dataset-core`。
 
 ## 安装
 
@@ -49,7 +49,7 @@ dataset-core = { version = "0.4", features = ["utils"] }
 | 特性     | 启用的功能                                          | 额外依赖                                  |
 |----------|-----------------------------------------------------|-------------------------------------------|
 | *（无）* | 仅 `Dataset<T, E>`                                  | 无                                        |
-| `utils`  | 下载、unzip、gunzip、untar、untar_gz、临时目录、SHA-256 验证、错误类型 | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
+| `utils`  | 下载（可选自动重试）、unzip、gunzip、untar、untar_gz、临时目录、SHA-256 计算与验证、Latin-1 读取、错误类型 | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
 
 ## 核心用法
 
@@ -81,6 +81,10 @@ fn main() {
 |----------------------|-----------------|---------------------------------------------------|
 | `new(dir, loader)`   | `Dataset<T, E>` | 创建实例并存入加载器（无 I/O 操作）              |
 | `load()`             | `Result<&T, E>` | 首次调用时运行存好的加载器，之后返回缓存的 `&T`  |
+| `load_mut()`         | `Result<&mut T, E>` | 按需加载后可变借用缓存值，便于原地修改        |
+| `get()` / `get_mut()`| `Option<&T>` / `Option<&mut T>` | **不触发加载**地借用缓存值        |
+| `take()`             | `Option<T>`     | 取出缓存值，容器保持可复用                        |
+| `into_inner()`       | `Option<T>`     | 消耗容器并返回缓存值                              |
 | `set_loader(loader)` | `()`            | 替换加载器并使缓存失效（下次访问惰性重新解析）   |
 | `invalidate()`       | `()`            | 丢弃缓存值、保留加载器（下次 `load` 用它重载）   |
 | `is_loaded()`        | `bool`          | 数据是否已加载                                    |
@@ -91,10 +95,14 @@ fn main() {
 | 函数                  | 用途                                                                             |
 |-----------------------|----------------------------------------------------------------------------------|
 | `download_to`         | 将远程文件下载到目录                                                             |
+| `download_to_with_retries` | 同上，并以指数退避重试瞬时失败                                              |
 | `unzip`               | 解压 ZIP 归档                                                                    |
 | `gunzip`              | 将 gzip（`.gz`）文件解压为单个输出文件                                           |
 | `untar`               | 将 tar（`.tar`）归档解压到目录                                                   |
 | `untar_gz`            | 以流式方式将 gzip 压缩的 tar（`.tar.gz` / `.tgz`）归档解压到目录                 |
+| `sha256_file`         | 计算文件的 SHA-256 摘要（十六进制），用于为新数据集固定哈希值                   |
+| `verify_sha256`       | 用已有的哈希值校验文件                                                           |
+| `read_latin1`         | 以 Latin-1 读取文件文本：无损，且不会因非 UTF-8 字节而失败                      |
 | `acquire_dataset`     | 缓存感知的数据集获取：复用有效本地文件、临时目录准备、哈希校验、移动到最终位置   |
 
 ## 构建自己的数据集
@@ -130,7 +138,7 @@ impl MyDataset {
 
 - **首次访问**：运行一次加载器（可能涉及网络请求和解析），缓存结果。
 - **后续访问**：返回缓存数据的引用——零分配、零 I/O。
-- **跨线程安全**：只要 `T` 是 `Send + Sync`，`Dataset<T, E>` 就是 `Send + Sync`（存入的加载器始终是 `Send + Sync`）；内部 `OnceLock` 保证即使在并发调用下加载器也最多执行一次。
+- **跨线程安全**：只要 `T` 是 `Send + Sync`，`Dataset<T, E>` 就是 `Send + Sync`（存入的加载器始终是 `Send + Sync`）。并发调用下加载器也最多执行一次：内部互斥锁会串行化首次加载，后到的线程等待并共享其结果，而不会各自发起一次下载。
 
 ## 许可证
 

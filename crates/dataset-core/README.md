@@ -26,7 +26,7 @@ On top of this core type, an **optional** feature-gated module is available:
 
 - **`utils`** — helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-Looking for ready-to-use loaders for classic ML datasets? The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) ships 26 loaders — from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups — and depends on `dataset-core` with the `utils` feature enabled.
+Looking for ready-to-use loaders for classic ML datasets? The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) ships 29 loaders — from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups — and depends on `dataset-core` with the `utils` feature enabled.
 
 ## Installation
 
@@ -49,7 +49,7 @@ dataset-core = { version = "0.4", features = ["utils"] }
 | Feature  | What it enables                                              | Extra dependencies               |
 |----------|--------------------------------------------------------------|----------------------------------|
 | *(none)* | `Dataset<T, E>` only                                         | none                             |
-| `utils`  | Download, unzip, gunzip, untar, untar_gz, temp dirs, SHA-256 validation, error types | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
+| `utils`  | Download (with optional retries), unzip, gunzip, untar, untar_gz, temp dirs, SHA-256 hashing & validation, Latin-1 reading, error types | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
 
 ## Core Usage
 
@@ -81,6 +81,10 @@ fn main() {
 |----------------------|-----------------|--------------------------------------------------------------------|
 | `new(dir, loader)`   | `Dataset<T, E>` | Create an instance, storing the loader (no I/O)                    |
 | `load()`             | `Result<&T, E>` | Run the stored loader on first call, return cached `&T` thereafter |
+| `load_mut()`         | `Result<&mut T, E>` | Load if needed, then borrow the cached value mutably for in-place edits |
+| `get()` / `get_mut()`| `Option<&T>` / `Option<&mut T>` | Borrow the cached value **without** loading                |
+| `take()`             | `Option<T>`     | Move the cached value out, leaving the container reusable          |
+| `into_inner()`       | `Option<T>`     | Consume the container and return the cached value                  |
 | `set_loader(loader)` | `()`            | Replace the loader and invalidate the cache (lazy re-parse)        |
 | `invalidate()`       | `()`            | Drop the cached value, keep the loader (next `load` re-runs it)    |
 | `is_loaded()`        | `bool`          | Whether data has been loaded                                       |
@@ -91,10 +95,14 @@ fn main() {
 | Function              | Purpose                                                                                |
 |-----------------------|----------------------------------------------------------------------------------------|
 | `download_to`         | Download a remote file into a directory                                                |
+| `download_to_with_retries` | The same, retrying transient failures with exponential backoff                    |
 | `unzip`               | Extract a ZIP archive                                                                  |
 | `gunzip`              | Decompress a gzip (`.gz`) file into a single output file                               |
 | `untar`               | Extract a tar (`.tar`) archive into a directory                                        |
 | `untar_gz`            | Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a directory, streaming |
+| `sha256_file`         | Compute a file's SHA-256 digest as hex — use it to pin a new dataset's hash            |
+| `verify_sha256`       | Check a file against a hash you already have                                           |
+| `read_latin1`         | Read a file as Latin-1 text, losslessly and without failing on non-UTF-8 bytes         |
 | `acquire_dataset`     | Cache-aware acquisition: reuse valid local file, prepare in temp dir, hash check, move |
 
 ## Building Your Own Dataset
@@ -130,7 +138,7 @@ See the [`dataset-ml`](https://crates.io/crates/dataset-ml) source for complete,
 
 - **First access**: runs the loader once (potentially network + parse), caches the result.
 - **Subsequent accesses**: return a reference to the cached data — zero allocation, zero I/O.
-- **Cross-thread safety**: `Dataset<T, E>` is `Send + Sync` whenever `T` is (the stored loader is always `Send + Sync`); the internal `OnceLock` guarantees the loader runs at most once even under concurrent calls.
+- **Cross-thread safety**: `Dataset<T, E>` is `Send + Sync` whenever `T` is (the stored loader is always `Send + Sync`). The loader runs at most once even under concurrent calls: an internal mutex serializes the first load, so threads arriving mid-load wait for it and share the result instead of each starting a download of their own.
 
 ## License
 

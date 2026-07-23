@@ -21,7 +21,7 @@
 //!
 //! | Feature | What it enables                                                                            |
 //! |---------|--------------------------------------------------------------------------------------------|
-//! | `utils` | `download_to`, `unzip`, `gunzip`, `untar`, `untar_gz`, `acquire_dataset`, and the `error` module |
+//! | `utils` | `download_to`, `download_to_with_retries`, `unzip`, `gunzip`, `untar`, `untar_gz`, `sha256_file`, `verify_sha256`, `read_latin1`, `acquire_dataset`, and the `error` module |
 //!
 //! With no features enabled, only `Dataset<T, E>` is available — depending only on
 //! `std::sync::OnceLock`.
@@ -86,21 +86,30 @@
 //! # Utility Functions (feature `utils`)
 //!
 //! - `download_to` — download a remote file into a directory
+//! - `download_to_with_retries` — the same, retrying transient failures with backoff
 //! - `unzip` — extract a ZIP archive
 //! - `gunzip` — decompress a gzip (`.gz`) file into a single output file
 //! - `untar` — extract a tar (`.tar`) archive into a directory
 //! - `untar_gz` — extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive, streaming
+//! - `sha256_file` — compute a file's SHA-256 digest (for pinning a hash)
+//! - `verify_sha256` — check a file against a hash you already have
+//! - `read_latin1` — read a file as Latin-1 text, losslessly and without failing on non-UTF-8 bytes
 //! - `acquire_dataset` — cache-aware dataset acquisition workflow
 //!   (temp dir → prepare → optional hash check → move to final location)
 //!
 //! `acquire_dataset` is the single entry point for caching a dataset file; temp-dir
-//! creation and SHA-256 verification are internal steps it performs for you.
+//! creation and SHA-256 verification are internal steps it performs for you, so
+//! reach for `sha256_file` / `verify_sha256` only outside that workflow — pinning a
+//! new dataset's hash, or asserting in a test which file ended up on disk.
 
 #[cfg(feature = "utils")]
 pub use error::{DataFormatErrorKind, DatasetError};
 use std::sync::{Mutex, OnceLock};
 #[cfg(feature = "utils")]
-pub use utils::{acquire_dataset, download_to, gunzip, untar, untar_gz, unzip};
+pub use utils::{
+    acquire_dataset, download_to, download_to_with_retries, gunzip, read_latin1, sha256_file,
+    untar, untar_gz, unzip, verify_sha256,
+};
 
 /// The boxed loader stored inside a [`Dataset`].
 ///
