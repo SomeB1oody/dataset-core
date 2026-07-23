@@ -212,6 +212,14 @@ pub mod mushroom;
 /// subsets. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
 pub mod newsgroups20;
 
+/// Preprocessing helpers.
+///
+/// Turns what the loaders return into what a model consumes: seeded train/test and
+/// k-fold splits (plain or class-stratified), feature scaling, one-hot encoding of
+/// the categorical matrices, and label encoding. Everything is deterministic given
+/// a seed and depends on no extra crates.
+pub mod preprocessing;
+
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
