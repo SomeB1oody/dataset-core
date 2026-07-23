@@ -248,6 +248,16 @@ pub mod sentiment_sentences;
 /// rather than `features()`. Sourced from a ZIP archive.
 pub mod sms_spam;
 
+/// Spambase dataset module.
+///
+/// Contains the Spambase dataset (UCI, Hopkins et al. 1999) for binary
+/// classification: labelling 4,601 emails as `ham` or `spam` from 57 numeric
+/// features — word and character frequencies plus capital-run-length statistics.
+/// The feature-engineered counterpart to the crate's raw-text spam corpora
+/// ([`sms_spam`], [`youtube_spam`]): the vectorization those loaders leave to you
+/// is already done here, so it drops straight into a numeric model.
+pub mod spambase;
+
 /// Titanic dataset module.
 ///
 /// Contains data about Titanic passengers for predicting survival based
@@ -307,6 +317,7 @@ pub use newsgroups20::Newsgroups20;
 pub use palmer_penguins::PalmerPenguins;
 pub use sentiment_sentences::SentimentSentences;
 pub use sms_spam::SmsSpam;
+pub use spambase::Spambase;
 pub use titanic::Titanic;
 pub use traits::{MlDataset, NumSamples};
 pub use wine_quality::{red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality};
