@@ -90,6 +90,16 @@ pub mod adult;
 /// ZIP archive (like `digits`).
 pub mod bank_marketing;
 
+/// Banknote Authentication dataset module.
+///
+/// Contains the Banknote Authentication dataset (UCI, Lohweg 2012) for binary
+/// classification: telling genuine banknote specimens from forged ones using 4
+/// continuous statistics (variance, skewness, curtosis, entropy) of
+/// Wavelet-transformed banknote images. The crate's most compact pure-numeric
+/// benchmark; its target is the source's raw `0`/`1` code as an `Array1<u8>`,
+/// because UCI does not document which code means which.
+pub mod banknote_authentication;
+
 /// Boston Housing dataset module.
 ///
 /// Contains the Boston Housing dataset for predicting median house values
@@ -299,6 +309,7 @@ pub mod youtube_spam;
 pub use abalone::Abalone;
 pub use adult::Adult;
 pub use bank_marketing::BankMarketing;
+pub use banknote_authentication::BanknoteAuthentication;
 pub use boston_housing::BostonHousing;
 pub use breast_cancer::BreastCancer;
 pub use california_housing::CaliforniaHousing;
