@@ -16,7 +16,7 @@ const N_SAMPLES: usize = 4601;
 const N_SPAM: usize = 1813;
 const N_HAM: usize = 2788;
 
-/// Assert the Spambase dataset invariants: the schema shape, the two `class`
+/// Checks the Spambase dataset invariants: the schema shape, the two `class`
 /// classes with their exact distribution, and the non-negative numeric feature
 /// domain.
 fn assert_spambase_semantics(
@@ -68,7 +68,7 @@ fn assert_spambase_semantics(
 // Verifies that the Spambase dataset loads with the correct shape, label values,
 // and non-negative feature domain.
 fn test_load_spambase() {
-    let download_dir = "./test_load_spambase"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_spambase"; // if the directory does not exist, the code creates it
 
     let dataset = Spambase::new(download_dir);
     let features = dataset.features().unwrap();
@@ -76,19 +76,18 @@ fn test_load_spambase() {
 
     assert_spambase_semantics(features, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Spambase loading uses a pre-existing cached file without re-downloading.
+// Verifies that Spambase loading reuses an existing cached file instead of downloading it again.
 fn test_spambase_no_need_download() {
     let download_dir = "./test_spambase_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once (downloads and extracts the ZIP), then
-    // confirm a second instance reuses the extracted file.
+    // Load once to prime the cache. This downloads and extracts the ZIP archive.
+    // Then confirm that a second instance reuses the extracted file.
     Spambase::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("spambase.csv"), SPAMBASE_SHA256).unwrap(),
@@ -98,42 +97,38 @@ fn test_spambase_no_need_download() {
     let dataset = Spambase::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Spambase data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Spambase data file and overwrites it with the real dataset.
 fn test_spambase_overwrite() {
     let download_dir = "./test_spambase_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Spambase dataset in advance
     {
         let path = download_dir_path.join("spambase.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Spambase dataset
+    // this call overwrites the fake Spambase dataset with the real data
     let dataset = Spambase::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("spambase.csv"), SPAMBASE_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
+// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_spambase_into_data() {
     let download_dir = "./test_spambase_into_data";
 
     let dataset = Spambase::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // into_data() consumed `dataset`. `features` and `labels` are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(labels.len(), N_SAMPLES);
@@ -148,11 +143,10 @@ fn test_spambase_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // Owned data allows direct mutation and needs no `to_owned()` clone.
     features[[0, 0]] = 0.5;
     assert_eq!(features[[0, 0]], 0.5);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -167,13 +161,12 @@ fn test_spambase_take_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // After take_data, the instance resets to unloaded but stays usable. The next
+    // access reloads it from the cached file and yields the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(reloaded_labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -186,13 +179,12 @@ fn test_spambase_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // Trigger loading. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -205,7 +197,7 @@ fn test_spambase_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // Load the data. Then mutate the cached features in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 0.25;
@@ -215,6 +207,5 @@ fn test_spambase_get_data_mut() {
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 0.25);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

@@ -53,26 +53,25 @@ fn assert_sms_spam_semantics(
 // Verifies that the SMS Spam dataset loads with the correct sample count, label
 // classes, and non-empty message texts.
 fn test_load_sms_spam() {
-    let download_dir = "./test_load_sms_spam"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_sms_spam"; // the loader creates this directory if it is missing
 
     let dataset = SmsSpam::new(download_dir);
     let (texts, labels) = dataset.data().unwrap();
 
     assert_sms_spam_semantics(texts, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that SMS Spam loading uses a pre-existing cached file without re-downloading.
+// Verifies that SMS Spam reuses a cached file instead of a new download.
 fn test_sms_spam_no_need_download() {
     let download_dir = "./test_sms_spam_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once (downloads and extracts the ZIP), then
-    // confirm a second instance reuses the extracted file.
+    // The first load downloads and extracts the ZIP file. This primes the cache.
+    // The second instance then reuses the extracted file.
     SmsSpam::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("sms_spam.csv"), SMS_SPAM_SHA256).unwrap(),
@@ -82,51 +81,47 @@ fn test_sms_spam_no_need_download() {
     let dataset = SmsSpam::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake SMS Spam data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake SMS Spam data file and
+// overwrites it with the real dataset.
 fn test_sms_spam_overwrite() {
     let download_dir = "./test_sms_spam_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake SMS Spam dataset in advance
     {
         let path = download_dir_path.join("sms_spam.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake SMS Spam dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = SmsSpam::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("sms_spam.csv"), SMS_SPAM_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_sms_spam_into_data() {
     let download_dir = "./test_sms_spam_into_data";
 
     let dataset = SmsSpam::new(download_dir);
     let (mut texts, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     texts[0] = "cleaned text".to_string();
     assert_eq!(texts[0], "cleaned text");
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -141,13 +136,12 @@ fn test_sms_spam_take_data() {
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // take_data() resets the instance to unloaded, but it stays usable. The next
+    // access reloads it from the cached file and yields the same shapes.
     let (reloaded_texts, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_texts.len(), N_SAMPLES);
     assert_eq!(reloaded_labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -160,13 +154,12 @@ fn test_sms_spam_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (texts, labels) = dataset.get_data().unwrap();
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -179,7 +172,8 @@ fn test_sms_spam_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached texts in place (no clone, no reload).
+    // This loads the dataset. It then mutates the cached texts in place, with no
+    // clone and no reload.
     dataset.data().unwrap();
     if let Some((texts, _labels)) = dataset.get_data_mut() {
         texts[0] = "normalized".to_string();
@@ -189,6 +183,5 @@ fn test_sms_spam_get_data_mut() {
     let (texts, _labels) = dataset.data().unwrap();
     assert_eq!(texts[0], "normalized");
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

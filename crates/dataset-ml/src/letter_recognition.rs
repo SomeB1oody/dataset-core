@@ -1,15 +1,15 @@
 //! Letter Recognition dataset.
 //!
-//! Black-and-white rectangular pixel displays of the 26 capital letters of the
-//! English alphabet, rendered in 20 different fonts and randomly distorted to
-//! produce 20,000 unique stimuli. Each stimulus was reduced to 16 primitive
-//! numerical attributes (statistical moments and edge counts) scaled to integer
-//! values in the range `0..=15`. The task is to identify which capital letter
-//! (`A`–`Z`) a display shows.
+//! This dataset has black-and-white rectangular pixel displays of the 26 capital
+//! letters of the English alphabet. It uses 20 different fonts, and random
+//! distortion of each produces 20,000 unique stimuli. The dataset reduces each
+//! stimulus to 16 primitive numerical attributes: statistical moments and edge
+//! counts. It scales each attribute to an integer value in the range `0..=15`.
+//! The task is to identify which capital letter (`A`–`Z`) a display shows.
 //!
 //! **Features (16, all numeric):** `x-box`, `y-box`, `width`, `high`, `onpix`,
 //! `x-bar`, `y-bar`, `x2bar`, `y2bar`, `xybar`, `x2ybr`, `xy2br`, `x-ege`,
-//! `xegvy`, `y-ege`, `yegvx` — each an integer in `0..=15` (stored as `f64`).
+//! `xegvy`, `y-ege`, `yegvx`. Each is an integer in `0..=15` (stored as `f64`).
 //!
 //! **Target:** `lettr` - the capital letter, one of `A`–`Z` (stored as `char`).
 //!
@@ -28,8 +28,8 @@ use std::fs::File;
 
 /// The URL for the Letter Recognition dataset.
 ///
-/// This is the UCI static package; it is a ZIP archive containing several files,
-/// of which only the `letter-recognition.data` data file is used.
+/// This is the UCI static package. It is a ZIP archive with several files. The
+/// loader uses only the `letter-recognition.data` file.
 ///
 /// # Citation
 ///
@@ -38,7 +38,7 @@ use std::fs::File;
 const LETTER_RECOGNITION_DATA_URL: &str =
     "https://archive.ics.uci.edu/static/public/59/letter+recognition.zip";
 
-/// The name the downloaded ZIP archive is saved under inside the temp directory.
+/// The name of the downloaded ZIP archive inside the temp directory.
 const LETTER_RECOGNITION_ZIP_FILENAME: &str = "letter_recognition.zip";
 
 /// The name of the file inside the archive that holds the 20,000 samples.
@@ -51,7 +51,7 @@ const LETTER_RECOGNITION_FILENAME: &str = "letter_recognition.csv";
 const LETTER_RECOGNITION_SHA256: &str =
     "2b89f3602cf768d3c8355267d2f13f2417809e101fc2b5ceee10db19a60de6e2";
 
-/// The name of the dataset
+/// The name of the dataset.
 const LETTER_RECOGNITION_DATASET_NAME: &str = "letter_recognition";
 
 /// Number of samples.
@@ -76,26 +76,26 @@ const FEATURE_NAMES: [&str; N_FEATURES] = [
 /// Type alias for the Letter Recognition dataset: (features, labels).
 type LetterRecognitionData = (Array2<f64>, Array1<char>);
 
-/// A struct representing the Letter Recognition dataset with lazy loading.
+/// This struct represents the Letter Recognition dataset and loads it lazily.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. Later calls
+/// return the cached data without loading again.
 ///
 /// # About Dataset
 ///
-/// The objective is to identify each of a large number of black-and-white
-/// rectangular pixel displays as one of the 26 capital letters in the English
-/// alphabet. The character images were based on 20 different fonts, and each
-/// letter within these 20 fonts was randomly distorted to produce a file of
-/// 20,000 unique stimuli. Each stimulus was converted into 16 primitive numerical
-/// attributes (statistical moments and edge counts) which were then scaled to fit
-/// into a range of integer values from `0` through `15`.
+/// The goal is to identify each of many black-and-white rectangular pixel
+/// displays as one of the 26 capital letters in the English alphabet. The
+/// character images use 20 different fonts. Random distortion of each letter
+/// within these fonts produces a file of 20,000 unique stimuli. A conversion
+/// step turns each stimulus into 16 primitive numerical attributes (statistical
+/// moments and edge counts). It scales the attributes to fit a range of integer
+/// values from `0` through `15`.
 ///
 /// # Feature columns
 ///
-/// All 16 features are quantitative, stored in one `(20000, 16)` `Array2<f64>`
-/// matrix. Each value is an integer in `0..=15` (stored as `f64`). By 0-based
-/// column index:
+/// All 16 features are quantitative. The loader stores them in one
+/// `(20000, 16)` `Array2<f64>` matrix. Each value is an integer in `0..=15`
+/// (stored as `f64`). By 0-based column index:
 ///
 /// | Column | Attribute | Description                       |
 /// |--------|-----------|-----------------------------------|
@@ -121,10 +121,10 @@ type LetterRecognitionData = (Array2<f64>, Array1<char>);
 /// - `lettr` (shape `(20000,)`): the capital letter itself, one of `A`–`Z`.
 ///
 /// This is the crate's first `Array1<char>` target. A class that is exactly one
-/// letter is naturally a `char`, so the letter is stored verbatim: there is no
-/// lookup table and no encoding step to undo — `labels[i]` *is* the answer, and
-/// comparisons like `labels[i] == 'Q'` read as the task does. Encoding to an
-/// index when you need one is a one-liner (`(c as u8 - b'A') as usize`).
+/// letter is naturally a `char`, so the loader stores the letter verbatim. There
+/// is no lookup table and no encoding step to undo. `labels[i]` *is* the answer,
+/// and comparisons like `labels[i] == 'Q'` read as the task does. If you need an
+/// index, encoding one is a one-liner: `(c as u8 - b'A') as usize`.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/59/letter+recognition>
@@ -136,14 +136,15 @@ type LetterRecognitionData = (Array2<f64>, Array1<char>);
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// All fields of this struct implement `Send` and `Sync`, so the struct implements
+/// them too. This makes the struct safe to share across threads. The internal
+/// [`Dataset`] makes sure initialization is lazy and thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::letter_recognition::LetterRecognition;
 ///
-/// let download_dir = "./letter_recognition"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./letter_recognition"; // the code creates the directory if missing
 ///
 /// let mut dataset = LetterRecognition::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -153,23 +154,25 @@ type LetterRecognitionData = (Array2<f64>, Array1<char>);
 /// assert_eq!(features.shape(), &[20000, 16]);
 /// assert_eq!(labels.len(), 20000);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays and does not reload them.
+/// // `get_data_mut()` edits the arrays in place. It makes no clone, and the
+/// // change stays in the cache. Prefer `get_data_mut()` over `.to_owned()` when
+/// // you only need to change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 5.0;
 ///     labels[0] = 'A';
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves owned arrays out with no `.to_owned()` clone. It leaves
+/// // the instance reusable. The next access reloads the data from the cached
+/// // file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[20000, 16]);
 /// assert_eq!(owned_labels.len(), 20000);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns owned arrays with no clone. But it consumes the
+/// // instance. Use it when you are done with the dataset.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[20000, 16]);
 /// assert_eq!(owned_labels.len(), 20000);
@@ -182,26 +185,26 @@ pub struct LetterRecognition {
 impl LetterRecognition {
     /// Create a new LetterRecognition instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// The dataset loads on the first call to a data accessor method. This function
+    /// only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - the directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `LetterRecognition` instance ready for lazy loading.
+    /// - `Self` - a `LetterRecognition` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         LetterRecognition {
             dataset: Dataset::new(storage_dir, Self::load_data),
         }
     }
 
-    /// Acquire and parse the Letter Recognition dataset.
+    /// Get and parse the Letter Recognition dataset.
     fn load_data(dir: &str) -> Result<LetterRecognitionData, DatasetError> {
-        // Prepare the dataset file: download the UCI ZIP package, extract it, and
-        // surface the `letter-recognition.data` file (the only partition there is).
+        // Prepare the dataset file. Download the UCI ZIP package, extract it, and
+        // use the `letter-recognition.data` file, the only partition in the archive.
         let file_path = acquire_dataset(
             dir,
             LETTER_RECOGNITION_FILENAME,
@@ -241,8 +244,8 @@ impl LetterRecognition {
                 ));
             }
 
-            // Label, kept verbatim as the capital letter it already is. It must be
-            // exactly one ASCII character in `A..=Z`.
+            // The label is the capital letter itself. The loader keeps it verbatim.
+            // It must be exactly one ASCII character in `A..=Z`.
             let raw_label = record[LABEL_COLUMN].trim();
             let mut label_chars = raw_label.chars();
             let label = match (label_chars.next(), label_chars.next()) {
@@ -304,7 +307,7 @@ impl LetterRecognition {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (20,000 samples, 16 features)
+    /// - Dataset size does not match expected dimensions (20,000 samples, 16 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
@@ -316,7 +319,8 @@ impl LetterRecognition {
     ///
     /// # Returns
     ///
-    /// - `&Array1<char>` - Reference to labels vector with shape `(20000,)` containing the letter classes (`A`–`Z`).
+    /// - `&Array1<char>` - Reference to labels vector with shape `(20000,)`,
+    ///   containing the letter classes (`A`–`Z`).
     ///
     /// # Errors
     ///
@@ -324,7 +328,7 @@ impl LetterRecognition {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (20,000 samples)
+    /// - Dataset size does not match expected dimensions (20,000 samples)
     pub fn labels(&self) -> Result<&Array1<char>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
@@ -346,66 +350,65 @@ impl LetterRecognition {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (20,000 samples, 16 features)
+    /// - Dataset size does not match expected dimensions (20,000 samples, 16 features)
     pub fn data(&self) -> Result<&LetterRecognitionData, DatasetError> {
         self.dataset.load()
     }
 
     /// Get both features and labels as references **without** triggering loading.
     ///
-    /// Unlike [`LetterRecognition::data`], which loads the dataset on first call,
-    /// this never runs the loader: if the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing. Use it when you only want the data
-    /// if it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// Unlike [`LetterRecognition::data`], this method never runs the loader. If
+    /// the dataset has not loaded yet, it returns `None` instead of downloading
+    /// and parsing the data. Use this method when you want the data only if it is
+    /// already cached. This choice avoids the download and parse cost.
     ///
     /// # Returns
     ///
     /// - `Some(&LetterRecognitionData)` - reference to the cached `(features, labels)`
     ///   tuple (feature matrix `(20000, 16)`, label vector `(20000,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&LetterRecognitionData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// replace label values) with no `to_owned()` clone and without removing them
-    /// from the cache: the changes persist, so later [`LetterRecognition::features`],
-    /// [`LetterRecognition::data`], or [`LetterRecognition::get_data`] calls observe
-    /// them.
+    /// This lets you change the cached arrays directly (for example, normalize
+    /// features, or replace label values) with no `to_owned()` clone. The changes
+    /// stay in the cache: later calls to [`LetterRecognition::features`],
+    /// [`LetterRecognition::data`], or [`LetterRecognition::get_data`] see them.
     ///
-    /// Like [`LetterRecognition::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`LetterRecognition::data`]) first if you need to ensure the data is
-    /// present.
+    /// Like [`LetterRecognition::get_data`], this method does **not** trigger
+    /// loading. It returns `None` if the dataset has not loaded. If you need to
+    /// make sure the data is present, call a loading accessor first (for example,
+    /// [`LetterRecognition::data`]).
     ///
     /// # Returns
     ///
-    /// - `Some(&mut LetterRecognitionData)` - mutable reference to the cached
+    /// - `Some(&mut LetterRecognitionData)` - a mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(20000, 16)`, label vector
     ///   `(20000,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut LetterRecognitionData> {
         self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and labels.
     ///
-    /// Unlike [`LetterRecognition::data`], which borrows the cached data, this moves
-    /// it out and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// Unlike [`LetterRecognition::data`], which borrows the cached data, this
+    /// method moves the data out and returns owned arrays. It needs no
+    /// `to_owned()` clone. The dataset loads on the first access if it has not
+    /// loaded yet.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
+    /// This **consumes** `self`, so you cannot use the instance afterward. If you
     /// want owned data but need to keep using the instance, use
-    /// [`LetterRecognition::take_data`] instead — it takes `&mut self` and leaves the
-    /// instance reusable.
+    /// [`LetterRecognition::take_data`] instead. It takes `&mut self` and leaves
+    /// the instance reusable.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<char>)` - owned feature matrix with shape
-    ///   `(20000, 16)` and owned label vector with shape `(20000,)`.
+    /// - `(Array2<f64>, Array1<char>)` - an owned feature matrix with shape
+    ///   `(20000, 16)` and an owned label vector with shape `(20000,)`.
     ///
     /// # Errors
     ///
@@ -419,20 +422,23 @@ impl LetterRecognition {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. Leave the dataset
+    /// reusable.
     ///
     /// Like [`LetterRecognition::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`LetterRecognition::features`]
-    /// or [`LetterRecognition::data`]) loads the dataset again.
+    /// `&mut self` and moves the cached data out. This resets the instance to its
+    /// unloaded state. The next accessor call (for example,
+    /// [`LetterRecognition::features`] or [`LetterRecognition::data`]) loads the
+    /// dataset again.
     ///
-    /// Use [`LetterRecognition::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`LetterRecognition::into_data`]
+    /// instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<char>)` - owned feature matrix with shape
-    ///   `(20000, 16)` and owned label vector with shape `(20000,)`.
+    /// - `(Array2<f64>, Array1<char>)` - an owned feature matrix with shape
+    ///   `(20000, 16)` and an owned label vector with shape `(20000,)`.
     ///
     /// # Errors
     ///

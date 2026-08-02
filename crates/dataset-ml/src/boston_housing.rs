@@ -1,17 +1,18 @@
 //! Boston Housing dataset.
 //!
-//! Housing data for suburbs of Boston, collected from U.S. Census-derived
-//! information and commonly used as a regression benchmark.
+//! This dataset holds housing data for Boston suburbs, drawn from U.S.
+//! Census-derived information. Researchers commonly use it as a regression
+//! benchmark.
 //!
 //! **Features (13):**
 //! - `CRIM` - per capita crime rate by town
 //! - `ZN` - proportion of residential land zoned for lots over 25,000 sq.ft.
 //! - `INDUS` - proportion of non-retail business acres per town
-//! - `CHAS` - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+//! - `CHAS` - Charles River dummy variable (1 if tract bounds river, 0 otherwise)
 //! - `NOX` - nitric oxides concentration (parts per 10 million)
 //! - `RM` - average number of rooms per dwelling
-//! - `AGE` - proportion of owner-occupied units built prior to 1940
-//! - `DIS` - weighted distances to five Boston employment centres
+//! - `AGE` - proportion of owner-occupied units built before 1940
+//! - `DIS` - weighted distances to five Boston employment centers
 //! - `RAD` - index of accessibility to radial highways
 //! - `TAX` - full-value property-tax rate per $10,000
 //! - `PTRATIO` - pupil-teacher ratio by town
@@ -75,15 +76,15 @@ struct BostonHousingRecord {
     medv: f64,
 }
 
-/// A struct representing the Boston Housing dataset with lazy loading.
+/// This struct represents the Boston Housing dataset and loads data lazily.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// You do not load the dataset until you call one of the data accessor
+/// methods. After that, the dataset caches the data for later calls.
 ///
 /// # About Dataset
 ///
-/// The Boston Housing Dataset is derived from information collected by the U.S. Census Service
-/// concerning housing in the area of Boston MA.
+/// The U.S. Census Service collected the information behind the Boston Housing
+/// Dataset. It describes housing in the Boston, MA area.
 ///
 /// # Feature columns
 ///
@@ -94,15 +95,15 @@ struct BostonHousingRecord {
 /// | `0`     | `CRIM` (per capita crime rate by town)                                            |                       |
 /// | `1`     | `ZN` (proportion of residential land zoned for lots over 25,000 sq.ft.)           | sq.ft.                |
 /// | `2`     | `INDUS` (proportion of non-retail business acres per town)                        |                       |
-/// | `3`     | `CHAS` (Charles River dummy variable; 1 if tract bounds river, 0 otherwise)       |                       |
+/// | `3`     | `CHAS` (Charles River dummy variable: 1 if tract bounds river, 0 otherwise)       |                       |
 /// | `4`     | `NOX` (nitric oxides concentration)                                               | parts per 10 million  |
 /// | `5`     | `RM` (average number of rooms per dwelling)                                        |                       |
-/// | `6`     | `AGE` (proportion of owner-occupied units built prior to 1940)                    |                       |
-/// | `7`     | `DIS` (weighted distances to five Boston employment centres)                      |                       |
+/// | `6`     | `AGE` (proportion of owner-occupied units built before 1940)                      |                       |
+/// | `7`     | `DIS` (weighted distances to five Boston employment centers)                      |                       |
 /// | `8`     | `RAD` (index of accessibility to radial highways)                                 |                       |
 /// | `9`     | `TAX` (full-value property-tax rate)                                              | per $10,000           |
 /// | `10`    | `PTRATIO` (pupil-teacher ratio by town)                                           |                       |
-/// | `11`    | `B` (1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town)              |                       |
+/// | `11`    | `B` (1000(Bk - 0.63)^2 where Bk is the proportion of Black residents by town)     |                       |
 /// | `12`    | `LSTAT` (% lower status of the population)                                        |                       |
 ///
 /// # Targets
@@ -118,14 +119,15 @@ struct BostonHousingRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because every field
+/// does. This makes it safe to share across threads. The internal [`Dataset`]
+/// keeps lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::boston_housing::BostonHousing;
 ///
-/// let download_dir = "./boston_housing"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./boston_housing"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = BostonHousing::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -135,9 +137,10 @@ struct BostonHousingRecord {
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place: no clone, no reload, and the change stays cached.
+/// // Prefer this over cloning with `.to_owned()` when you only need to tweak
+/// // values.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.1;
 ///     targets[0] = 25.5;
@@ -145,7 +148,7 @@ struct BostonHousingRecord {
 /// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // instance reusable. The next access reloads from the cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[506, 13]);
 /// assert_eq!(owned_targets.len(), 506);
@@ -164,8 +167,8 @@ pub struct BostonHousing {
 impl BostonHousing {
     /// Create a new BostonHousing instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This function only stores the storage directory.
     ///
     /// # Parameters
     ///
@@ -180,9 +183,9 @@ impl BostonHousing {
         }
     }
 
-    /// Acquire and parse the Boston Housing dataset.
+    /// Get and parse the Boston Housing dataset.
     fn load_data(dir: &str) -> Result<BostonHousingData, DatasetError> {
-        // Prepare the dataset file
+        // Prepare the dataset file.
         let file_path = acquire_dataset(
             dir,
             BOSTON_HOUSING_FILENAME,
@@ -199,7 +202,6 @@ impl BostonHousing {
             },
         )?;
 
-        // csv deserializes into the struct
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -224,14 +226,13 @@ impl BostonHousing {
                 medv,
             } = result.map_err(|e| DatasetError::csv_read_error(BOSTON_HOUSING_DATASET_NAME, e))?;
 
-            // Features are every column except the last; the target is `medv`.
+            // Features are every column except the last. The target is `medv`.
             features.extend_from_slice(&[
                 crim, zn, indus, chas, nox, rm, age, dis, rad, tax, ptratio, b, lstat,
             ]);
             targets.push(medv);
         }
 
-        // Verify the dataset is not empty
         let n_samples = targets.len();
         if n_samples == 0 {
             return Err(DatasetError::empty_dataset(BOSTON_HOUSING_DATASET_NAME));
@@ -248,8 +249,8 @@ impl BostonHousing {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -257,15 +258,15 @@ impl BostonHousing {
     ///     - CRIM - per capita crime rate by town
     ///     - ZN - proportion of residential land zoned for lots over 25,000 sq.ft.
     ///     - INDUS - proportion of non-retail business acres per town
-    ///     - CHAS - Charles River dummy variable (1 if tract bounds river; 0 otherwise)
+    ///     - CHAS - Charles River dummy variable (1 if tract bounds river, 0 otherwise)
     ///     - NOX - nitric oxides concentration (parts per 10 million)
     ///     - RM - average number of rooms per dwelling
-    ///     - AGE - proportion of owner-occupied units built prior to 1940
-    ///     - DIS - weighted distances to five Boston employment centres
+    ///     - AGE - proportion of owner-occupied units built before 1940
+    ///     - DIS - weighted distances to five Boston employment centers
     ///     - RAD - index of accessibility to radial highways
     ///     - TAX - full-value property-tax rate per $10,000
     ///     - PTRATIO - pupil-teacher ratio by town
-    ///     - B - 1000(Bk - 0.63)^2 where Bk is the proportion of blacks by town
+    ///     - B - 1000(Bk - 0.63)^2 where Bk is the proportion of Black residents by town
     ///     - LSTAT - % lower status of the population
     ///
     /// # Errors
@@ -274,15 +275,15 @@ impl BostonHousing {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
+    /// - Dataset size does not match expected dimensions (506 samples, 13 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -294,15 +295,15 @@ impl BostonHousing {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (506 samples)
+    /// - Dataset size does not match expected dimensions (506 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -317,7 +318,7 @@ impl BostonHousing {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (506 samples, 13 features)
+    /// - Dataset size does not match expected dimensions (506 samples, 13 features)
     pub fn data(&self) -> Result<&BostonHousingData, DatasetError> {
         self.dataset.load()
     }
@@ -325,10 +326,9 @@ impl BostonHousing {
     /// Get both features and targets as references **without** triggering loading.
     ///
     /// Unlike [`BostonHousing::data`], which loads the dataset on first call, this
-    /// never runs the loader: if the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing. Use it when you only want the
-    /// data if it is already cached and want to avoid paying the download/parse
-    /// cost otherwise.
+    /// never runs the loader. If the data has not been loaded yet, it returns
+    /// `None` instead of downloading and parsing. If the data is already cached
+    /// and you want to avoid the download and parse cost, use this method.
     ///
     /// # Returns
     ///
@@ -341,15 +341,15 @@ impl BostonHousing {
 
     /// Get mutable references to features and targets for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// rescale targets) with no `to_owned()` clone and without removing them from
-    /// the cache: the changes persist, so later [`BostonHousing::features`],
-    /// [`BostonHousing::data`], or [`BostonHousing::get_data`] calls observe them.
+    /// This lets you change the cached arrays directly (e.g. normalize features,
+    /// rescale targets), with no `to_owned()` clone. The cache keeps the change: it
+    /// does not remove the arrays. Later calls to [`BostonHousing::features`],
+    /// [`BostonHousing::data`], or [`BostonHousing::get_data`] observe the change.
     ///
     /// Like [`BostonHousing::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`BostonHousing::data`]) first if you need to ensure the data is
-    /// present.
+    /// returns `None` if the dataset has not been loaded. If you need to make sure
+    /// the data is present, call a loading accessor first (e.g.
+    /// [`BostonHousing::data`]).
     ///
     /// # Returns
     ///
@@ -364,12 +364,12 @@ impl BostonHousing {
     /// Consume the dataset and return **owned** features and targets.
     ///
     /// Unlike [`BostonHousing::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
+    /// the dataset is not loaded yet, this call loads it.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`BostonHousing::take_data`] instead — it takes `&mut self` and leaves the
+    /// This consumes `self`, so you cannot use the instance afterward. If you want
+    /// owned data but need to keep using the instance, use
+    /// [`BostonHousing::take_data`] instead. It takes `&mut self` and leaves the
     /// instance reusable.
     ///
     /// # Returns
@@ -392,12 +392,13 @@ impl BostonHousing {
     /// Take **owned** features and targets out of the dataset, leaving it reusable.
     ///
     /// Like [`BostonHousing::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`BostonHousing::features`] or
-    /// [`BostonHousing::data`]) loads the dataset again.
+    /// `to_owned()` clone. Unlike that method, it takes `&mut self` instead of
+    /// consuming the instance. It moves the cached data out and resets the
+    /// instance to its unloaded state. The next accessor call (e.g.
+    /// [`BostonHousing::features`] or [`BostonHousing::data`]) loads the dataset
+    /// again.
     ///
-    /// Use [`BostonHousing::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`BostonHousing::into_data`] instead.
     ///
     /// # Returns
     ///

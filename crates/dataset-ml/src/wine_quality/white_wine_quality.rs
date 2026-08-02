@@ -24,10 +24,10 @@ const WHITE_WINE_QUALITY_FILENAME: &str = "winequality-white.csv";
 const WHITE_WINE_QUALITY_SHA256: &str =
     "76c3f809815c17c07212622f776311faeb31e87610d52c26d87d6e361b169836";
 
-/// A struct representing the White Wine Quality dataset with lazy loading.
+/// A struct that represents the White Wine Quality dataset with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -65,34 +65,36 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::WhiteWineQuality;
 ///
-/// let download_dir = "./white_wine"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./white_wine"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = WhiteWineQuality::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+/// let (features, targets) = dataset.data().unwrap(); // this also returns features and targets
 /// assert_eq!(features.shape(), &[4898, 11]);
 /// assert_eq!(targets.len(), 4898);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. Prefer this method over `.to_owned()` when you only need to
+/// // change values.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 10.0;
 ///     targets[0] = 7.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves owned arrays out (no `to_owned()` clone). It leaves the
+/// // instance reusable. The next access reloads the data from the cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[4898, 11]);
 /// assert_eq!(owned_targets.len(), 4898);
@@ -111,12 +113,12 @@ pub struct WhiteWineQuality {
 impl WhiteWineQuality {
     /// Create a new WhiteWineQuality instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset is stored.
     ///
     /// # Returns
     ///
@@ -127,9 +129,9 @@ impl WhiteWineQuality {
         }
     }
 
-    /// Acquire and parse the White Wine Quality dataset.
+    /// Get and parse the White Wine Quality dataset.
     fn load_data(dir: &str) -> Result<WineData, DatasetError> {
-        // Prepare the dataset file
+        // Prepare the dataset file.
         let file_path = acquire_dataset(
             dir,
             WHITE_WINE_QUALITY_FILENAME,
@@ -141,7 +143,7 @@ impl WhiteWineQuality {
             },
         )?;
 
-        // Parse the file
+        // Parse the file.
         let file = File::open(&file_path)?;
         parse_wine_data_to_array("white_wine_quality", file)
     }
@@ -172,7 +174,7 @@ impl WhiteWineQuality {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
+    /// - Dataset size does not match expected dimensions (4898 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
@@ -192,7 +194,7 @@ impl WhiteWineQuality {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (4898 samples)
+    /// - Dataset size does not match expected dimensions (4898 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
@@ -214,7 +216,7 @@ impl WhiteWineQuality {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (4898 samples, 11 features)
+    /// - Dataset size does not match expected dimensions (4898 samples, 11 features)
     pub fn data(&self) -> Result<&WineData, DatasetError> {
         self.dataset.load()
     }
@@ -222,10 +224,10 @@ impl WhiteWineQuality {
     /// Get both features and targets as references **without** triggering loading.
     ///
     /// Unlike [`WhiteWineQuality::data`], which loads the dataset on first call,
-    /// this never runs the loader: if the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing. Use it when you only want the
-    /// data if it is already cached and want to avoid paying the download/parse
-    /// cost otherwise.
+    /// this method never runs the loader. If the data has not loaded yet, this
+    /// method returns `None` instead of downloading and parsing it. Use this
+    /// method when you want the data only if it is already cached. This avoids
+    /// the download and parse cost when the data is not yet cached.
     ///
     /// # Returns
     ///
@@ -238,16 +240,16 @@ impl WhiteWineQuality {
 
     /// Get mutable references to features and targets for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// rescale targets) with no `to_owned()` clone and without removing them from
-    /// the cache: the changes persist, so later [`WhiteWineQuality::features`],
-    /// [`WhiteWineQuality::data`], or [`WhiteWineQuality::get_data`] calls observe
-    /// them.
+    /// This lets you change the cached arrays directly, for example to normalize
+    /// features or rescale targets. It needs no `to_owned()` clone, and it does not
+    /// remove the arrays from the cache. The changes persist, so later calls to
+    /// [`WhiteWineQuality::features`], [`WhiteWineQuality::data`], or
+    /// [`WhiteWineQuality::get_data`] observe them.
     ///
-    /// Like [`WhiteWineQuality::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`WhiteWineQuality::data`]) first if you need to ensure the data is
-    /// present.
+    /// Like [`WhiteWineQuality::get_data`], this method does not trigger loading.
+    /// It returns `None` if the dataset has not loaded yet. If you need the data
+    /// to be present, call a loading accessor first, for example
+    /// [`WhiteWineQuality::data`].
     ///
     /// # Returns
     ///
@@ -261,14 +263,15 @@ impl WhiteWineQuality {
 
     /// Consume the dataset and return **owned** features and targets.
     ///
-    /// Unlike [`WhiteWineQuality::data`], which borrows the cached data, this moves
-    /// it out and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// Unlike [`WhiteWineQuality::data`], which borrows the cached data, this
+    /// method moves the data out and returns owned arrays directly. It needs no
+    /// `to_owned()` clone. If the dataset has not loaded yet, it loads on first
+    /// access.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`WhiteWineQuality::take_data`] instead — it takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This method consumes `self`, so you cannot use the instance afterward. If
+    /// you want owned data but need to keep using the instance, use
+    /// [`WhiteWineQuality::take_data`] instead. It takes `&mut self` and leaves
+    /// the instance reusable.
     ///
     /// # Returns
     ///
@@ -287,16 +290,18 @@ impl WhiteWineQuality {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset, leaving it reusable.
+    /// Take **owned** features and targets out of the dataset. This leaves the
+    /// instance reusable.
     ///
-    /// Like [`WhiteWineQuality::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`WhiteWineQuality::features`]
-    /// or [`WhiteWineQuality::data`]) loads the dataset again.
+    /// Like [`WhiteWineQuality::into_data`], this method returns owned arrays with
+    /// no `to_owned()` clone. But instead of consuming the instance, it takes
+    /// `&mut self` and moves the cached data out. This resets the instance to its
+    /// unloaded state. The next accessor call, for example
+    /// [`WhiteWineQuality::features`] or [`WhiteWineQuality::data`], loads the
+    /// dataset again.
     ///
-    /// Use [`WhiteWineQuality::into_data`] instead if you are done with the
-    /// instance.
+    /// If you are done with the instance, use [`WhiteWineQuality::into_data`]
+    /// instead.
     ///
     /// # Returns
     ///

@@ -1,29 +1,30 @@
 //! KDD Cup 1999 network-intrusion dataset.
 //!
-//! The KDD Cup 1999 dataset for network-intrusion detection, identical to what
-//! scikit-learn exposes through `fetch_kddcup99`. Each sample is a single network
-//! connection described by 41 features, and the task is to classify the connection
-//! as either `normal.` traffic or one of 22 attack types.
+//! The KDD Cup 1999 dataset is for network-intrusion detection. It is identical
+//! to what scikit-learn exposes through `fetch_kddcup99`. Each sample is a single
+//! network connection described by 41 features. The task is to classify the
+//! connection as `normal.` traffic or as one of 22 attack types.
 //!
 //! Like scikit-learn, this loader has two partitions:
-//! - [`Kddcup99::new`] — the **10% subset** (494,021 samples), scikit-learn's
+//! - [`Kddcup99::new`]: the **10% subset** (494,021 samples), scikit-learn's
 //!   default (`fetch_kddcup99(percent10=True)`).
-//! - [`Kddcup99::new_full`] — the **full set** (4,898,431 samples),
+//! - [`Kddcup99::new_full`]: the **full set** (4,898,431 samples),
 //!   `fetch_kddcup99(percent10=False)`.
 //!
 //! Both partitions share the same 41-feature schema and the same 23 connection
-//! classes; they differ only in sample count (and the upstream source file).
+//! classes. They differ only in sample count and in the upstream source file.
 //!
 //! **Features (41, mixed):**
-//! - String features (3): `protocol_type` (`tcp`/`udp`/`icmp`), `service` (~70
-//!   network services, e.g. `http`, `smtp`), `flag` (11 connection-status flags,
-//!   e.g. `SF`, `S0`, `REJ`)
+//! - String features (3): `protocol_type` (`tcp`/`udp`/`icmp`), `service` (about
+//!   70 network services, e.g. `http`, `smtp`), `flag` (11 connection-status
+//!   flags, e.g. `SF`, `S0`, `REJ`)
 //! - Numeric features (38): `duration`, `src_bytes`, `dst_bytes`, the various
 //!   per-connection counters and rates (see the struct docs for the full list)
 //!
-//! **Target:** `label` - the connection class, one of 23 values including the
-//! trailing period exactly as the source distributes them (e.g. `normal.`,
-//! `smurf.`, `neptune.`), matching scikit-learn's `fetch_kddcup99` target.
+//! **Target:** `label` - the connection class, one of 23 values. Each value
+//! includes the trailing period exactly as the source distributes it (e.g.
+//! `normal.`, `smurf.`, `neptune.`), matching scikit-learn's `fetch_kddcup99`
+//! target.
 //!
 //! **Samples:** 494,021 (10% subset, default) or 4,898,431 (full set)
 //! **Application:** Multi-class classification / network-intrusion detection
@@ -33,10 +34,11 @@
 //! subset, `kddcup.data.gz` for the full set).
 //! <https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html>
 //!
-//! **Note on size:** the full set is large — its decompressed source file is
-//! ~743 MB and the parsed in-memory representation is several gigabytes (the
-//! `(4898431, 38)` numeric matrix alone is ~1.5 GB), so [`Kddcup99::new_full`]
-//! takes noticeable time and memory. The default 10% subset is ~10× smaller.
+//! **Note on size:** the full set is large. Its decompressed source file is about
+//! 743 MB. The parsed in-memory representation is several gigabytes: the
+//! `(4898431, 38)` numeric matrix alone is about 1.5 GB. Loading it with
+//! [`Kddcup99::new_full`] takes noticeable time and memory. The default 10%
+//! subset is about 10 times smaller.
 
 use crate::DOWNLOAD_RETRIES;
 use crate::traits::impl_ml_dataset;
@@ -47,11 +49,11 @@ use std::fs::File;
 
 /// Which KDD Cup 1999 partition to load.
 ///
-/// Mirrors scikit-learn's `fetch_kddcup99(percent10=…)` switch: the default is
-/// the 10% subset ([`Kddcup99::new`]), and the full set is opt-in
-/// ([`Kddcup99::new_full`]). The two variants are distinct upstream files (with
-/// their own URL, sample count, and pinned SHA-256), cached under distinct
-/// filenames so both can live in the same storage directory.
+/// This mirrors scikit-learn's `fetch_kddcup99(percent10=…)` switch: the default
+/// is the 10% subset ([`Kddcup99::new`]), and the full set is opt-in
+/// ([`Kddcup99::new_full`]). The two variants are distinct upstream files, each
+/// with its own URL, sample count, and pinned SHA-256. Each is cached under a
+/// distinct filename, so both can exist in the same storage directory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Kddcup99Subset {
     /// The 10% subset (494,021 samples), scikit-learn's default.
@@ -71,7 +73,7 @@ impl Kddcup99Subset {
         }
     }
 
-    /// The name the downloaded gzip archive is saved under in the temp directory.
+    /// The name used for the downloaded gzip archive inside the temp directory.
     const fn gz_filename(self) -> &'static str {
         match self {
             Kddcup99Subset::Percent10 => "kddcup99_10_percent.data.gz",
@@ -79,8 +81,9 @@ impl Kddcup99Subset {
         }
     }
 
-    /// The name of the final cached (decompressed) dataset file. Distinct per
-    /// variant so the 10% subset and the full set never collide in one directory.
+    /// The name of the final cached (decompressed) dataset file. It is distinct
+    /// for each variant, so the 10% subset and the full set never collide in one
+    /// directory.
     const fn filename(self) -> &'static str {
         match self {
             Kddcup99Subset::Percent10 => "kddcup99_10_percent.csv",
@@ -177,36 +180,36 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// Type alias for the KDD Cup 1999 dataset: (string features, numeric features, labels).
 type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 
-/// A struct representing the KDD Cup 1999 dataset with lazy loading.
+/// This struct represents the KDD Cup 1999 dataset with lazy loading.
 ///
 /// The dataset is not loaded until you call one of the data accessor methods.
 /// Once loaded, the data is cached for subsequent accesses.
 ///
 /// Construct it with [`Kddcup99::new`] for scikit-learn's default 10% subset
-/// (494,021 samples) or [`Kddcup99::new_full`] for the full set (4,898,431
-/// samples); both share the schema below and differ only in sample count. The
-/// shapes in this documentation use `n_samples` for that row count.
+/// (494,021 samples), or with [`Kddcup99::new_full`] for the full set
+/// (4,898,431 samples). Both share the schema below and differ only in sample
+/// count. The shapes in this documentation use `n_samples` for that row count.
 ///
 /// # About Dataset
 ///
 /// The KDD Cup 1999 dataset was built from the DARPA 1998 intrusion-detection
-/// evaluation: each sample is a network connection summarized by 41 features,
-/// labelled either `normal.` or as one of 22 attack types (grouped into DoS, R2L,
-/// U2R, and probing categories). This is the same data scikit-learn exposes
-/// through `fetch_kddcup99`.
+/// evaluation. Each sample is a network connection summarized by 41 features.
+/// Each sample is labeled `normal.` or as one of 22 attack types. The attack
+/// types fall into four categories: DoS, R2L, U2R, and probing. This is the
+/// same data scikit-learn exposes through `fetch_kddcup99`.
 ///
 /// # Feature columns
 ///
-/// The 41 features are mixed-type and split across two matrices: a string
-/// (categorical) matrix of shape `(n_samples, 3)` and a numeric matrix of shape
-/// `(n_samples, 38)`. The dataset has no missing values.
+/// The 41 features are mixed-type. They are split across two matrices: a
+/// string (categorical) matrix of shape `(n_samples, 3)` and a numeric matrix
+/// of shape `(n_samples, 38)`. The dataset has no missing values.
 ///
 /// String features (`Array2<String>`), by 0-based column:
 ///
 /// | Column | Attribute       | Values                                            |
 /// |--------|-----------------|---------------------------------------------------|
 /// | `0`    | `protocol_type` | `tcp`, `udp`, `icmp`                               |
-/// | `1`    | `service`       | ~70 network services (e.g. `http`, `smtp`, `ftp`) |
+/// | `1`    | `service`       | about 70 network services (e.g. `http`, `smtp`, `ftp`) |
 /// | `2`    | `flag`          | 11 status flags (e.g. `SF`, `S0`, `REJ`, `RSTR`)  |
 ///
 /// Numeric features (`Array2<f64>`), by 0-based column:
@@ -226,10 +229,11 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 ///
 /// # Labels
 ///
-/// - `label` (shape `(n_samples,)`, in `String`): the connection class, kept exactly
-///   as distributed **including the trailing period** (e.g. `"normal."`,
-///   `"smurf."`, `"neptune."`), matching scikit-learn's `fetch_kddcup99` target.
-///   There are 23 distinct values (`normal.` plus 22 attack types).
+/// - `label` (shape `(n_samples,)`, in `String`): the connection class, kept
+///   exactly as distributed, **including the trailing period** (e.g.
+///   `"normal."`, `"smurf."`, `"neptune."`). This matches scikit-learn's
+///   `fetch_kddcup99` target. There are 23 distinct values (`normal.` plus 22
+///   attack types).
 ///
 /// See more information at
 /// <https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html>
@@ -241,29 +245,32 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because every field
+/// implements them. This makes it safe to share the struct across threads. The
+/// internal [`Dataset`] makes sure lazy initialization stays thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::kddcup99::Kddcup99;
 ///
-/// let download_dir = "./kddcup99"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./kddcup99"; // the code will create the directory if it does not exist
 ///
-/// // `new` loads the 10% subset (494,021 samples); use `new_full` for the full
-/// // 4,898,431-sample set with the same schema.
+/// // `new` loads the 10% subset (494,021 samples). Use `new_full` for the
+/// // full 4,898,431-sample set with the same schema.
 /// let mut dataset = Kddcup99::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
+/// // `data()` also returns all three parts at once.
+/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
 /// assert_eq!(string_features.shape(), &[494021, 3]);
 /// assert_eq!(numeric_features.shape(), &[494021, 38]);
 /// assert_eq!(labels.len(), 494021);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading them.
+/// // `get_data_mut()` edits them in place: no clone, no reload, the change
+/// // stays cached. Prefer this over cloning with `.to_owned()` when you only
+/// // need to change values.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 0.0;
 ///     labels[0] = "normal.".to_string();
@@ -271,7 +278,7 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 /// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached file.
+/// // the instance reusable. The next access reloads from the cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[494021, 3]);
 /// assert_eq!(owned_numerics.shape(), &[494021, 38]);
@@ -296,12 +303,12 @@ impl Kddcup99 {
     /// 494,021-sample subset. For the full 4,898,431-sample set, use
     /// [`Kddcup99::new_full`].
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
@@ -315,16 +322,16 @@ impl Kddcup99 {
     /// This matches scikit-learn's `fetch_kddcup99(percent10=False)`: the full
     /// 4,898,431-sample set. For the smaller default subset, use [`Kddcup99::new`].
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
-    /// **Heads-up:** the full set is large — the decompressed source is ~743 MB and
-    /// the parsed in-memory arrays are several GB (the `(4898431, 38)` numeric
-    /// matrix alone is ~1.5 GB), so loading takes noticeable time and memory.
+    /// **Note:** the full set is large. The decompressed source is about 743 MB.
+    /// The parsed in-memory arrays take several GB: the `(4898431, 38)` numeric
+    /// matrix alone is about 1.5 GB. Loading it takes noticeable time and memory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
@@ -333,8 +340,8 @@ impl Kddcup99 {
         Self::with_subset(storage_dir, Kddcup99Subset::Full)
     }
 
-    /// Create a Kddcup99 instance bound to a specific source partition. The chosen
-    /// subset is captured by the loader closure so `load_data` knows which upstream
+    /// Create a Kddcup99 instance bound to a specific source partition. The loader
+    /// closure captures the chosen subset, so `load_data` knows which upstream
     /// file (URL, cached filename, SHA-256, sample count) to use.
     fn with_subset(storage_dir: &str, subset: Kddcup99Subset) -> Self {
         Kddcup99 {
@@ -342,7 +349,7 @@ impl Kddcup99 {
         }
     }
 
-    /// Acquire and parse the chosen KDD Cup 1999 partition.
+    /// Get and parse the chosen KDD Cup 1999 partition.
     fn load_data(dir: &str, subset: Kddcup99Subset) -> Result<Kddcup99Data, DatasetError> {
         let gz_filename = subset.gz_filename();
         let filename = subset.filename();
@@ -370,13 +377,13 @@ impl Kddcup99 {
 
         // `kddcup.data` is a headerless comma-separated file: every line is a
         // record of 41 features (3 categorical + 38 numeric) followed by the label.
-        // The schema mixes string and numeric columns, so parse raw positional
-        // `StringRecord`s rather than deserializing into a named struct.
+        // The schema mixes string and numeric columns, so the loader parses raw
+        // positional `StringRecord`s instead of deserializing into a named struct.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        // Pre-allocate for the known sample count to avoid repeatedly growing the
-        // large buffers; parsing still works for any actual row count.
+        // The code pre-allocates the buffers for the known sample count to avoid
+        // repeated growth. Parsing still works for any actual row count.
         let n_expected = subset.n_samples();
         let mut string_features = Vec::with_capacity(n_expected * N_STRING_FEATURES);
         let mut numeric_features = Vec::with_capacity(n_expected * N_NUMERIC_FEATURES);
@@ -465,7 +472,7 @@ impl Kddcup99 {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size doesn't match expected dimensions (n_samples samples)
+    /// - Dataset size does not match expected dimensions (n_samples samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -488,7 +495,7 @@ impl Kddcup99 {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size doesn't match expected dimensions (n_samples samples)
+    /// - Dataset size does not match expected dimensions (n_samples samples)
     pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
@@ -511,7 +518,7 @@ impl Kddcup99 {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size doesn't match expected dimensions (n_samples samples)
+    /// - Dataset size does not match expected dimensions (n_samples samples)
     pub fn data(&self) -> Result<&Kddcup99Data, DatasetError> {
         self.dataset.load()
     }
@@ -519,11 +526,10 @@ impl Kddcup99 {
     /// Get string features, numeric features and labels as references
     /// **without** triggering loading.
     ///
-    /// Unlike [`Kddcup99::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// Unlike [`Kddcup99::data`], which loads the dataset on first call, this method
+    /// never runs the loader. If the data has not been loaded yet, it returns
+    /// `None` instead of downloading and parsing. Use this method only when you
+    /// want data that is already cached. This avoids the download and parse cost.
     ///
     /// # Returns
     ///
@@ -538,15 +544,15 @@ impl Kddcup99 {
     /// Get mutable references to string features, numeric features, and labels
     /// for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize numeric
-    /// features, encode categorical columns) with no `to_owned()` clone and without
-    /// removing them from the cache: the changes persist, so later
+    /// This lets you change the cached arrays directly (e.g. normalize numeric
+    /// features, encode categorical columns), with no `to_owned()` clone. It does
+    /// not remove them from the cache, so the changes persist. Later
     /// [`Kddcup99::features`], [`Kddcup99::data`], or [`Kddcup99::get_data`] calls
     /// observe them.
     ///
     /// Like [`Kddcup99::get_data`], this does **not** trigger loading: it returns
     /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Kddcup99::data`]) first if you need to ensure the data is present.
+    /// [`Kddcup99::data`]) first if you need to make sure the data is present.
     ///
     /// # Returns
     ///
@@ -562,12 +568,12 @@ impl Kddcup99 {
     /// and labels.
     ///
     /// Unlike [`Kddcup99::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly — no `to_owned()` clone needed. The dataset
-    /// is loaded on first access if it has not been loaded yet.
+    /// and returns owned arrays directly. It needs no `to_owned()` clone. The
+    /// dataset is loaded on first access if it has not been loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
-    /// [`Kddcup99::take_data`] instead — it takes `&mut self` and leaves the instance
+    /// [`Kddcup99::take_data`] instead. It takes `&mut self` and leaves the instance
     /// reusable.
     ///
     /// # Returns
@@ -592,10 +598,10 @@ impl Kddcup99 {
     /// dataset, leaving it reusable.
     ///
     /// Like [`Kddcup99::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Kddcup99::features`] or [`Kddcup99::data`]) loads the
-    /// dataset again.
+    /// clone. Instead of consuming the instance, it takes `&mut self` and moves the
+    /// cached data out. This resets the instance to its unloaded state, so the
+    /// next accessor call (e.g. [`Kddcup99::features`] or [`Kddcup99::data`]) loads
+    /// the dataset again.
     ///
     /// Use [`Kddcup99::into_data`] instead if you are done with the instance.
     ///

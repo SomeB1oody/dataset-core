@@ -55,10 +55,8 @@ fn assert_banknote_authentication_semantics(
 }
 
 #[test]
-// Verifies that the Banknote Authentication dataset loads with the correct shape,
-// label values, and finite feature domain.
 fn test_load_banknote_authentication() {
-    let download_dir = "./test_load_banknote_authentication"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_banknote_authentication"; // the code creates the directory if it does not exist
 
     let dataset = BanknoteAuthentication::new(download_dir);
     let features = dataset.features().unwrap();
@@ -66,19 +64,17 @@ fn test_load_banknote_authentication() {
 
     assert_banknote_authentication_semantics(features, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Banknote Authentication loading uses a pre-downloaded cached file without re-downloading.
 fn test_banknote_authentication_no_need_download() {
     let download_dir = "./test_banknote_authentication_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the Banknote Authentication ZIP in advance, extract it, and place
-    // the single data file under the filename the loader expects
+    // Download the ZIP file before the test. Extract it and place the single data
+    // file under the file name the loader expects.
     {
         let temp_dir_path = download_dir_path.join("temp");
         create_dir_all(&temp_dir_path).unwrap();
@@ -101,32 +97,28 @@ fn test_banknote_authentication_no_need_download() {
         remove_dir_all(&temp_dir_path).unwrap();
     }
 
-    // should use cached Banknote Authentication dataset
+    // this call uses the cached dataset instead of downloading it again
     let dataset = BanknoteAuthentication::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Banknote Authentication data file is detected and overwritten with the real dataset.
 fn test_banknote_authentication_overwrite() {
     let download_dir = "./test_banknote_authentication_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Banknote Authentication dataset in advance
     {
         let path = download_dir_path.join("banknote_authentication.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Banknote Authentication dataset
+    // this call replaces the fake file with the real dataset
     let dataset = BanknoteAuthentication::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(
         file_sha256_matches(
             &download_dir_path.join("banknote_authentication.csv"),
@@ -135,18 +127,16 @@ fn test_banknote_authentication_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
 fn test_banknote_authentication_into_data() {
     let download_dir = "./test_banknote_authentication_into_data";
 
     let dataset = BanknoteAuthentication::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // `into_data` consumes `dataset`. `features` and `labels` are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 4]);
     assert_eq!(labels.len(), N_SAMPLES);
@@ -165,12 +155,10 @@ fn test_banknote_authentication_into_data() {
     features[[0, 0]] = 0.5;
     assert_eq!(features[[0, 0]], 0.5);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_banknote_authentication_take_data() {
     let download_dir = "./test_banknote_authentication_take_data";
 
@@ -180,18 +168,16 @@ fn test_banknote_authentication_take_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 4]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // After `take_data`, the instance resets to unloaded, but remains usable. The
+    // next access reloads the data from the cached file and returns the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 4]);
     assert_eq!(reloaded_labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_banknote_authentication_get_data() {
     let download_dir = "./test_banknote_authentication_get_data";
 
@@ -199,18 +185,16 @@ fn test_banknote_authentication_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, `get_data` returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 4]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_banknote_authentication_get_data_mut() {
     let download_dir = "./test_banknote_authentication_get_data_mut";
 
@@ -218,16 +202,16 @@ fn test_banknote_authentication_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // This loads the dataset, then mutates the cached features in place. No clone
+    // or reload occurs.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 0.25;
     }
 
-    // The change persisted in the cache: a later access observes it.
+    // The change persists in the cache. A later access observes it.
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 0.25);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

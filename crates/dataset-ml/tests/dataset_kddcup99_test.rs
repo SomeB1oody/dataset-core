@@ -32,8 +32,8 @@ fn assert_kddcup99_semantics(
     assert_eq!(numerics.shape(), &[n_samples, 38]);
     assert_eq!(labels.len(), n_samples);
 
-    // Labels are kept verbatim, including the trailing period. Both partitions
-    // contain exactly the same 23 classes (normal + 22 attack types).
+    // The loader keeps labels verbatim, including the trailing period. Both
+    // partitions contain exactly the same 23 classes (normal + 22 attack types).
     let unique_labels: HashSet<&str> = labels.iter().map(|s| s.as_str()).collect();
     assert!(
         unique_labels.contains("normal."),
@@ -94,21 +94,21 @@ fn assert_kddcup99_semantics(
 // Verifies that the default (10% subset) dataset loads with the correct shapes,
 // label values, and feature-domain invariants.
 fn test_load_kddcup99() {
-    let download_dir = "./test_load_kddcup99"; // the code will create the directory if it doesn't exist
+    // If the directory does not exist, the code creates it.
+    let download_dir = "./test_load_kddcup99";
 
     let dataset = Kddcup99::new(download_dir);
     let (strings, numerics, labels) = dataset.data().unwrap();
 
     assert_kddcup99_semantics(strings, numerics, labels, N_SAMPLES_10_PERCENT);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
 // Verifies that the full set (new_full) loads with the correct shapes, label
 // values, and feature-domain invariants. This is large (~743 MB decompressed,
-// several GB parsed) and slow, so it is the only test exercising the full set.
+// several GB parsed) and slow, so it is the only test that exercises the full set.
 fn test_load_kddcup99_full() {
     let download_dir = "./test_load_kddcup99_full";
 
@@ -117,7 +117,6 @@ fn test_load_kddcup99_full() {
 
     assert_kddcup99_semantics(strings, numerics, labels, N_SAMPLES_FULL);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -128,7 +127,7 @@ fn test_kddcup99_partitions_distinct_files() {
     let download_dir = "./test_kddcup99_partitions";
     let download_dir_path = Path::new(download_dir);
 
-    // Load the default 10% subset; it caches under `kddcup99_10_percent.csv`.
+    // Load the default 10% subset. It caches under `kddcup99_10_percent.csv`.
     Kddcup99::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -138,13 +137,12 @@ fn test_kddcup99_partitions_distinct_files() {
         .unwrap(),
         "cached 10% subset should match the expected SHA256"
     );
-    // The full-set filename must not have been created by the subset load.
+    // The subset load must not create the full-set filename.
     assert!(
         !download_dir_path.join("kddcup99.csv").exists(),
         "loading the 10% subset must not create the full-set file"
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -169,12 +167,12 @@ fn test_kddcup99_no_need_download() {
     let dataset = Kddcup99::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake KDD Cup 1999 data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake KDD Cup 1999 data file and
+// overwrites it with the real dataset.
 fn test_kddcup99_overwrite() {
     let download_dir = "./test_load_kddcup99_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -190,7 +188,7 @@ fn test_kddcup99_overwrite() {
     let dataset = Kddcup99::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
+    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("kddcup99_10_percent.csv"),
@@ -199,7 +197,6 @@ fn test_kddcup99_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -210,17 +207,16 @@ fn test_kddcup99_into_data() {
 
     let dataset = Kddcup99::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // into_data() consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(strings.shape(), &[N_SAMPLES_10_PERCENT, 3]);
     assert_eq!(numerics.shape(), &[N_SAMPLES_10_PERCENT, 38]);
     assert_eq!(labels.len(), N_SAMPLES_10_PERCENT);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     numerics[[0, 0]] = 1234.0;
     assert_eq!(numerics[[0, 0]], 1234.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -240,6 +236,5 @@ fn test_kddcup99_get_data() {
     assert_eq!(numerics.shape(), &[N_SAMPLES_10_PERCENT, 38]);
     assert_eq!(labels.len(), N_SAMPLES_10_PERCENT);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

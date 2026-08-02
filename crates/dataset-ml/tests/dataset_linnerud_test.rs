@@ -7,8 +7,9 @@ use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
 
-/// The pinned source URLs, filenames, and SHA-256 hashes of the two Linnerud files,
-/// mirrored here so the cache-reuse and overwrite tests stay in sync with the loader.
+/// The pinned source URLs, filenames, and SHA-256 hashes of the two Linnerud
+/// files. This file mirrors them here, so the cache-reuse and overwrite tests
+/// stay in sync with the loader.
 const LINNERUD_EXERCISE_URL: &str = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/main/sklearn/datasets/data/linnerud_exercise.csv";
 const LINNERUD_PHYSIOLOGICAL_URL: &str = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/main/sklearn/datasets/data/linnerud_physiological.csv";
 const LINNERUD_EXERCISE_FILENAME: &str = "linnerud_exercise.csv";
@@ -39,22 +40,25 @@ fn assert_matrix_ok(matrix: &ndarray::Array2<f64>) {
 #[test]
 // Verifies that the Linnerud dataset loads with the correct shapes and reference values.
 fn test_load_linnerud() {
-    let download_dir = "./test_load_linnerud"; // the code will create the directory if it doesn't exist
+    // If the directory does not exist, the code creates it.
+    let download_dir = "./test_load_linnerud";
 
     let dataset = Linnerud::new(download_dir);
     let features = dataset.features().unwrap();
     let targets = dataset.targets().unwrap();
 
+    // This checks accessor consistency: data() returns the same arrays as
+    // features() and targets() do.
     assert_eq!(features.shape(), &[20, 3]);
     assert_eq!(targets.shape(), &[20, 3]);
 
-    let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+    let (features, targets) = dataset.data().unwrap();
 
     assert_matrix_ok(features);
     assert_matrix_ok(targets);
 
-    // Pin against scikit-learn's published reference: the first exercise row is
-    // (Chins, Situps, Jumps) = (5, 162, 60) and the first physiological row is
+    // Check against scikit-learn's published reference. The first exercise row is
+    // (Chins, Situps, Jumps) = (5, 162, 60). The first physiological row is
     // (Weight, Waist, Pulse) = (191, 36, 50).
     assert_eq!(features[[0, 0]], 5.0, "features[0, 0] (Chins) should be 5");
     assert_eq!(
@@ -88,13 +92,12 @@ fn test_load_linnerud() {
         );
     }
 
-    // You can use `.to_owned()` to get an owned, mutable copy of the data.
+    // `.to_owned()` returns an owned, mutable copy of the data.
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
     features_owned[[0, 0]] = 6.0;
     targets_owned[[0, 0]] = 190.0;
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -121,16 +124,16 @@ fn test_linnerud_no_need_download() {
         .unwrap();
     }
 
-    // should use cached Linnerud files
+    // should use the cached Linnerud files
     let dataset = Linnerud::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that corrupt or fake Linnerud files are detected and overwritten with the real data.
+// Verifies that the loader detects corrupt or fake Linnerud files and overwrites
+// them with the real data.
 fn test_linnerud_overwrite() {
     let download_dir = "./test_linnerud_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -149,7 +152,7 @@ fn test_linnerud_overwrite() {
     let dataset = Linnerud::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check the fake files are overwritten
+    // check that the loader overwrote the fake files
     assert!(
         file_sha256_matches(
             &download_dir_path.join(LINNERUD_EXERCISE_FILENAME),
@@ -165,7 +168,6 @@ fn test_linnerud_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -176,16 +178,16 @@ fn test_linnerud_into_data() {
 
     let dataset = Linnerud::new(download_dir);
     let (mut features, targets) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`targets` are fully owned.
+    // into_data() consumes `dataset`. The returned `features` and `targets` are
+    // fully owned.
 
     assert_matrix_ok(&features);
     assert_matrix_ok(&targets);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 6.0;
     assert_eq!(features[[0, 0]], 6.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -200,13 +202,12 @@ fn test_linnerud_take_data() {
     assert_eq!(features.shape(), &[20, 3]);
     assert_eq!(targets.shape(), &[20, 3]);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
+    // After take_data, the instance resets to unloaded but stays usable. The next
     // access reloads it (from the cached files) and yields the same shapes.
     let (reloaded_features, reloaded_targets) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[20, 3]);
     assert_eq!(reloaded_targets.shape(), &[20, 3]);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -225,7 +226,6 @@ fn test_linnerud_get_data() {
     assert_eq!(features.shape(), &[20, 3]);
     assert_eq!(targets.shape(), &[20, 3]);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -238,7 +238,7 @@ fn test_linnerud_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((features, _targets)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;
@@ -248,6 +248,5 @@ fn test_linnerud_get_data_mut() {
     let (features, _targets) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 99.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

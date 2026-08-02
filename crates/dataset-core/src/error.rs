@@ -9,7 +9,7 @@ use zip::result::ZipError;
 /// - `InvalidColumnCount` - The row has an unexpected number of columns.
 /// - `ParseFailed` - Failed to parse a field value into the target type.
 /// - `InvalidValue` - The field value is syntactically valid but semantically incorrect.
-/// - `LengthMismatch` - The total parsed data length doesn't match expected dimensions.
+/// - `LengthMismatch` - The total parsed data length does not match expected dimensions.
 /// - `EmptyDataset` - The dataset is empty.
 /// - `ArrayShapeError` - Failed to construct ndarray with the given shape and data.
 #[derive(Debug, thiserror::Error)]
@@ -60,12 +60,12 @@ pub enum DataFormatErrorKind {
         /// Line number (1-based)
         line_num: usize,
     },
-    /// The total parsed data length doesn't match expected dimensions
+    /// The total parsed data length does not match expected dimensions
     #[error("[{dataset_name}] invalid `{field_name}` length: expected {expected}, got {actual}")]
     LengthMismatch {
         /// Dataset identifier
         dataset_name: String,
-        /// Field name whose length is being validated
+        /// Field name that failed the length check
         field_name: String,
         /// Expected length
         expected: usize,
@@ -96,8 +96,8 @@ pub enum DataFormatErrorKind {
 ///
 /// - `DownloadError` - The download step failed (network, invalid URL, or downloader configuration).
 /// - `ValidationError` - Downloaded file content failed integrity validation (SHA256 mismatch).
-/// - `UnzipError` - Extracting a zip archive failed.
-/// - `IoError` - A standard I/O operation failed (reading directories, opening/removing files, etc.).
+/// - `UnzipError` - Failed to extract a zip archive.
+/// - `IoError` - A standard I/O operation failed, such as reading a directory or opening or removing a file.
 /// - `DataFormatError` - The dataset content was not in the expected format.
 #[derive(Debug, thiserror::Error)]
 pub enum DatasetError {

@@ -1,8 +1,8 @@
 //! Iris flower dataset.
 //!
 //! The classic Fisher Iris dataset for multi-class classification.
-//! It contains measurements for three Iris species: `setosa`, `versicolor`,
-//! and `virginica`.
+//! It contains measurements for three Iris species: `setosa`, `versicolor`, and
+//! `virginica`.
 //!
 //! **Features (4):**
 //! - `sepal_length` - sepal length in cm
@@ -61,16 +61,17 @@ struct IrisRecord {
     species: String,
 }
 
-/// A struct representing the Iris dataset with lazy loading.
+/// A struct that represents the Iris dataset with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
-/// The Iris dataset is a classic dataset for classification tasks. It includes three iris species
-/// with 50 samples each as well as some properties about each flower. One flower species is
-/// linearly separable from the other two, but the other two are not linearly separable from each other.
+/// The Iris dataset is a classic dataset for classification tasks. It includes
+/// three iris species, with 50 samples each, and properties of each flower. One
+/// flower species is linearly separable from the other two. The other two are
+/// not linearly separable from each other.
 ///
 /// # Feature columns
 ///
@@ -94,34 +95,36 @@ struct IrisRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::iris::Iris;
 ///
-/// let download_dir = "./iris"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./iris"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = Iris::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+/// let (features, labels) = dataset.data().unwrap(); // this also returns features and labels
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. Prefer this method over `.to_owned()` when you only need to
+/// // change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 5.5;
 ///     labels[0] = "setosa-modified";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves owned arrays out (no `to_owned()` clone). It leaves the
+/// // instance reusable. The next access reloads the data from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[150, 4]);
 /// assert_eq!(owned_labels.len(), 150);
@@ -140,12 +143,12 @@ pub struct Iris {
 impl Iris {
     /// Create a new Iris instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset is stored.
     ///
     /// # Returns
     ///
@@ -156,7 +159,7 @@ impl Iris {
         }
     }
 
-    /// Acquire and parse the Iris dataset.
+    /// Get and parse the Iris dataset.
     fn load_data(dir: &str) -> Result<IrisData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
@@ -239,7 +242,7 @@ impl Iris {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
+    /// - Dataset size does not match expected dimensions (150 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
@@ -259,7 +262,7 @@ impl Iris {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (150 samples)
+    /// - Dataset size does not match expected dimensions (150 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
@@ -282,18 +285,18 @@ impl Iris {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (150 samples, 4 features)
+    /// - Dataset size does not match expected dimensions (150 samples, 4 features)
     pub fn data(&self) -> Result<&IrisData, DatasetError> {
         self.dataset.load()
     }
 
     /// Get both features and labels as references **without** triggering loading.
     ///
-    /// Unlike [`Iris::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// Unlike [`Iris::data`], which loads the dataset on first call, this method
+    /// never runs the loader. If the data has not loaded yet, this method returns
+    /// `None` instead of downloading and parsing it. Use this method when you want
+    /// the data only if it is already cached. This avoids the download and parse
+    /// cost when the data is not yet cached.
     ///
     /// # Returns
     ///
@@ -306,14 +309,15 @@ impl Iris {
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// replace label values) with no `to_owned()` clone and without removing them
-    /// from the cache: the changes persist, so later [`Iris::features`],
-    /// [`Iris::data`], or [`Iris::get_data`] calls observe them.
+    /// This lets you change the cached arrays directly, for example to normalize
+    /// features or replace label values. It needs no `to_owned()` clone, and it
+    /// does not remove the arrays from the cache. The changes persist, so later
+    /// calls to [`Iris::features`], [`Iris::data`], or [`Iris::get_data`] observe
+    /// them.
     ///
-    /// Like [`Iris::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Iris::data`]) first if you need to ensure the data is present.
+    /// Like [`Iris::get_data`], this method does not trigger loading. It returns
+    /// `None` if the dataset has not loaded yet. If you need the data to be
+    /// present, call a loading accessor first, for example [`Iris::data`].
     ///
     /// # Returns
     ///
@@ -327,13 +331,14 @@ impl Iris {
 
     /// Consume the dataset and return **owned** features and labels.
     ///
-    /// Unlike [`Iris::data`], which borrows the cached data, this moves it out and
-    /// returns owned arrays directly — no `to_owned()` clone needed. The dataset is
-    /// loaded on first access if it has not been loaded yet.
+    /// Unlike [`Iris::data`], which borrows the cached data, this method moves the
+    /// data out and returns owned arrays directly. It needs no `to_owned()` clone.
+    /// If the dataset has not loaded yet, it loads on first access.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use [`Iris::take_data`]
-    /// instead — it takes `&mut self` and leaves the instance reusable.
+    /// This method consumes `self`, so you cannot use the instance afterward. If
+    /// you want owned data but need to keep using the instance, use
+    /// [`Iris::take_data`] instead. It takes `&mut self` and leaves the instance
+    /// reusable.
     ///
     /// # Returns
     ///
@@ -352,15 +357,16 @@ impl Iris {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
-    /// Like [`Iris::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Iris::features`] or [`Iris::data`]) loads the dataset
-    /// again.
+    /// Like [`Iris::into_data`], this method returns owned arrays with no
+    /// `to_owned()` clone. But instead of consuming the instance, it takes
+    /// `&mut self` and moves the cached data out. This resets the instance to its
+    /// unloaded state. The next accessor call, for example [`Iris::features`] or
+    /// [`Iris::data`], loads the dataset again.
     ///
-    /// Use [`Iris::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`Iris::into_data`] instead.
     ///
     /// # Returns
     ///

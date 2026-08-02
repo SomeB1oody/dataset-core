@@ -11,7 +11,7 @@ use std::path::Path;
 #[test]
 // Verifies that the Boston Housing dataset loads with the correct feature shape and target count.
 fn test_load_boston_housing() {
-    let download_dir = "./test_load_boston_housing"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_boston_housing"; // the loader creates the directory if it does not exist
 
     let dataset = BostonHousing::new(download_dir);
     let features = dataset.features().unwrap();
@@ -24,8 +24,8 @@ fn test_load_boston_housing() {
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
-    // you can use `.to_owned()` to get owned copies of the data
+    let (features, targets) = dataset.data().unwrap(); // data() also returns the features and targets
+    // `.to_owned()` returns owned copies of the data
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
 
@@ -63,7 +63,6 @@ fn test_load_boston_housing() {
     features_owned[[0, 0]] = 0.1;
     targets_owned[0] = 25.5;
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -74,7 +73,7 @@ fn test_boston_housing_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Boston Housing dataset in advance
+    // download the Boston Housing dataset in advance
     {
         download_to(
             "https://github.com/selva86/datasets/raw/master/BostonHousing.csv",
@@ -84,16 +83,16 @@ fn test_boston_housing_no_need_download() {
         .unwrap();
     }
 
-    // should use cached Boston Housing dataset
+    // should use the cached Boston Housing dataset
     let dataset = BostonHousing::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Boston Housing data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Boston Housing data file and
+// overwrites it with the real dataset.
 fn test_boston_housing_overwrite() {
     let download_dir = "./test_boston_housing_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -109,7 +108,7 @@ fn test_boston_housing_overwrite() {
     let dataset = BostonHousing::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
+    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("BostonHousing.csv"),
@@ -118,18 +117,17 @@ fn test_boston_housing_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and targets, consuming the dataset.
+// Verifies that into_data() returns owned features and targets and consumes the dataset.
 fn test_boston_housing_into_data() {
     let download_dir = "./test_boston_housing_into_data";
 
     let dataset = BostonHousing::new(download_dir);
     let (mut features, targets) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`targets` are fully owned.
+    // into_data() consumes `dataset`. The returned `features` and `targets` are fully owned.
 
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
@@ -139,11 +137,10 @@ fn test_boston_housing_into_data() {
         assert!(targets[i].is_finite(), "target[{}] is not finite", i);
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 0.1;
     assert_eq!(features[[0, 0]], 0.1);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -158,13 +155,12 @@ fn test_boston_housing_take_data() {
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
+    // take_data() resets the instance to unloaded, but it stays usable. The next
     // access reloads it (from the cached file) and yields the same shapes.
     let (reloaded_features, reloaded_targets) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[506, 13]);
     assert_eq!(reloaded_targets.len(), 506);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -177,13 +173,12 @@ fn test_boston_housing_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // Trigger loading. Then get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, targets) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -196,7 +191,7 @@ fn test_boston_housing_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
     dataset.data().unwrap();
     if let Some((features, _targets)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;
@@ -206,6 +201,5 @@ fn test_boston_housing_get_data_mut() {
     let (features, _targets) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 99.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

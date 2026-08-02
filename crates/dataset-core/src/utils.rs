@@ -12,23 +12,24 @@ use zip::result::ZipError;
 
 /// Download a remote file into the given directory.
 ///
-/// It downloads the content at `url` (using [`ureq`] crate) into `storage_path` using the file name
-/// extracted from the last segment of the URL, unless a custom filename is provided.
+/// It downloads the content at `url` into `storage_path`, using the [`ureq`] crate. It names the
+/// file after the last segment of the URL, unless the caller supplies a custom filename.
 ///
-/// When the filename is derived from the URL, any trailing `?query` or `#fragment` is stripped
-/// (e.g. `.../iris.csv?raw=1` yields `iris.csv`). A URL that ends in `/` has no final segment, so
-/// a custom `filename` must be supplied in that case.
+/// When the filename comes from the URL, it strips any trailing `?query` or `#fragment` (for
+/// example, `.../iris.csv?raw=1` yields `iris.csv`). A URL that ends in `/` has no final segment,
+/// so the caller must supply a custom `filename` in that case.
 ///
 /// # Parameters
 ///
 /// - `url` - The URL to download.
 /// - `storage_path` - The directory to store the downloaded file in.
-/// - `filename` - Optional custom filename (with extension). If `None`, the filename is extracted
-///   from the last segment of the URL.
+/// - `filename` - Optional custom filename (with extension). If `None`, the filename comes from
+///   the last segment of the URL.
 ///
 /// # Errors
 ///
-/// - `DatasetError` - Returned when the download fails or the filename cannot be derived from the URL.
+/// - `DatasetError` - Returned when the download fails, or when the function cannot derive the
+///   filename from the URL.
 ///
 /// # Example
 /// ```no_run
@@ -54,7 +55,6 @@ pub fn download_to(
     storage_path: &Path,
     filename: Option<&str>,
 ) -> Result<(), DatasetError> {
-    // Get the filename: use provided name, or fall back to URL extraction
     let filename = match filename {
         Some(name) => name,
         None => filename_from_url(url).ok_or_else(|| {
@@ -69,37 +69,35 @@ pub fn download_to(
     let mut response = ureq::get(url).call()?;
     let mut body = response.body_mut().as_reader();
 
-    // create local file and write body to it
     let mut file = File::create(save_path)?;
     io::copy(&mut body, &mut file)?;
 
     Ok(())
 }
 
-/// Download a remote file into the given directory, retrying transient failures.
+/// Download a remote file into the given directory. It retries transient failures.
 ///
-/// A wrapper around [`download_to`] for the unreliable hosts many public datasets
-/// live on: if the download fails, it is retried up to `retries` more times, waiting
-/// twice as long before each attempt (500 ms, then 1 s, 2 s, …). Passing `retries = 0`
-/// makes this exactly equivalent to [`download_to`].
+/// This function wraps [`download_to`] for the unreliable hosts where many public datasets live.
+/// If the download fails, it retries up to `retries` more times. Each attempt waits twice as
+/// long as the last (500 ms, then 1 s, 2 s, and so on). When the caller sets `retries` to `0`,
+/// this function behaves exactly like [`download_to`].
 ///
-/// Only the download is retried. A failure that cannot be fixed by trying again —
-/// a filename that cannot be derived from the URL, or a local file that cannot be
-/// created — is returned immediately, and the last download error is returned once
-/// the attempts are exhausted.
+/// A retry cannot fix two kinds of failure: a filename the function cannot derive from the URL,
+/// and a local file the function cannot create. The function returns either failure right away,
+/// without a retry. Once every attempt fails, it returns the last download error.
 ///
 /// # Parameters
 ///
 /// - `url` - The URL to download.
 /// - `storage_path` - The directory to store the downloaded file in.
-/// - `filename` - Optional custom filename (with extension). If `None`, the filename is extracted
-///   from the last segment of the URL.
+/// - `filename` - Optional custom filename (with extension). If `None`, the filename comes from
+///   the last segment of the URL.
 /// - `retries` - How many **additional** attempts to make after the first one fails.
 ///
 /// # Errors
 ///
-/// - `DatasetError` - Returned when every attempt fails (the last error is
-///   propagated), or immediately for a non-retryable error.
+/// - `DatasetError` - Returned when every attempt fails (it returns the last error), or right
+///   away for an error a retry cannot fix.
 ///
 /// # Example
 /// ```no_run
@@ -129,7 +127,7 @@ pub fn download_to_with_retries(
     loop {
         match download_to(url, storage_path, filename) {
             Ok(()) => return Ok(()),
-            // Retrying cannot make a malformed URL or an unwritable target work.
+            // A retry cannot fix a malformed URL or an unwritable target.
             Err(e @ (DatasetError::ValidationError(_) | DatasetError::IoError(_))) => {
                 return Err(e);
             }
@@ -144,14 +142,14 @@ pub fn download_to_with_retries(
     }
 }
 
-/// How long [`download_to_with_retries`] waits before its first retry; each further
-/// retry doubles it.
+/// How long [`download_to_with_retries`] waits before its first retry. Each further retry
+/// doubles this wait.
 const RETRY_BASE_DELAY: std::time::Duration = std::time::Duration::from_millis(500);
 
 /// Derive a filename from the last path segment of a URL.
 ///
-/// Strips any `?query` / `#fragment` suffix and returns `None` when the resulting
-/// segment is empty (e.g. the URL ends in `/`).
+/// It strips any `?query` / `#fragment` suffix, and returns `None` when the resulting segment
+/// is empty (for example, when the URL ends in `/`).
 fn filename_from_url(url: &str) -> Option<&str> {
     // `rsplit('/').next()` yields the whole string when there is no '/'.
     let last_segment = url.rsplit('/').next()?;
@@ -162,7 +160,9 @@ fn filename_from_url(url: &str) -> Option<&str> {
     (!name.is_empty()).then_some(name)
 }
 
-/// Extract a zip archive into a target directory using [`ZipArchive`] in [`zip`] crate.
+/// Extract a zip archive into a target directory.
+///
+/// It uses [`ZipArchive`] from the [`zip`] crate.
 ///
 /// # Parameters
 ///
@@ -205,14 +205,14 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 
 /// Decompress a gzip (`.gz`) file into a single output file.
 ///
-/// Unlike [`unzip`], which extracts a multi-entry archive into a directory, a gzip
-/// stream wraps exactly **one** file, so this writes the decompressed bytes to a
-/// single `output_path`. It streams through [`flate2::read::GzDecoder`], so the
-/// whole file is never held in memory at once — suitable for large datasets such as
-/// the gzip-compressed `covtype.data.gz`.
+/// Unlike [`unzip`], which extracts a multi-entry archive into a directory, a gzip stream wraps
+/// exactly **one** file. As a result, this function writes the decompressed bytes to a single
+/// `output_path`. It streams the bytes through [`flate2::read::GzDecoder`], so it never holds
+/// the whole file in memory at once. This suits large datasets such as the gzip-compressed
+/// `covtype.data.gz`.
 ///
-/// The output file is created (or truncated if it already exists). Any leading
-/// directories in `output_path` must already exist.
+/// This function creates the output file, or truncates it if the file already exists. Any
+/// leading directories in `output_path` must already exist.
 ///
 /// # Parameters
 ///
@@ -232,7 +232,7 @@ pub fn unzip(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// let work_dir = Path::new("./gunzip_example");
 /// std::fs::create_dir_all(work_dir).unwrap();
 ///
-/// // Download a gzip-compressed dataset, then decompress it in place.
+/// // Download a gzip-compressed dataset. Then decompress it in place.
 /// download_to("https://example.com/data.csv.gz", work_dir, Some("data.csv.gz")).unwrap();
 /// gunzip(&work_dir.join("data.csv.gz"), &work_dir.join("data.csv")).unwrap();
 /// assert!(work_dir.join("data.csv").exists());
@@ -246,17 +246,18 @@ pub fn gunzip(file_path: &Path, output_path: &Path) -> Result<(), DatasetError> 
     Ok(())
 }
 
-/// Extract a tar (`.tar`) archive into a target directory using [`tar::Archive`].
+/// Extract a tar (`.tar`) archive into a target directory.
 ///
-/// This is the tar analogue of [`unzip`]: a `.tar` bundles a whole directory tree
-/// (unlike [`gunzip`], which decompresses a single-file gzip stream). For the very
-/// common gzip-compressed tarball (`.tar.gz` / `.tgz`), use [`untar_gz`], which
-/// streams the decompression and extraction together without writing an
-/// intermediate `.tar` to disk.
+/// It uses [`tar::Archive`] for the extraction.
 ///
-/// The archive's entries are unpacked **relative to** `extract_dir` (which is
-/// created if needed); the [`tar`] crate rejects entries whose paths would escape
-/// it.
+/// This is the tar analogue of [`unzip`]: a `.tar` bundles a whole directory tree (unlike
+/// [`gunzip`], which decompresses a single-file gzip stream). For a common gzip-compressed
+/// tarball (`.tar.gz` / `.tgz`), use [`untar_gz`] instead. It streams the decompression and
+/// extraction together, and never writes an intermediate `.tar` file to disk.
+///
+/// This function unpacks the archive's entries **relative to** `extract_dir`, and creates that
+/// directory if needed. The [`tar`] crate rejects any entry whose path would escape
+/// `extract_dir`.
 ///
 /// # Parameters
 ///
@@ -276,7 +277,7 @@ pub fn gunzip(file_path: &Path, output_path: &Path) -> Result<(), DatasetError> 
 /// let work_dir = Path::new("./untar_example");
 /// std::fs::create_dir_all(work_dir).unwrap();
 ///
-/// // Download a tar archive, then extract it in place.
+/// // Download a tar archive. Then extract it in place.
 /// download_to("https://example.com/data.tar", work_dir, Some("data.tar")).unwrap();
 /// untar(&work_dir.join("data.tar"), work_dir).unwrap();
 /// ```
@@ -289,15 +290,14 @@ pub fn untar(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 
 /// Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a target directory.
 ///
-/// This composes the two layers of a gzipped tarball in one streaming pass: the
-/// bytes flow through [`flate2::read::GzDecoder`] (the gzip layer, as in
-/// [`gunzip`]) straight into [`tar::Archive`] (the tar layer, as in [`untar`]), so
-/// the intermediate uncompressed `.tar` is never written to disk — suitable for
-/// large datasets distributed as `.tar.gz`.
+/// This function combines the two layers of a gzipped tarball in one streaming pass. The bytes
+/// flow through [`flate2::read::GzDecoder`] (the gzip layer, as in [`gunzip`]), straight into
+/// [`tar::Archive`] (the tar layer, as in [`untar`]). This function never writes the intermediate
+/// uncompressed `.tar` to disk, so it suits large datasets distributed as `.tar.gz`.
 ///
-/// The archive's entries are unpacked **relative to** `extract_dir` (which is
-/// created if needed); the [`tar`] crate rejects entries whose paths would escape
-/// it.
+/// This function unpacks the archive's entries **relative to** `extract_dir`, and creates that
+/// directory if needed. The [`tar`] crate rejects any entry whose path would escape
+/// `extract_dir`.
 ///
 /// # Parameters
 ///
@@ -317,7 +317,7 @@ pub fn untar(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError> {
 /// let work_dir = Path::new("./untar_gz_example");
 /// std::fs::create_dir_all(work_dir).unwrap();
 ///
-/// // Download a gzip-compressed tarball, then extract it in place.
+/// // Download a gzip-compressed tarball. Then extract it in place.
 /// download_to("https://example.com/data.tar.gz", work_dir, Some("data.tar.gz")).unwrap();
 /// untar_gz(&work_dir.join("data.tar.gz"), work_dir).unwrap();
 /// ```
@@ -331,9 +331,9 @@ pub fn untar_gz(file_path: &Path, extract_dir: &Path) -> Result<(), DatasetError
 
 /// Create a temporary directory under the given parent directory.
 ///
-/// A small wrapper around [`tempfile::Builder`] used internally by [`acquire_dataset`] to keep
-/// intermediate download/extraction artifacts isolated. The created directory is removed
-/// automatically when the returned [`tempfile::TempDir`] is dropped.
+/// This is a small wrapper around [`tempfile::Builder`]. [`acquire_dataset`] uses it internally
+/// to keep intermediate download and extraction artifacts isolated. The [`tempfile::TempDir`]
+/// removes the directory automatically when it is dropped.
 fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError> {
     let temp_dir = tempfile::Builder::new().tempdir_in(tempdir_in)?;
 
@@ -342,13 +342,13 @@ fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError>
 
 /// Compute a file's SHA256 hash and return it as a lowercase hex string.
 ///
-/// The file is streamed in 8 KiB chunks, so hashing a multi-gigabyte dataset costs
+/// This function streams the file in 8 KiB chunks, so hashing a multi-gigabyte dataset costs
 /// no more memory than hashing a small one.
 ///
-/// This is the helper to reach for when **pinning** a hash: run it once against a
-/// freshly downloaded file and paste the result into the `expected_sha256` you pass
-/// to [`acquire_dataset`]. To check a file against a hash you already have, use
-/// [`verify_sha256`] instead of comparing strings yourself.
+/// This is the helper to reach for when **pinning** a hash. Run it once against a freshly
+/// downloaded file. Paste the result into the `expected_sha256` value that you pass to
+/// [`acquire_dataset`]. To check a file against a hash you already have, use [`verify_sha256`]
+/// instead of comparing strings yourself.
 ///
 /// # Parameters
 ///
@@ -387,7 +387,7 @@ pub fn sha256_file(path: &Path) -> Result<String, DatasetError> {
     let digest = hasher.finalize();
     let mut hex = String::with_capacity(digest.len() * 2);
     for b in digest {
-        // Writing formatted bytes into a `String` is infallible.
+        // A `write!` into a `String` cannot fail.
         let _ = write!(hex, "{:02x}", b);
     }
 
@@ -396,10 +396,10 @@ pub fn sha256_file(path: &Path) -> Result<String, DatasetError> {
 
 /// Verify that a file's SHA256 hash matches an expected value (case-insensitive).
 ///
-/// This is the same check [`acquire_dataset`] performs internally on cached and
-/// freshly prepared files, exposed for callers that need to validate a file outside
-/// that workflow — most commonly a test asserting that the file on disk is the
-/// expected one. Returns `true` when the computed hash matches `expected_hex`.
+/// This is the same check that [`acquire_dataset`] performs internally on cached and freshly
+/// prepared files. Callers that need to validate a file outside that workflow can use it too.
+/// Most commonly, this is a test that asserts the file on disk is the expected one. This
+/// function returns `true` when the computed hash matches `expected_hex`.
 ///
 /// # Parameters
 ///
@@ -429,14 +429,14 @@ pub fn verify_sha256(path: &Path, expected_hex: &str) -> Result<bool, DatasetErr
 
 /// Read a file as Latin-1 (ISO-8859-1) text.
 ///
-/// Every byte is mapped to the Unicode scalar with the same value, which is exactly
-/// what Latin-1 decoding means and what scikit-learn does for the older text
-/// corpora. Unlike [`std::fs::read_to_string`], this never fails on non-UTF-8 input
-/// and never replaces bytes with `U+FFFD`: the decoding is lossless and reversible,
-/// so a corpus whose encoding is unknown or mixed survives the round trip.
+/// This function maps every byte to the Unicode scalar with the same value. That is exactly
+/// what Latin-1 decoding means, and what scikit-learn does for the older text corpora. Unlike
+/// [`std::fs::read_to_string`], this function never fails on non-UTF-8 input, and it never
+/// replaces bytes with `U+FFFD`. The decoding is lossless and reversible, so a corpus whose
+/// encoding is unknown or mixed survives the round trip.
 ///
-/// Use it for raw document collections (newsgroup posts, movie reviews, …) that
-/// predate UTF-8; for data you know is UTF-8, prefer `std::fs::read_to_string`.
+/// Use it for raw document collections (newsgroup posts, movie reviews, and so on) that predate
+/// UTF-8. For data you know is UTF-8, prefer `std::fs::read_to_string`.
 ///
 /// # Parameters
 ///
@@ -466,17 +466,18 @@ pub fn read_latin1(path: &Path) -> Result<String, DatasetError> {
     Ok(bytes.iter().map(|&b| b as char).collect())
 }
 
-/// State of the destination file relative to the dataset we want to cache.
+/// State of the destination file for the dataset to cache.
 enum CacheState {
-    /// Destination exists and (if a hash was given) matches — reuse it as-is.
+    /// Destination file exists, and its hash matches (if a hash was given). The code reuses
+    /// it without changes.
     Fresh,
-    /// Destination exists but its hash does not match — it must be replaced.
+    /// Destination exists, but its hash does not match. The code must replace it.
     Stale,
-    /// Destination does not exist — a new file must be prepared.
+    /// Destination does not exist. The code must prepare a new file.
     Missing,
 }
 
-/// Ensure `dir` exists, then classify the destination file `dst`.
+/// Make sure `dir` exists, then classify the destination file `dst`.
 ///
 /// When `expected_sha256` is `None`, any existing file counts as [`CacheState::Fresh`].
 fn inspect_cache(
@@ -498,39 +499,39 @@ fn inspect_cache(
     }
 }
 
-/// Acquire a dataset file using a caller-provided preparation closure.
+/// Get a dataset file, using a preparation closure that the caller provides.
 ///
-/// This is the single entry point for the dataset acquisition workflow and the
-/// recommended way to populate a storage directory. It checks whether the destination
-/// file can be reused, creates a temporary directory when a new file is needed,
-/// delegates file preparation to a user-provided closure, optionally validates the
-/// prepared file with SHA256, and atomically moves it to the final destination.
+/// This is the single entry point for getting a dataset, and the recommended way to populate a
+/// storage directory. It checks whether it can reuse the destination file, and creates a
+/// temporary directory when a new file is needed. It then delegates file preparation to a
+/// closure that the caller provides. It optionally validates the prepared file with SHA256, and
+/// atomically moves it to the final destination.
 ///
-/// The function itself does not perform network I/O. The `prepare_file` closure
-/// is responsible for preparing the dataset file, which may include downloading,
-/// extracting archives, or locating files within an extracted directory.
+/// The function itself does not perform network I/O. The `prepare_file` closure prepares the
+/// dataset file. This may include downloading the file, extracting archives, or locating files
+/// inside an extracted directory.
 ///
 /// # Parameters
 ///
 /// - `dir` - Target storage directory path.
 /// - `filename` - Final dataset filename (stored as `dir/filename`).
-///   Please give the filename with the extension (e.g., `"iris.csv"`).
-/// - `dataset_name` - Dataset name for error messages (e.g., `"iris"`).
+///   Include the file extension (for example, `"iris.csv"`).
+/// - `dataset_name` - Dataset name for error messages (for example, `"iris"`).
 /// - `expected_sha256` - Optional expected SHA256 hash of the dataset file. If `None`,
-///   any existing file at the destination is accepted without validation, and newly
-///   prepared files skip SHA256 verification.
+///   the function accepts any existing file at the destination without validation, and
+///   newly prepared files skip SHA256 verification.
 /// - `prepare_file` - Closure that prepares the dataset file in the temporary directory.
-///   - Input: `temp_dir: &Path` - Path to the temporary directory.
-///     It is recommended to execute file operations within this directory, as it will be
-///     cleaned up automatically when the closure returns. But it is not required.
-///     (Please note that the file will be moved to the final destination, not copied.)
-///   - Output: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file
-///     (which will be moved to `dir/filename`).
-///   - Responsibility: This closure can perform any operations needed to prepare the
-///     dataset file, such as downloading (you can use [`download_to`] provided in this crate),
-///     extracting archives (you can use [`unzip`] provided in this crate), or locating files
-///     within extracted folders. The returned `PathBuf` must point to the final dataset file
-///     ready for validation.
+///   - Input: `temp_dir: &Path` - Path to the temporary directory. The caller should do
+///     file work inside this directory: the function cleans it up automatically when the
+///     closure returns. This is not a requirement. (The function moves the file to the
+///     final destination. It does not copy the file.)
+///   - Output: `Result<PathBuf, DatasetError>` - Path to the prepared dataset file (the
+///     function moves this file to `dir/filename`).
+///   - Responsibility: This closure can do any work needed to prepare the dataset file.
+///     This can include downloading it (use [`download_to`] from this crate), extracting
+///     archives (use [`unzip`] from this crate), or locating files inside extracted
+///     folders. The returned `PathBuf` must point to the final dataset file, ready for
+///     validation.
 ///
 /// # Returns
 ///
@@ -540,9 +541,9 @@ fn inspect_cache(
 ///
 /// - `DatasetError::IoError` - Returned when directory creation, file operations, or
 ///   hash verification fails.
-/// - `DatasetError::Sha256ValidationFailed` - Returned when `expected_sha256` is provided
-///   and the prepared file's SHA256 hash does not match it.
-/// - Any error returned by the `prepare_file` closure.
+/// - `DatasetError::Sha256ValidationFailed` - Returned when the caller provides
+///   `expected_sha256` and the prepared file's SHA256 hash does not match it.
+/// - Any error the `prepare_file` closure returns.
 ///
 /// # Example
 /// ```no_run
@@ -574,7 +575,7 @@ fn inspect_cache(
 ///     let file_path = acquire_dataset(
 ///         // Target storage directory path
 ///         dir,
-///         // Final dataset filename (will be stored as `dir/filename`)
+///         // Final dataset filename (stored as `dir/filename`)
 ///         IRIS_FILENAME,
 ///         // Dataset name for error messages
 ///         IRIS_DATASET_NAME,
@@ -588,8 +589,8 @@ fn inspect_cache(
 ///         },
 ///     ).unwrap();
 ///
-///     // `file_path` is now the path to the acquired Iris dataset file.
-///     // It can be used to locate or parse the dataset.
+///     // `file_path` is now the path to the Iris dataset file.
+///     // Use it to locate or parse the dataset.
 /// }
 /// ```
 pub fn acquire_dataset<F>(
@@ -611,8 +612,8 @@ where
         return Ok(dst);
     }
 
-    // Prepare the new file inside a temp dir that is cleaned up on drop (including
-    // on the early `return` below).
+    // Prepare the new file inside a temp dir. The temp dir cleans up on drop,
+    // including when the code returns early below.
     let temp_dir = create_temp_dir(dir_path)?;
     let src = prepare_file(temp_dir.path())?;
 
@@ -626,7 +627,7 @@ where
         ));
     }
 
-    // A stale file must be removed first: `fs::rename` does not overwrite on all platforms.
+    // The code must remove a stale file first: `fs::rename` does not overwrite on all platforms.
     if matches!(state, CacheState::Stale) {
         std::fs::remove_file(&dst)?;
     }
@@ -969,8 +970,8 @@ mod tests {
         let dir = "./test_download_to_with_retries_does_not_retry_unusable_url";
         create_dir_all(dir).unwrap();
 
-        // A URL ending in `/` yields no filename — retrying cannot fix that, so this
-        // must fail immediately rather than sleeping through the retry schedule.
+        // A URL ending in `/` yields no filename. A retry cannot fix that, so this must
+        // fail immediately instead of sleeping through the retry schedule.
         let started = std::time::Instant::now();
         let result = download_to_with_retries("https://x.test/a/", Path::new(dir), None, 5);
 
@@ -1020,7 +1021,7 @@ mod tests {
         let dst = dir_path.join("data.txt");
         let _ = remove_dir_all(dir);
 
-        // Missing: directory is created on demand, file absent.
+        // Missing: the code creates the directory on demand. The file is absent.
         assert!(matches!(
             inspect_cache(dir_path, &dst, None).unwrap(),
             CacheState::Missing

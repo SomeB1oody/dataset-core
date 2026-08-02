@@ -1,10 +1,13 @@
 //! Built-in dataset implementations for machine learning.
 //!
-//! `dataset-ml` provides ready-to-use loaders for classic ML datasets built on top
-//! of [`dataset_core::Dataset`]. Each module is a worked example showing how to wrap
-//! `Dataset<T, E>` for a concrete data source: downloading from a URL, verifying a
-//! SHA-256 hash, parsing CSV records (or extracting raw documents from an archive),
-//! and exposing typed accessors backed by [`ndarray`].
+//! `dataset-ml` provides ready-to-use loaders for classic ML datasets, built on top
+//! of [`dataset_core::Dataset`]. Each module is a worked example that shows how to
+//! wrap `Dataset<T, E>` for one data source. The steps are the same each time:
+//!
+//! 1. Download from a URL.
+//! 2. Verify a SHA-256 hash.
+//! 3. Parse CSV records, or extract raw documents from an archive.
+//! 4. Expose typed accessors backed by [`ndarray`].
 //!
 //! # Datasets
 //!
@@ -58,13 +61,13 @@
 //!
 //! Two modules apply to every dataset here rather than to one of them:
 //!
-//! - [`preprocessing`] — seeded train/test and k-fold splits (plain or
-//!   class-stratified), feature scaling, one-hot encoding, and label encoding, so
-//!   the arrays a loader returns can be fed to a model without hand-rolling the
-//!   usual glue.
-//! - [`traits`] — the [`MlDataset`] trait every loader implements, for code written
-//!   generically over "some dataset": cache inspection and invalidation, and a
-//!   uniform `n_samples()`.
+//! - [`preprocessing`]: seeded train/test and k-fold splits (plain or
+//!   class-stratified), feature scaling, one-hot encoding, and label encoding. You
+//!   can feed the arrays a loader returns straight to a model, without writing
+//!   that glue code by hand.
+//! - [`traits`]: the [`MlDataset`] trait every loader implements. It lets you
+//!   write code generically over "some dataset": cache inspection and
+//!   invalidation, plus a uniform `n_samples()`.
 //!
 //! ```no_run
 //! use dataset_ml::preprocessing::{stratified_split, standardize};
@@ -83,82 +86,85 @@
 //! assert_eq!(iris.n_samples().unwrap(), 150); // from the `MlDataset` trait
 //! ```
 
-/// How many extra download attempts every loader in this crate makes before giving up.
+/// How many extra download attempts every loader in this crate makes before it
+/// stops retrying.
 ///
 /// The datasets are hosted on university archives and personal pages that
-/// intermittently time out or reset a connection; a run that fails for that reason
-/// is not a bug in the data. Every loader therefore fetches through
+/// intermittently time out or reset a connection. A run that fails for that
+/// reason is not a bug in the data. Every loader therefore fetches through
 /// [`download_to_with_retries`](dataset_core::download_to_with_retries) with this
-/// many retries, waiting 500 ms then 1 s between attempts, so a single blip does
+/// many retries, waiting 500 ms then 1 s between attempts. A single blip does
 /// not surface as a `DownloadError`.
 ///
-/// Errors that retrying cannot fix are still returned immediately, and a genuinely
-/// unreachable host costs at most 1.5 s of waiting before it fails.
+/// The loader returns errors that retrying cannot fix right away, and a
+/// genuinely unreachable host costs at most 1.5 s of waiting before it fails.
 pub const DOWNLOAD_RETRIES: u32 = 2;
 
 /// Abalone dataset module.
 ///
-/// Contains the Abalone dataset (UCI, Nash et al. 1994) for **regression**:
-/// predicting an abalone's `rings` (age in years is `rings + 1.5`) from 8 mixed
-/// (1 categorical `sex` + 7 numeric) physical measurements. Unlike the other
-/// mixed-type loaders (which are classification), its target is an
-/// `Array1<f64>` regression target via `targets()`.
+/// Contains the Abalone dataset (UCI, Nash et al. 1994) for **regression**. It
+/// predicts an abalone's `rings` (age in years is `rings + 1.5`) from 8 mixed
+/// features: 1 categorical `sex` feature and 7 numeric physical measurements.
+/// Unlike the other mixed-type loaders (which are classification tasks), its
+/// target is an `Array1<f64>` regression target via `targets()`.
 pub mod abalone;
 
 /// Adult / Census Income dataset module.
 ///
 /// Contains the Adult dataset (also called "Census Income") for binary
-/// classification: predicting whether a person earns over $50K/year from 14 mixed
-/// (8 categorical + 6 numeric) demographic and employment features. Extracted from
-/// the 1994 US Census; uses the canonical `adult.data` training partition.
+/// classification. It predicts whether a person earns over $50K/year from 14
+/// mixed features: 8 categorical and 6 numeric, covering demographic and
+/// employment attributes. Extracted from the 1994 US Census. Uses the canonical
+/// `adult.data` training partition.
 pub mod adult;
 
 /// Bank Marketing dataset module.
 ///
-/// Contains the Bank Marketing dataset for binary classification: predicting
-/// whether a client subscribes a term deposit from 16 mixed (9 categorical +
-/// 7 numeric) client, contact, and campaign features. Recorded from a Portuguese
-/// bank's phone campaigns; uses the full `bank-full.csv` partition. Sourced from a
-/// ZIP archive (like `digits`).
+/// Contains the Bank Marketing dataset for binary classification. It predicts
+/// whether a client subscribes to a term deposit from 16 mixed features: 9
+/// categorical and 7 numeric, covering client, contact, and campaign attributes.
+/// Recorded from a Portuguese bank's phone campaigns. Uses the full
+/// `bank-full.csv` partition. Sourced from a ZIP archive (like `digits`).
 pub mod bank_marketing;
 
 /// Banknote Authentication dataset module.
 ///
 /// Contains the Banknote Authentication dataset (UCI, Lohweg 2012) for binary
-/// classification: telling genuine banknote specimens from forged ones using 4
+/// classification. It tells genuine banknote specimens from forged ones, using 4
 /// continuous statistics (variance, skewness, curtosis, entropy) of
-/// Wavelet-transformed banknote images. The crate's most compact pure-numeric
-/// benchmark; its target is the source's raw `0`/`1` code as an `Array1<u8>`,
-/// because UCI does not document which code means which.
+/// Wavelet-transformed banknote images. This is the crate's most compact
+/// pure-numeric benchmark. Its target is the source's raw `0`/`1` code as an
+/// `Array1<u8>`, because UCI does not document which code means which.
 pub mod banknote_authentication;
 
 /// Boston Housing dataset module.
 ///
 /// Contains the Boston Housing dataset for predicting median house values
-/// in Boston suburbs based on various features like crime rate, room count,
+/// in Boston suburbs, based on features like crime rate, room count,
 /// and accessibility to highways.
 pub mod boston_housing;
 
 /// Breast Cancer Wisconsin (Diagnostic) dataset module.
 ///
 /// Contains the Breast Cancer Wisconsin dataset for binary classification of
-/// tumors as malignant or benign based on 30 features computed from digitized
+/// tumors as malignant or benign. It uses 30 features computed from digitized
 /// images of cell nuclei.
 pub mod breast_cancer;
 
 /// California Housing dataset module.
 ///
 /// Contains the California Housing dataset for predicting median house values
-/// in California districts. Reproduces scikit-learn's `fetch_california_housing`
-/// eight derived features. A modern replacement for Boston Housing.
+/// in California districts. Reproduces the eight derived features of
+/// scikit-learn's `fetch_california_housing`. A modern replacement for Boston
+/// Housing.
 pub mod california_housing;
 
 /// Car Evaluation dataset module.
 ///
 /// Contains the Car Evaluation dataset (UCI, Bohanec 1988) for multi-class
-/// classification: predicting a car's overall acceptability (`unacc`, `acc`,
+/// classification. It predicts a car's overall acceptability (`unacc`, `acc`,
 /// `good`, `vgood`) from 6 categorical price and technical attributes. Like
-/// [`mushroom`], it is **all-categorical** — `features()` returns a single
+/// [`mushroom`], it is **all-categorical**: `features()` returns a single
 /// `Array2<String>`.
 pub mod car_evaluation;
 
@@ -187,15 +193,15 @@ pub mod digits;
 ///
 /// Contains the Cleveland Heart Disease dataset (UCI, Janosi et al. 1988) for
 /// classification: predicting the presence of heart disease (`num`, `0`–`4`) from
-/// 13 clinical features. The `?` missing values in `ca`/`thal` are mapped to
-/// `NaN` (like [`titanic`]/[`palmer_penguins`]); the target is an `Array1<u8>`.
+/// 13 clinical features. The loader maps the `?` missing values in `ca`/`thal` to
+/// `NaN` (like [`titanic`]/[`palmer_penguins`]). The target is an `Array1<u8>`.
 pub mod heart_disease;
 
 /// Ionosphere dataset module.
 ///
 /// Contains the Ionosphere dataset (UCI, Sigillito et al. 1989) for binary
-/// classification: predicting whether a radar return shows structure in the
-/// ionosphere (`good`) or passes through it (`bad`) from 34 continuous
+/// classification. It predicts whether a radar return shows structure in the
+/// ionosphere (`good`) or passes through it (`bad`), from 34 continuous
 /// autocorrelation features. A compact pure-numeric benchmark like
 /// [`breast_cancer`].
 pub mod ionosphere;
@@ -220,94 +226,96 @@ pub mod kddcup99;
 /// Letter Recognition dataset module.
 ///
 /// Contains the Letter Recognition dataset (UCI, Slate 1991) for multi-class
-/// classification: identifying which of the 26 capital letters a distorted glyph
-/// shows, from 16 integer statistics of its pixel image. The crate's widest
-/// classification problem by class count, and the only loader whose label is an
-/// `Array1<char>` — a one-letter class is naturally a `char`, so no lookup table
-/// is needed.
+/// classification. It identifies which of the 26 capital letters a distorted
+/// glyph shows, from 16 integer statistics of its pixel image. This is the
+/// crate's widest classification problem by class count, and the only loader
+/// whose label is an `Array1<char>`. A one-letter class is naturally a `char`,
+/// so it needs no lookup table.
 pub mod letter_recognition;
 
 /// Linnerud dataset module.
 ///
 /// Contains the scikit-learn Linnerud dataset (`load_linnerud`) for multi-output
-/// regression: predicting three physiological variables (`Weight`, `Waist`,
-/// `Pulse`) from three exercise variables (`Chins`, `Situps`, `Jumps`) measured
+/// regression. It predicts three physiological variables (`Weight`, `Waist`,
+/// `Pulse`) from three exercise variables (`Chins`, `Situps`, `Jumps`), measured
 /// on 20 middle-aged men.
 pub mod linnerud;
 
 /// Movie Review Polarity dataset module.
 ///
-/// Contains the Cornell Movie Review Polarity dataset (Pang & Lee 2004, polarity
-/// dataset v2.0) for binary **text** classification: labelling 2,000 full IMDb
-/// movie reviews as `positive` or `negative` (1,000 each). Like [`sms_spam`] it
-/// is a text-modality loader (document accessor `texts()`, not `features()`) and
-/// complements the sentence-level [`sentiment_sentences`] with full-document
-/// reviews. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
+/// Contains the Cornell Movie Review Polarity dataset (Pang and Lee 2004,
+/// polarity dataset v2.0) for binary **text** classification. It labels 2,000
+/// full IMDb movie reviews as `positive` or `negative` (1,000 each). Like
+/// [`sms_spam`], it is a text-modality loader (document accessor `texts()`, not
+/// `features()`) and complements the sentence-level [`sentiment_sentences`] with
+/// full-document reviews. Sourced from a `.tar.gz` archive (decompressed with
+/// `untar_gz`).
 pub mod movie_review_polarity;
 
 /// Mushroom dataset module.
 ///
 /// Contains the Mushroom dataset (UCI `agaricus-lepiota`) for binary
 /// classification: predicting whether a mushroom is edible or poisonous from 22
-/// categorical attributes. The first **all-categorical** loader — every feature is
-/// a single-letter string code, so `features()` returns a single `Array2<String>`.
+/// categorical attributes. This is the first **all-categorical** loader: every
+/// feature is a single-letter string code, so `features()` returns a single
+/// `Array2<String>`.
 pub mod mushroom;
 
 /// 20 Newsgroups dataset module.
 ///
-/// Contains the classic 20 Newsgroups dataset (Lang 1995; the `bydate` version)
-/// for multi-class **text** classification: labelling ~18,846 Usenet posts with
-/// one of 20 newsgroups. The framework-agnostic analogue of scikit-learn's
-/// `fetch_20newsgroups` and the crate's first **multi-class** text loader. Like
-/// [`sms_spam`] it is a text-modality loader (document accessor `texts()`, not
-/// `features()`); `new`/`new_test`/`new_all` mirror scikit-learn's train/test/all
+/// Contains the classic 20 Newsgroups dataset (Lang 1995, the `bydate` version)
+/// for multi-class **text** classification: labeling ~18,846 Usenet posts with
+/// one of 20 newsgroups. It is the framework-agnostic analogue of scikit-learn's
+/// `fetch_20newsgroups`, and the crate's first **multi-class** text loader. Like
+/// [`sms_spam`], it is a text-modality loader (document accessor `texts()`, not
+/// `features()`). `new`/`new_test`/`new_all` mirror scikit-learn's train/test/all
 /// subsets. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
 pub mod newsgroups20;
 
 /// Preprocessing helpers.
 ///
-/// Turns what the loaders return into what a model consumes: seeded train/test and
-/// k-fold splits (plain or class-stratified), feature scaling, one-hot encoding of
-/// the categorical matrices, and label encoding. Everything is deterministic given
-/// a seed and depends on no extra crates.
+/// Turns what the loaders return into what a model consumes. It covers seeded
+/// train/test and k-fold splits (plain or class-stratified), feature scaling,
+/// one-hot encoding of the categorical matrices, and label encoding. Everything
+/// is deterministic given a seed and depends on no extra crates.
 pub mod preprocessing;
 
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
-/// species (Adelie, Chinstrap, Gentoo) based on bill and flipper measurements,
+/// species (Adelie, Chinstrap, Gentoo). It uses bill and flipper measurements,
 /// body mass, and categorical island/sex features. A modern alternative to Iris.
 pub mod palmer_penguins;
 
 /// Sentiment Labelled Sentences dataset module.
 ///
 /// Contains the Sentiment Labelled Sentences dataset (UCI, Kotzias et al. 2015)
-/// for binary **text** classification: labelling 3,000 review sentences from
+/// for binary **text** classification. It labels 3,000 review sentences from
 /// three sites (Amazon, IMDb, Yelp) as `positive` or `negative`. Like
-/// [`sms_spam`]/[`youtube_spam`] it is a text-modality loader (document accessor
-/// `texts()`, not `features()`), but it also carries per-sample **metadata** —
-/// which site each sentence came from — via a `sources()` accessor, making
-/// `SentimentSentencesData` a `(texts, sources, labels)` triple. Sourced from a
-/// ZIP archive of three per-site files.
+/// [`sms_spam`] and [`youtube_spam`], it is a text-modality loader (document
+/// accessor `texts()`, not `features()`). It also carries per-sample
+/// **metadata**, which site each sentence came from, via a `sources()` accessor.
+/// This makes `SentimentSentencesData` a `(texts, sources, labels)` triple.
+/// Sourced from a ZIP archive of three per-site files.
 pub mod sentiment_sentences;
 
 /// SMS Spam Collection dataset module.
 ///
-/// Contains the SMS Spam Collection dataset (UCI, Almeida & Hidalgo 2011) for
-/// binary **text** classification: labelling 5,574 SMS messages as `ham` or
-/// `spam`. The crate's first text-modality loader — there is no feature matrix,
-/// so the document accessor is `texts()` (an `Array1<String>` of raw messages)
-/// rather than `features()`. Sourced from a ZIP archive.
+/// Contains the SMS Spam Collection dataset (UCI, Almeida and Hidalgo 2011) for
+/// binary **text** classification: labeling 5,574 SMS messages as `ham` or
+/// `spam`. This is the crate's first text-modality loader. There is no feature
+/// matrix, so the document accessor is `texts()` (an `Array1<String>` of raw
+/// messages) rather than `features()`. Sourced from a ZIP archive.
 pub mod sms_spam;
 
 /// Spambase dataset module.
 ///
 /// Contains the Spambase dataset (UCI, Hopkins et al. 1999) for binary
-/// classification: labelling 4,601 emails as `ham` or `spam` from 57 numeric
-/// features — word and character frequencies plus capital-run-length statistics.
-/// The feature-engineered counterpart to the crate's raw-text spam corpora
-/// ([`sms_spam`], [`youtube_spam`]): the vectorization those loaders leave to you
-/// is already done here, so it drops straight into a numeric model.
+/// classification. It labels 4,601 emails as `ham` or `spam` from 57 numeric
+/// features: word and character frequencies, plus capital-run-length statistics.
+/// This is the feature-engineered counterpart to the crate's raw-text spam
+/// corpora ([`sms_spam`], [`youtube_spam`]). Those loaders leave vectorization to
+/// you, but Spambase already does it, so it drops straight into a numeric model.
 pub mod spambase;
 
 /// Titanic dataset module.
@@ -318,10 +326,10 @@ pub mod titanic;
 
 /// The [`traits::MlDataset`] trait implemented by every loader in this crate.
 ///
-/// Provides the container operations that are the same whatever a loader parses
-/// into — lazy access, cache inspection, cache invalidation, and a uniform sample
-/// count — so code can be written generically over "some dataset" instead of one
-/// concrete struct.
+/// Provides the container operations that stay the same whatever a loader parses
+/// into: lazy access, cache inspection, cache invalidation, and a uniform sample
+/// count. With it, you can write code generically over "some dataset" instead of
+/// one concrete struct.
 pub mod traits;
 
 /// Wine Quality dataset module.
@@ -340,12 +348,13 @@ pub mod wine_recognition;
 
 /// YouTube Spam Collection dataset module.
 ///
-/// Contains the YouTube Spam Collection dataset (UCI, Alberto, Lochter & Almeida
-/// 2017) for binary **text** classification: labelling 1,956 comments from five
-/// popular music videos as `ham` or `spam`. Like [`sms_spam`] (a sibling by the
-/// same authors) it is a text-modality loader — there is no feature matrix, so
-/// the document accessor is `texts()` (an `Array1<String>` of raw comments)
-/// rather than `features()`. Sourced from a ZIP archive of five per-video CSVs.
+/// Contains the YouTube Spam Collection dataset (UCI, Alberto, Lochter, and
+/// Almeida 2017) for binary **text** classification. It labels 1,956 comments
+/// from five popular music videos as `ham` or `spam`. Like [`sms_spam`] (a
+/// sibling by the same authors), it is a text-modality loader. There is no
+/// feature matrix, so the document accessor is `texts()` (an `Array1<String>` of
+/// raw comments) rather than `features()`. Sourced from a ZIP archive of five
+/// per-video CSVs.
 pub mod youtube_spam;
 
 pub use abalone::Abalone;

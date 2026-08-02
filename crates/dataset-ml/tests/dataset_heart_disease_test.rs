@@ -41,8 +41,8 @@ fn assert_heart_disease_semantics(features: &ndarray::Array2<f64>, labels: &ndar
         "labels must contain at least one presence (>0)"
     );
 
-    // Every non-missing feature value is finite; NaN marks the source's `?`. Only
-    // `ca` (column 11) and `thal` (column 12) carry missing values.
+    // Every non-missing feature value is finite. NaN marks the source's `?` value.
+    // Only `ca` (column 11) and `thal` (column 12) can have missing values.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let v = features[[row, col]];
@@ -78,10 +78,8 @@ fn assert_heart_disease_semantics(features: &ndarray::Array2<f64>, labels: &ndar
 }
 
 #[test]
-// Verifies that the Heart Disease dataset loads with the correct shape, target
-// domain, and numeric feature domain (including the ? -> NaN mapping).
 fn test_load_heart_disease() {
-    let download_dir = "./test_load_heart_disease"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_heart_disease"; // the code creates the directory if it does not exist
 
     let dataset = HeartDisease::new(download_dir);
     let features = dataset.features().unwrap();
@@ -89,18 +87,16 @@ fn test_load_heart_disease() {
 
     assert_heart_disease_semantics(features, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Heart Disease loading uses a pre-downloaded cached file without re-downloading.
 fn test_heart_disease_no_need_download() {
     let download_dir = "./test_heart_disease_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Heart Disease dataset in advance, under the filename the loader expects
+    // download the dataset before the test, using the file name the loader expects
     download_to(
         HEART_DISEASE_URL,
         download_dir_path,
@@ -108,32 +104,28 @@ fn test_heart_disease_no_need_download() {
     )
     .unwrap();
 
-    // should use cached Heart Disease dataset
+    // this call uses the cached dataset instead of downloading it again
     let dataset = HeartDisease::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Heart Disease data file is detected and overwritten with the real dataset.
 fn test_heart_disease_overwrite() {
     let download_dir = "./test_heart_disease_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Heart Disease dataset in advance
     {
         let path = download_dir_path.join("heart_disease.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Heart Disease dataset
+    // this call replaces the fake file with the real dataset
     let dataset = HeartDisease::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(
         file_sha256_matches(
             &download_dir_path.join("heart_disease.csv"),
@@ -142,18 +134,16 @@ fn test_heart_disease_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
 fn test_heart_disease_into_data() {
     let download_dir = "./test_heart_disease_into_data";
 
     let dataset = HeartDisease::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // `into_data` consumes `dataset`. `features` and `labels` are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 13]);
     assert_eq!(labels.len(), N_SAMPLES);
@@ -170,12 +160,10 @@ fn test_heart_disease_into_data() {
     features[[0, 0]] = 60.0;
     assert_eq!(features[[0, 0]], 60.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_heart_disease_take_data() {
     let download_dir = "./test_heart_disease_take_data";
 
@@ -185,18 +173,16 @@ fn test_heart_disease_take_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 13]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // After `take_data`, the instance resets to unloaded, but remains usable. The
+    // next access reloads the data from the cached file and returns the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 13]);
     assert_eq!(reloaded_labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_heart_disease_get_data() {
     let download_dir = "./test_heart_disease_get_data";
 
@@ -204,18 +190,16 @@ fn test_heart_disease_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, `get_data` returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 13]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_heart_disease_get_data_mut() {
     let download_dir = "./test_heart_disease_get_data_mut";
 
@@ -223,16 +207,16 @@ fn test_heart_disease_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // This loads the dataset, then mutates the cached features in place. No clone
+    // or reload occurs.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 42.0;
     }
 
-    // The change persisted in the cache: a later access observes it.
+    // The change persists in the cache. A later access observes it.
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 42.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

@@ -2,18 +2,11 @@
 
 # dataset-core 工作区
 
-一个用于构建和使用 Rust 数据集加载器的 Cargo 工作区。架构层与内置数据集实现拆分为两个 crate，按需依赖。
+一个用于构建和使用 Rust 数据集加载器的 Cargo 工作区。本工作区将架构层与内置数据集实现拆分为两个 crate，你只需按需依赖。
 
-<p align="center">
-  <a href="https://www.rust-lang.org/"><img alt="rustc" src="https://img.shields.io/badge/rustc-1.88%2B-brown"></a>
-  <a href="https://doc.rust-lang.org/edition-guide/"><img alt="edition" src="https://img.shields.io/badge/edition-2024-orange"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green"></a>
-  <br>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml"><img alt="fmt" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml"><img alt="clippy" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml"><img alt="test" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml"><img alt="doc" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc"></a>
-</p>
+[![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE)
+
+[![fmt](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt)](https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml) [![clippy](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy)](https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml) [![test](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test)](https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml) [![doc](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc)](https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml)
 
 ## 包含的 crate
 
@@ -34,7 +27,7 @@ dataset-core （工作区根目录）
 ## 我应该使用哪个 crate？
 
 - **只需要为自己的数据做惰性缓存？** 依赖 [`dataset-core`](crates/dataset-core)。
-- **想直接使用经典 ML 数据集？** 依赖 [`dataset-ml`](crates/dataset-ml)——它会自动引入 `dataset-core`。
+- **想直接使用经典 ML 数据集？** 依赖 [`dataset-ml`](crates/dataset-ml)。它会自动引入 `dataset-core`。
 
 ``` toml
 # 最小依赖：仅 Dataset<T, E>
@@ -85,7 +78,7 @@ cargo fmt --all
 
 ## 许可证
 
-本项目采用 MIT 许可证——详见 [LICENSE](LICENSE)。
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE)。
 
 ## 行为准则
 
@@ -93,8 +86,8 @@ cargo fmt --all
 
 ## 贡献
 
-欢迎贡献！请在 [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) 提交 issue 或 pull request。
+欢迎贡献。请在 [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) 提交 issue 或 pull request。
 
 ## 作者
 
-**SomeB1oody** — [stanyin64@gmail.com](mailto:stanyin64@gmail.com)
+**SomeB1oody**：[stanyin64@gmail.com](mailto:stanyin64@gmail.com)

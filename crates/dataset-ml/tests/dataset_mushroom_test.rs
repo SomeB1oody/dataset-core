@@ -65,8 +65,8 @@ fn assert_mushroom_semantics(features: &ndarray::Array2<String>, labels: &ndarra
         );
     }
 
-    // The missing `?` token (only in `stalk-root`, column 10) is mapped to empty
-    // strings, so at least one empty value must be present there.
+    // The loader maps the missing `?` token (only in `stalk-root`, column 10) to
+    // empty strings, so at least one empty value must be present there.
     let has_empty_stalk_root = (0..features.nrows()).any(|row| features[[row, 10]].is_empty());
     assert!(
         has_empty_stalk_root,
@@ -78,25 +78,24 @@ fn assert_mushroom_semantics(features: &ndarray::Array2<String>, labels: &ndarra
 // Verifies that the Mushroom dataset loads with the correct shape, label values,
 // and categorical feature domains.
 fn test_load_mushroom() {
-    let download_dir = "./test_load_mushroom"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_mushroom"; // the loader creates this directory if it is missing
 
     let dataset = Mushroom::new(download_dir);
     let (features, labels) = dataset.data().unwrap();
 
     assert_mushroom_semantics(features, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Mushroom loading uses a pre-existing cached file without re-downloading.
+// Verifies that Mushroom reuses a cached file instead of a new download.
 fn test_mushroom_no_need_download() {
     let download_dir = "./test_load_mushroom_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
+    // The first load primes the cache. The second instance then reuses it.
     Mushroom::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("mushroom.csv"), MUSHROOM_SHA256).unwrap(),
@@ -106,51 +105,47 @@ fn test_mushroom_no_need_download() {
     let dataset = Mushroom::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Mushroom data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Mushroom data file and
+// overwrites it with the real dataset.
 fn test_mushroom_overwrite() {
     let download_dir = "./test_load_mushroom_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Mushroom dataset in advance
     {
         let mushroom_path = download_dir_path.join("mushroom.csv");
         let mut fake_mushroom = File::create(mushroom_path).unwrap();
         fake_mushroom.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Mushroom dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = Mushroom::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("mushroom.csv"), MUSHROOM_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_mushroom_into_data() {
     let download_dir = "./test_mushroom_into_data";
 
     let dataset = Mushroom::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 22]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = "z".to_string();
     assert_eq!(features[[0, 0]], "z");
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -163,12 +158,11 @@ fn test_mushroom_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 22]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

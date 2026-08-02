@@ -12,7 +12,7 @@ const DIGITS_SHA256: &str = "6ebb3d2fee246a4e99363262ddf8a00a3c41bee6014c373ed9d
 #[test]
 // Verifies that the Digits dataset loads with the correct feature shape and label count.
 fn test_load_digits() {
-    let download_dir = "./test_load_digits"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_digits"; // the loader creates this directory if it is missing
 
     let dataset = Digits::new(download_dir);
     let features = dataset.features().unwrap();
@@ -21,7 +21,7 @@ fn test_load_digits() {
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
 
-    let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+    let (features, labels) = dataset.data().unwrap(); // another way to get the features and labels
 
     // Semantic assertions: labels are exactly the ten digit classes 0..=9.
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
@@ -59,18 +59,17 @@ fn test_load_digits() {
         }
     }
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Digits loading uses a pre-existing cached file without re-downloading.
+// Verifies that Digits reuses a cached file instead of a new download.
 fn test_digits_no_need_download() {
     let download_dir = "./test_load_digits_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
+    // The first load primes the cache. The second instance then reuses it.
     Digits::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("digits.csv"), DIGITS_SHA256).unwrap(),
@@ -80,42 +79,39 @@ fn test_digits_no_need_download() {
     let dataset = Digits::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Digits data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Digits data file and
+// overwrites it with the real dataset.
 fn test_digits_overwrite() {
     let download_dir = "./test_load_digits_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Digits dataset in advance
     {
         let digits_path = download_dir_path.join("digits.csv");
         let mut fake_digits = File::create(digits_path).unwrap();
         fake_digits.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Digits dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = Digits::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("digits.csv"), DIGITS_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
+// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_digits_into_data() {
     let download_dir = "./test_digits_into_data";
 
     let dataset = Digits::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // `into_data()` consumes `dataset`. `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
@@ -128,11 +124,10 @@ fn test_digits_into_data() {
         "Digits should have exactly 10 unique classes"
     );
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 5.0;
     assert_eq!(features[[0, 0]], 5.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -147,13 +142,12 @@ fn test_digits_take_data() {
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // take_data() resets the instance to unloaded, but it stays usable. The next
+    // access reloads it from the cached file and yields the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[1797, 64]);
     assert_eq!(reloaded_labels.len(), 1797);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -166,13 +160,12 @@ fn test_digits_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -185,7 +178,8 @@ fn test_digits_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // This loads the dataset. It then mutates the cached features in place, with no
+    // clone and no reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 9.0;
@@ -195,6 +189,5 @@ fn test_digits_get_data_mut() {
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 9.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

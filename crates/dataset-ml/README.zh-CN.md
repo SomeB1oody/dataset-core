@@ -4,17 +4,9 @@
 
 构建于 [`dataset-core`](https://crates.io/crates/dataset-core) 之上的经典机器学习数据集开箱即用加载器。
 
-<p align="center">
-  <a href="https://www.rust-lang.org/"><img alt="rustc" src="https://img.shields.io/badge/rustc-1.88%2B-brown"></a>
-  <a href="https://doc.rust-lang.org/edition-guide/"><img alt="edition" src="https://img.shields.io/badge/edition-2024-orange"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green"></a>
-  <a href="https://crates.io/crates/dataset-ml"><img alt="crates.io" src="https://img.shields.io/crates/v/dataset-ml.svg"></a>
-  <br>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml"><img alt="fmt" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml"><img alt="clippy" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml"><img alt="test" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml"><img alt="doc" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc"></a>
-</p>
+[![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/dataset-ml.svg)](https://crates.io/crates/dataset-ml)
+
+[![fmt](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt)](https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml) [![clippy](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy)](https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml) [![test](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test)](https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml) [![doc](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc)](https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml)
 
 ## 概述
 
@@ -23,14 +15,14 @@
 - 在首次访问时下载源文件（通过 `ureq`），并对瞬时网络故障自动重试。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
 - 将源数据（CSV，文本语料则为从归档中解出的原始文档）用 [`ndarray`](https://crates.io/crates/ndarray) 解析为 `Array1` / `Array2`。
-- 通过 `dataset_core::Dataset<T, E>` 在内存中缓存解析结果——后续访问会直接返回 `&` 引用，零 I/O。
+- 通过 `dataset_core::Dataset<T, E>` 在内存中缓存解析结果。后续访问会直接返回 `&` 引用，零 I/O。
 
 每个模块同时也是封装 `Dataset<T, E>` 处理具体数据源的完整参考实现。
 
-另有两个模块面向**所有**数据集，而非某一个：
+另有两个模块面向所有数据集，而不是某一个：
 
-- [`preprocessing`](#预处理) —— 带随机种子的训练/测试集划分与 k 折划分（普通或按类别分层）、特征缩放、独热编码与标签编码。
-- [`traits`](#mldataset-trait) —— 所有加载器都实现的 `MlDataset` trait，用于编写泛型于“某个数据集”的代码。
+- [`preprocessing`](#预处理)：带随机种子的训练/测试集划分与 k 折划分（普通或按类别分层）、特征缩放、独热编码与标签编码。
+- [`traits`](#mldataset-trait)：所有加载器都实现的 `MlDataset` trait，用于编写泛型于“某个数据集”的代码。
 
 ## 安装
 
@@ -106,7 +98,7 @@ fn main() {
 - `labels()` / `targets()` — 标签/目标向量的引用
 - `data()` — 一次性获取所有引用
 
-> 文本加载器 **SmsSpam**、**YoutubeSpam**、**SentimentSentences**、**Newsgroups20** 和 **MovieReviewPolarity** 是例外：它们用 `texts()`（原始文档的 `Array1<String>`）代替 `features()`，因为文本语料没有固定的特征矩阵。**SentimentSentences** 还额外提供 `sources()`（每条句子来自哪个评论站点）；**Newsgroups20** 是唯一的**多分类**文本加载器（20 类），并提供 `new`/`new_test`/`new_all` 三个子集构造函数。
+> 文本加载器 **SmsSpam**、**YoutubeSpam**、**SentimentSentences**、**Newsgroups20** 和 **MovieReviewPolarity** 是例外。文本语料没有固定的特征矩阵，因此它们不提供 `features()`，而是提供 `texts()`（原始文档的 `Array1<String>`）。**SentimentSentences** 还提供 `sources()`（每条句子来自哪个评论站点）。**Newsgroups20** 是唯一的**多分类**文本加载器（20 类），并提供 `new`/`new_test`/`new_all` 三个子集构造函数。
 
 ## `MlDataset` trait
 
@@ -117,17 +109,17 @@ use dataset_ml::traits::MlDataset;
 use dataset_ml::{Iris, SmsSpam};
 
 fn describe<D: MlDataset>(dataset: &D) -> String {
-    format!("{} ({} 条样本)", D::NAME, dataset.n_samples().unwrap())
+    format!("{} ({} samples)", D::NAME, dataset.n_samples().unwrap())
 }
 
 fn main() {
-    println!("{}", describe(&Iris::new("./data")));     // iris (150 条样本)
-    println!("{}", describe(&SmsSpam::new("./data")));  // sms_spam (5574 条样本)
+    println!("{}", describe(&Iris::new("./data")));     // iris (150 samples)
+    println!("{}", describe(&SmsSpam::new("./data")));  // sms_spam (5574 samples)
 }
 ```
 
 | 方法                            | 描述                                                          |
-|---------------------------------|---------------------------------------------------------------|
+|---------------------------------|-----------------------------------------------------------------|
 | `load()` / `load_mut()`         | 按需加载后借用解析结果（`load_mut` 用于原地修改）            |
 | `peek()`                        | **不触发加载**地借用解析结果                                  |
 | `unload()`                      | 取出解析结果，加载器保持可复用                                |
@@ -135,11 +127,11 @@ fn main() {
 | `is_loaded()` / `storage_dir()` | 在不接触数据的前提下检视加载器                                |
 | `invalidate()`                  | 丢弃内存缓存——可回收大数据集占用的内存                       |
 
-trait 的方法名刻意与固有方法 `data()` / `get_data()` / `take_data()` 区分开，因此两套 API 不会互相遮蔽，且始终一致可用。
+trait 方法的命名刻意与固有方法 `data()` / `get_data()` / `take_data()` 区分开，因此这两套接口不会互相遮蔽。两者始终可用，且结果始终一致。
 
 ## 预处理
 
-`dataset_ml::preprocessing` 负责把加载器返回的数组变成模型能吃的输入。所有结果在给定种子下完全确定，且不引入任何额外依赖。
+`dataset_ml::preprocessing` 负责把加载器返回的数据转换成模型可以直接使用的输入。所有结果在给定种子下完全确定，且不需要任何额外的 crate。
 
 ```rust
 use dataset_ml::preprocessing::{stratified_split, standardize, label_encode};
@@ -163,7 +155,7 @@ fn main() {
 ```
 
 | 函数                                        | 用途                                                          |
-|---------------------------------------------|---------------------------------------------------------------|
+|---------------------------------------------|-----------------------------------------------------------------|
 | `train_test_split(n, ratio, seed)`          | 打乱后的训练/测试行索引                                       |
 | `stratified_split(labels, ratio, seed)`     | 同上，但保持各类别占比——适用于类别不平衡的数据集             |
 | `k_fold_indices(n, k, seed)`                | `k` 组 `(训练, 验证)` 索引；每个样本恰好被验证一次            |
@@ -173,7 +165,7 @@ fn main() {
 | `one_hot_encode(categorical, names)`        | 把类别型 `Array2<String>` 展开为指示列                        |
 | `label_encode(labels)` / `class_counts`     | 把标签映射为 `0..n_classes` 编码；统计每个类别的样本数        |
 
-划分函数返回的是**行索引**而非数组：一条样本分散在两到三个平行数组中，一份索引列表才能让它们保持对齐——用 ndarray 的 `select(Axis(0), &indices)` 取出即可。缩放器只在每列的**有限值**上统计，因此 `Titanic`、`PalmerPenguins`、`HeartDisease` 中标记缺失的 `NaN` 会保持缺失，而不会污染整列。
+划分函数返回的是**行索引**，而不是数组，因为一条样本的数据分散在两到三个平行数组中。用同一份索引列表，就能让这些数组中的样本保持对齐。如需得到数组，可以使用 ndarray 的 `select(Axis(0), &indices)`。缩放器只在每列的**有限值**上计算统计量。因此，`Titanic`、`PalmerPenguins`、`HeartDisease` 中标记缺失值的 `NaN` 会继续保持缺失，不会影响该列的统计结果。
 
 ## 从 `dataset-core` 0.1.x 迁移
 
@@ -193,18 +185,18 @@ fn main() {
 | `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`       | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`   |
 | `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality`   | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
 
-`dataset_core::utils::*` 和 `dataset_core::DatasetError` 保持不变——它们仍位于 [`dataset-core`](https://crates.io/crates/dataset-core) 的 `utils` 特性之下。
+`dataset_core::utils::*` 和 `dataset_core::DatasetError` 保持不变。它们仍位于 [`dataset-core`](https://crates.io/crates/dataset-core) 的 `utils` 特性之下。
 
 ## 性能考量
 
 - **首次访问**：下载文件（如果磁盘上不存在）、校验 SHA-256、解析并缓存到内存。
-- **后续访问**：返回缓存数据的引用——零分配、零 I/O。
-- **`.to_owned()`**：将缓存数据克隆为新的拥有值——仅在需要修改时使用。
-- **离线使用**：下载后数据集存储在磁盘上；后续运行无需网络连接。
+- **后续访问**：返回缓存数据的引用，零分配、零 I/O。
+- **`.to_owned()`**：克隆缓存数据，生成新的拥有值。仅在需要修改数据时使用它。
+- **离线使用**：首次下载完成后，数据集会保留在磁盘上。后续运行不需要联网。
 
 ## 许可证
 
-本项目采用 MIT 许可证——详见 [LICENSE](../../LICENSE)。
+本项目采用 MIT 许可证。详见 [LICENSE](../../LICENSE)。
 
 ## 作者
 

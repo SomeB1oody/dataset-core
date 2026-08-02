@@ -15,7 +15,7 @@ const IONOSPHERE_SHA256: &str = "46d52186b84e20be52918adb93e8fb9926b34795ff7504c
 /// The Ionosphere dataset has this many samples.
 const N_SAMPLES: usize = 351;
 
-/// Assert the Ionosphere dataset invariants: the schema shape, the two `class`
+/// Checks the Ionosphere dataset invariants: the schema shape, the two `class`
 /// classes, and the normalized numeric feature domain.
 fn assert_ionosphere_semantics(
     features: &ndarray::Array2<f64>,
@@ -72,7 +72,7 @@ fn assert_ionosphere_semantics(
 // Verifies that the Ionosphere dataset loads with the correct shape, label values,
 // and normalized feature domain.
 fn test_load_ionosphere() {
-    let download_dir = "./test_load_ionosphere"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_ionosphere"; // if the directory does not exist, the code creates it
 
     let dataset = Ionosphere::new(download_dir);
     let features = dataset.features().unwrap();
@@ -80,62 +80,57 @@ fn test_load_ionosphere() {
 
     assert_ionosphere_semantics(features, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Ionosphere loading uses a pre-downloaded cached file without re-downloading.
+// Verifies that Ionosphere loading reuses an existing cached file instead of downloading it again.
 fn test_ionosphere_no_need_download() {
     let download_dir = "./test_ionosphere_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Ionosphere dataset in advance, under the filename the loader expects
+    // download the Ionosphere dataset in advance and save it under the filename the loader expects
     download_to(IONOSPHERE_URL, download_dir_path, Some("ionosphere.csv")).unwrap();
 
-    // should use cached Ionosphere dataset
+    // this call uses the cached Ionosphere dataset
     let dataset = Ionosphere::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Ionosphere data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Ionosphere data file and overwrites it with the real dataset.
 fn test_ionosphere_overwrite() {
     let download_dir = "./test_ionosphere_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Ionosphere dataset in advance
     {
         let path = download_dir_path.join("ionosphere.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Ionosphere dataset
+    // this call overwrites the fake Ionosphere dataset with the real data
     let dataset = Ionosphere::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(
         file_sha256_matches(&download_dir_path.join("ionosphere.csv"), IONOSPHERE_SHA256).unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
+// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_ionosphere_into_data() {
     let download_dir = "./test_ionosphere_into_data";
 
     let dataset = Ionosphere::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // into_data() consumed `dataset`. `features` and `labels` are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 34]);
     assert_eq!(labels.len(), N_SAMPLES);
@@ -150,11 +145,10 @@ fn test_ionosphere_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // Owned data allows direct mutation and needs no `to_owned()` clone.
     features[[0, 0]] = 0.5;
     assert_eq!(features[[0, 0]], 0.5);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -169,13 +163,12 @@ fn test_ionosphere_take_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 34]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // After take_data, the instance resets to unloaded but stays usable. The next
+    // access reloads it from the cached file and yields the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 34]);
     assert_eq!(reloaded_labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -188,13 +181,12 @@ fn test_ionosphere_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // Trigger loading. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 34]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -207,7 +199,7 @@ fn test_ionosphere_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // Load the data. Then mutate the cached features in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 0.25;
@@ -217,6 +209,5 @@ fn test_ionosphere_get_data_mut() {
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 0.25);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

@@ -17,7 +17,7 @@ const ROW_STRIDE: usize = 5000;
 // Verifies that the Cover Type dataset loads with the correct shape, label set,
 // and one-hot structure of the wilderness/soil feature blocks.
 fn test_load_covtype() {
-    let download_dir = "./test_load_covtype"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_covtype"; // the loader creates this directory if it is missing
 
     let dataset = Covtype::new(download_dir);
     let (features, labels) = dataset.data().unwrap();
@@ -71,7 +71,7 @@ fn test_load_covtype() {
                 v
             );
         }
-        // Elevation (column 0) is a plausible positive altitude in metres.
+        // Elevation (column 0) is a plausible positive altitude in meters.
         assert!(
             (1000.0..=5000.0).contains(&features[[row, 0]]),
             "row {} elevation {} out of plausible range",
@@ -80,18 +80,17 @@ fn test_load_covtype() {
         );
     }
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Covtype loading uses a pre-existing cached file without re-downloading.
+// Verifies that Covtype reuses a cached file instead of a new download.
 fn test_covtype_no_need_download() {
     let download_dir = "./test_load_covtype_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
+    // The first load primes the cache. The second instance then reuses it.
     Covtype::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("covtype.csv"), COVTYPE_SHA256).unwrap(),
@@ -101,42 +100,39 @@ fn test_covtype_no_need_download() {
     let dataset = Covtype::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Covtype data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Covtype data file and
+// overwrites it with the real dataset.
 fn test_covtype_overwrite() {
     let download_dir = "./test_load_covtype_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Covtype dataset in advance
     {
         let covtype_path = download_dir_path.join("covtype.csv");
         let mut fake_covtype = File::create(covtype_path).unwrap();
         fake_covtype.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Covtype dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = Covtype::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("covtype.csv"), COVTYPE_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
+// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_covtype_into_data() {
     let download_dir = "./test_covtype_into_data";
 
     let dataset = Covtype::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // `into_data()` consumes `dataset`. `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[581012, 54]);
     assert_eq!(labels.len(), 581012);
@@ -145,11 +141,10 @@ fn test_covtype_into_data() {
     let unique_labels: HashSet<_> = labels.iter().copied().collect();
     assert_eq!(unique_labels, (1u8..=7).collect::<HashSet<_>>());
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 1234.0;
     assert_eq!(features[[0, 0]], 1234.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -162,12 +157,11 @@ fn test_covtype_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[581012, 54]);
     assert_eq!(labels.len(), 581012);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

@@ -1,9 +1,9 @@
 //! Palmer Penguins dataset.
 //!
-//! Size measurements for three penguin species observed on three islands in the
-//! Palmer Archipelago, Antarctica. A modern, approachable alternative to Iris
-//! for multi-class classification, with both numeric and categorical features
-//! and some missing values.
+//! Size measurements for three penguin species, observed on three islands in
+//! the Palmer Archipelago, Antarctica. This is a beginner-friendly alternative
+//! to Iris for multi-class classification. It has both numeric and categorical
+//! features, and some values are missing.
 //!
 //! **Features (7, mixed):**
 //! - String features: `island`, `sex`
@@ -16,7 +16,7 @@
 //! **Application:** Multi-class classification / species recognition
 //!
 //! **Missing values:** the source encodes them as the literal string `NA`.
-//! Numeric fields become `NaN`; string fields become empty strings. `species`
+//! Numeric fields become `NaN`. String fields become empty strings. `species`
 //! is never missing.
 //!
 //! **Source:** Horst AM, Hill AP, Gorman KB (2020). palmerpenguins R package.
@@ -63,12 +63,14 @@ type PenguinsData = (Array2<String>, Array2<f64>, Array1<&'static str>);
 /// order: `species`, `island`, `bill_length_mm`, `bill_depth_mm`,
 /// `flipper_length_mm`, `body_mass_g`, `sex`, `year`.
 ///
-/// Every field is deserialized as a raw `String` because the source encodes
-/// missing values as the literal token `NA` (not an empty field), so the numeric
-/// columns are parsed and `NA`-handled manually rather than via `Option<f64>`.
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the loader disables csv's header handling), so this struct is independent of
-/// the exact header spelling.
+/// This loader deserializes every field as a raw `String`. The source encodes
+/// missing values as the literal token `NA`, not as an empty field. The loader
+/// parses the numeric columns and handles `NA` manually, instead of using
+/// `Option<f64>`.
+///
+/// This struct declares its fields in CSV column order, and the code deserializes
+/// them **positionally**. The loader disables the `csv` crate's header handling,
+/// so this struct does not depend on the exact header spelling.
 #[derive(Deserialize)]
 struct PenguinRecord {
     species: String,
@@ -93,8 +95,8 @@ fn parse_numeric(value: &str, field_name: &str, line_num: usize) -> Result<f64, 
     }
 }
 
-/// Normalize a categorical cell: the missing-value token (`NA`) becomes an empty
-/// string, mirroring how the other mixed dataset (Titanic) represents missing
+/// Normalize a categorical cell. The missing-value token (`NA`) becomes an empty
+/// string. This matches how the other mixed dataset (Titanic) represents missing
 /// text fields.
 fn clean_categorical(value: String) -> String {
     if value == "NA" { String::new() } else { value }
@@ -103,30 +105,30 @@ fn clean_categorical(value: String) -> String {
 /// A struct representing the Palmer Penguins dataset with lazy loading.
 ///
 /// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// Once loaded, the dataset caches the data for subsequent accesses.
 ///
 /// # About Dataset
 ///
-/// The data were collected and made available by Dr. Kristen Gorman and the
-/// Palmer Station Long Term Ecological Research (LTER) program. They contain
-/// size measurements for adult foraging penguins of three species (Adelie,
-/// Chinstrap, Gentoo) observed on three islands (Biscoe, Dream, Torgersen) in
-/// the Palmer Archipelago, Antarctica. It is a popular, beginner-friendly
-/// alternative to the Iris dataset.
+/// Dr. Kristen Gorman and the Palmer Station Long Term Ecological Research (LTER)
+/// program collected the data and made it available. The data hold size
+/// measurements for adult foraging penguins of three species: Adelie, Chinstrap,
+/// and Gentoo. Researchers observed the penguins on three islands in the Palmer
+/// Archipelago, Antarctica: Biscoe, Dream, and Torgersen. It is a popular,
+/// beginner-friendly alternative to the Iris dataset.
 ///
 /// # Feature columns
 ///
-/// The features are split across two matrices: a string (categorical) matrix of
-/// shape `(344, 2)` and a numeric matrix of shape `(344, 5)`. The source encodes
-/// missing values as the literal token `NA`; numeric cells become `NaN` and
-/// string cells become empty strings (`""`).
+/// The loader splits features across two matrices: a string (categorical) matrix
+/// of shape `(344, 2)` and a numeric matrix of shape `(344, 5)`. The source
+/// encodes missing values as the literal token `NA`. Numeric cells become `NaN`,
+/// and string cells become empty strings (`""`).
 ///
 /// String features (shape `(344, 2)`), in column order:
 ///
 /// | Columns | Attributes | Unit |
 /// |---------|------------|------|
-/// | `0`     | `island` (Biscoe, Dream, or Torgersen; `""` if missing) | |
-/// | `1`     | `sex` (male or female; `""` if missing) | |
+/// | `0`     | `island` (Biscoe, Dream, or Torgersen). Empty string if missing. | |
+/// | `1`     | `sex` (male or female). Empty string if missing. | |
 ///
 /// Numeric features (shape `(344, 5)`), in column order (may be `NaN` if missing
 /// in the source):
@@ -157,35 +159,40 @@ fn clean_categorical(value: String) -> String {
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because all its fields
+/// implement them. This makes it safe to share across threads. The internal
+/// [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::palmer_penguins::PalmerPenguins;
 ///
-/// let download_dir = "./palmer_penguins"; // the code will create the directory if it doesn't exist
+/// // the loader creates this directory if it does not exist yet
+/// let download_dir = "./palmer_penguins";
 ///
 /// let mut dataset = PalmerPenguins::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
+/// // data() also returns all data at once
+/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
 /// assert_eq!(string_features.shape(), &[344, 2]);
 /// assert_eq!(numeric_features.shape(), &[344, 5]);
 /// assert_eq!(labels.len(), 344);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits them in place. This needs no clone and no reload, and the change
+/// // stays in the cache. Prefer this method over `.to_owned()` when you only
+/// // need to change values.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 40.0;
 ///     labels[0] = "Gentoo";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out, with no `to_owned()` clone, and
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[344, 2]);
 /// assert_eq!(owned_numerics.shape(), &[344, 5]);
@@ -206,12 +213,12 @@ pub struct PalmerPenguins {
 impl PalmerPenguins {
     /// Create a new PalmerPenguins instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily, on the first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset is stored.
     ///
     /// # Returns
     ///
@@ -222,9 +229,8 @@ impl PalmerPenguins {
         }
     }
 
-    /// Acquire and parse the Palmer Penguins dataset.
+    /// Get and parse the Palmer Penguins dataset.
     fn load_data(dir: &str) -> Result<PenguinsData, DatasetError> {
-        // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
             PENGUINS_FILENAME,
@@ -236,7 +242,8 @@ impl PalmerPenguins {
             },
         )?;
 
-        // csv deserializes into the struct. The file has a header row, so skip it.
+        // The `csv` crate deserializes each row into the struct. The file has a
+        // header row, so the code skips it explicitly.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -338,7 +345,7 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (344 samples)
+    /// - Dataset size does not match expected dimensions (344 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -359,7 +366,7 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (344 samples)
+    /// - Dataset size does not match expected dimensions (344 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
@@ -383,7 +390,7 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (344 samples)
+    /// - Dataset size does not match expected dimensions (344 samples)
     pub fn data(&self) -> Result<&PenguinsData, DatasetError> {
         self.dataset.load()
     }
@@ -391,11 +398,10 @@ impl PalmerPenguins {
     /// Get string features, numeric features and labels as references
     /// **without** triggering loading.
     ///
-    /// Unlike [`PalmerPenguins::data`], which loads the dataset on first call,
-    /// this never runs the loader: if the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing. Use it when you only want the
-    /// data if it is already cached and want to avoid paying the download/parse
-    /// cost otherwise.
+    /// Unlike [`PalmerPenguins::data`], this method never runs the loader. If the
+    /// data is not loaded yet, it returns `None` instead of downloading and
+    /// parsing it. Use this method when you want the data only if it is already
+    /// cached. This skips the cost of a download and a parse.
     ///
     /// # Returns
     ///
@@ -409,15 +415,16 @@ impl PalmerPenguins {
     /// Get mutable references to string features, numeric features, and labels
     /// for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize numeric
-    /// features, replace missing values) with no `to_owned()` clone and without
-    /// removing them from the cache: the changes persist, so later
-    /// [`PalmerPenguins::features`], [`PalmerPenguins::data`], or
-    /// [`PalmerPenguins::get_data`] calls observe them.
+    /// This lets you change the cached arrays directly. For example, you can
+    /// normalize numeric features or replace missing values. This needs no
+    /// `.to_owned()` clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`PalmerPenguins::features`],
+    /// [`PalmerPenguins::data`], or [`PalmerPenguins::get_data`] see the changes.
     ///
-    /// Like [`PalmerPenguins::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`PalmerPenguins::data`]) first if you need to ensure the data is present.
+    /// Like [`PalmerPenguins::get_data`], this does **not** trigger loading. It
+    /// returns `None` if the dataset has not been loaded yet. If you need the data
+    /// to be present, call a loading accessor first, for example
+    /// [`PalmerPenguins::data`].
     ///
     /// # Returns
     ///
@@ -433,12 +440,12 @@ impl PalmerPenguins {
     /// and labels.
     ///
     /// Unlike [`PalmerPenguins::data`], which borrows the cached data, this moves
-    /// it out and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// the data out and returns owned arrays directly. It needs no `to_owned()`
+    /// clone. If the dataset has not loaded yet, the first access loads it.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`PalmerPenguins::take_data`] instead — it takes `&mut self` and leaves the
+    /// This **consumes** `self`. After the call, you cannot use the instance again.
+    /// If you want owned data but need to keep using the instance, use
+    /// [`PalmerPenguins::take_data`] instead. It takes `&mut self` and leaves the
     /// instance reusable.
     ///
     /// # Returns
@@ -463,12 +470,13 @@ impl PalmerPenguins {
     /// dataset, leaving it reusable.
     ///
     /// Like [`PalmerPenguins::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`PalmerPenguins::features`] or
-    /// [`PalmerPenguins::data`]) loads the dataset again.
+    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
+    /// and moves the cached data out. This resets the instance to its unloaded
+    /// state. The next accessor call, for example [`PalmerPenguins::features`] or
+    /// [`PalmerPenguins::data`], loads the dataset again.
     ///
-    /// Use [`PalmerPenguins::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`PalmerPenguins::into_data`]
+    /// instead.
     ///
     /// # Returns
     ///

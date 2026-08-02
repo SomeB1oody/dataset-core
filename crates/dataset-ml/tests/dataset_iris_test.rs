@@ -10,7 +10,7 @@ use std::path::Path;
 #[test]
 // Verifies that the Iris dataset loads with the correct feature shape and label count.
 fn test_load_iris() {
-    let download_dir = "./test_load_iris"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_iris"; // the loader creates the directory if it does not exist
 
     let dataset = Iris::new(download_dir);
     let features = dataset.features().unwrap();
@@ -23,12 +23,12 @@ fn test_load_iris() {
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
-    let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
-    // you can use `.to_owned()` to get owned copies of the data
+    let (features, labels) = dataset.data().unwrap(); // data() also returns the features and labels
+    // `.to_owned()` returns owned copies of the data
     let mut features_owned = features.to_owned();
     let mut labels_owned = labels.to_owned();
 
-    // Semantic assertions: verify label values are valid Iris species
+    // Semantic assertions: the labels must be valid Iris species
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels.len(),
@@ -66,7 +66,6 @@ fn test_load_iris() {
     features_owned[[0, 0]] = 5.5;
     labels_owned[0] = "setosa-modified";
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -77,7 +76,7 @@ fn test_iris_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Iris dataset in advance
+    // download the Iris dataset in advance
     download_to(
         "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv",
         download_dir_path,
@@ -85,16 +84,16 @@ fn test_iris_no_need_download() {
     )
     .unwrap();
 
-    // should use cached Iris dataset
+    // should use the cached Iris dataset
     let dataset = Iris::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Iris data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Iris data file and
+// overwrites it with the real dataset.
 fn test_iris_overwrite() {
     let download_dir = "./test_load_iris_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -110,7 +109,7 @@ fn test_iris_overwrite() {
     let dataset = Iris::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
+    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("iris.csv"),
@@ -119,18 +118,17 @@ fn test_iris_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
+// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_iris_into_data() {
     let download_dir = "./test_iris_into_data";
 
     let dataset = Iris::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`labels` are fully owned.
+    // into_data() consumes `dataset`. The returned `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
@@ -143,11 +141,10 @@ fn test_iris_into_data() {
         "Iris should have exactly 3 unique species"
     );
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 5.5;
     assert_eq!(features[[0, 0]], 5.5);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -162,13 +159,12 @@ fn test_iris_take_data() {
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
+    // take_data() resets the instance to unloaded, but it stays usable. The next
     // access reloads it (from the cached file) and yields the same shapes.
     let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[150, 4]);
     assert_eq!(reloaded_labels.len(), 150);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -181,13 +177,12 @@ fn test_iris_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // Trigger loading. Then get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -200,7 +195,7 @@ fn test_iris_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;
@@ -210,6 +205,5 @@ fn test_iris_get_data_mut() {
     let (features, _labels) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 99.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

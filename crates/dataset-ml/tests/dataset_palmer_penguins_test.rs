@@ -13,9 +13,8 @@ const PENGUINS_URL: &str =
 const PENGUINS_SHA256: &str = "f204db2c753b0937caac3cb35258562c14f073e4bbc76be24b4c51ce22767a93";
 
 #[test]
-// Verifies that the Palmer Penguins dataset loads with the correct feature shapes and label count.
 fn test_load_palmer_penguins() {
-    let download_dir = "./test_load_palmer_penguins"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_palmer_penguins"; // the code creates the directory if it does not exist
 
     let dataset = PalmerPenguins::new(download_dir);
     let (string_features, numeric_features) = dataset.features().unwrap();
@@ -69,9 +68,9 @@ fn test_load_palmer_penguins() {
         );
     }
 
-    // Semantic assertions: numeric features are either finite-and-positive or
-    // NaN (the source's missing-value marker). The dataset is known to contain a
-    // few missing measurements, so at least one NaN is expected.
+    // Semantic assertions: numeric features are either finite and positive, or NaN,
+    // the source's missing-value marker. The dataset has a few missing
+    // measurements, so the test expects at least one NaN.
     let mut saw_nan = false;
     for row in 0..numeric_features.nrows() {
         for col in 0..numeric_features.ncols() {
@@ -94,60 +93,52 @@ fn test_load_palmer_penguins() {
         "expected at least one NaN from the dataset's missing values"
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Palmer Penguins loading uses a pre-downloaded cached file without re-downloading.
 fn test_palmer_penguins_no_need_download() {
     let download_dir = "./test_palmer_penguins_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Palmer Penguins dataset in advance
+    // download the dataset before the test
     download_to(PENGUINS_URL, download_dir_path, None).unwrap();
 
-    // should use cached Palmer Penguins dataset
+    // this call uses the cached dataset instead of downloading it again
     let dataset = PalmerPenguins::new(download_dir);
     let _ = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Palmer Penguins data file is detected and overwritten with the real dataset.
 fn test_palmer_penguins_overwrite() {
     let download_dir = "./test_palmer_penguins_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Palmer Penguins dataset in advance
     {
         let path = download_dir_path.join("penguins.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Palmer Penguins dataset
+    // this call replaces the fake file with the real dataset
     let dataset = PalmerPenguins::new(download_dir);
     let _ = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("penguins.csv"), PENGUINS_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels, consuming the dataset.
 fn test_palmer_penguins_into_data() {
     let download_dir = "./test_palmer_penguins_into_data";
 
     let dataset = PalmerPenguins::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data` consumes `dataset`. The arrays are now fully owned.
 
     assert_eq!(strings.shape(), &[344, 2]);
     assert_eq!(numerics.shape(), &[344, 5]);
@@ -167,12 +158,10 @@ fn test_palmer_penguins_into_data() {
     numerics[[0, 0]] = 40.0;
     assert_eq!(numerics[[0, 0]], 40.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_palmer_penguins_take_data() {
     let download_dir = "./test_palmer_penguins_take_data";
 
@@ -183,19 +172,17 @@ fn test_palmer_penguins_take_data() {
     assert_eq!(numerics.shape(), &[344, 5]);
     assert_eq!(labels.len(), 344);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // After `take_data`, the instance resets to unloaded, but remains usable. The
+    // next access reloads the data from the cached file and returns the same shapes.
     let (r_strings, r_numerics, r_labels) = dataset.data().unwrap();
     assert_eq!(r_strings.shape(), &[344, 2]);
     assert_eq!(r_numerics.shape(), &[344, 5]);
     assert_eq!(r_labels.len(), 344);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_palmer_penguins_get_data() {
     let download_dir = "./test_palmer_penguins_get_data";
 
@@ -203,19 +190,17 @@ fn test_palmer_penguins_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, `get_data` returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[344, 2]);
     assert_eq!(numerics.shape(), &[344, 5]);
     assert_eq!(labels.len(), 344);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_palmer_penguins_get_data_mut() {
     let download_dir = "./test_palmer_penguins_get_data_mut";
 
@@ -223,16 +208,16 @@ fn test_palmer_penguins_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached numeric features in place (no clone, no reload).
+    // This loads the dataset, then mutates the cached numeric features in place. No
+    // clone or reload occurs.
     dataset.data().unwrap();
     if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
         numerics[[0, 0]] = 99.0;
     }
 
-    // The change persisted in the cache: a later access observes it.
+    // The change persists in the cache. A later access observes it.
     let (_strings, numerics, _labels) = dataset.data().unwrap();
     assert_eq!(numerics[[0, 0]], 99.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

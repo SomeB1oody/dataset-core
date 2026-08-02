@@ -4,33 +4,25 @@
 
 Ready-to-use loaders for classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core).
 
-<p align="center">
-  <a href="https://www.rust-lang.org/"><img alt="rustc" src="https://img.shields.io/badge/rustc-1.88%2B-brown"></a>
-  <a href="https://doc.rust-lang.org/edition-guide/"><img alt="edition" src="https://img.shields.io/badge/edition-2024-orange"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green"></a>
-  <a href="https://crates.io/crates/dataset-ml"><img alt="crates.io" src="https://img.shields.io/crates/v/dataset-ml.svg"></a>
-  <br>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml"><img alt="fmt" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml"><img alt="clippy" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml"><img alt="test" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml"><img alt="doc" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc"></a>
-</p>
+[![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/dataset-ml.svg)](https://crates.io/crates/dataset-ml)
+
+[![fmt](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt)](https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml) [![clippy](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy)](https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml) [![test](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test)](https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml) [![doc](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc)](https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml)
 
 ## Overview
 
-`dataset-ml` ships with loaders for 29 classic ML datasets. Each loader:
+`dataset-ml` includes loaders for 29 classic ML datasets. Each loader:
 
-- Downloads the source file on first access (with `ureq`), retrying transient network failures.
+- Downloads the source file on first access with `ureq`, and retries transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
 - Parses the source (CSV, or raw documents extracted from an archive for the text corpora) into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
-- Caches the parsed result in memory via `dataset_core::Dataset<T, E>` — subsequent accesses return a `&` reference with zero I/O.
+- Caches the parsed result in memory using `dataset_core::Dataset<T, E>`. Later accesses return a `&` reference with zero I/O.
 
 Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
 
 Two modules apply to every dataset rather than to one of them:
 
-- [`preprocessing`](#preprocessing) — seeded train/test and k-fold splits (plain or class-stratified), feature scaling, one-hot encoding, and label encoding.
-- [`traits`](#the-mldataset-trait) — the `MlDataset` trait every loader implements, for code written generically over "some dataset".
+- [`preprocessing`](#preprocessing): seeded train/test and k-fold splits (plain or class-stratified), feature scaling, one-hot encoding, and label encoding.
+- [`traits`](#the-mldataset-trait): the `MlDataset` trait every loader implements, for code written generically over "some dataset".
 
 ## Installation
 
@@ -73,7 +65,7 @@ dataset-ml = "0.3"
 | `Newsgroups20`                             | `dataset_ml::newsgroups20`                         | 11,314 / 18,846 | text | Classification | Jason Rennie / 20 Newsgroups |
 | `MovieReviewPolarity`                      | `dataset_ml::movie_review_polarity`                | 2,000   | text     | Classification | Cornell (Pang & Lee) |
 
-All structs are also re-exported at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
+The crate also re-exports all structs at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
 
 ## Usage
 
@@ -101,16 +93,16 @@ fn main() {
 
 Each dataset struct follows the same pattern:
 
-- `new(storage_dir)` — create instance (no I/O)
-- `features()` — reference to feature matrix
-- `labels()` / `targets()` — reference to label/target vector
-- `data()` — all references at once
+- `new(storage_dir)`: create instance (no I/O)
+- `features()`: reference to feature matrix
+- `labels()` / `targets()`: reference to label/target vector
+- `data()`: all references at once
 
-> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception: instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents), since a text corpus has no fixed feature matrix. **SentimentSentences** additionally exposes `sources()` (the review site each sentence came from); **Newsgroups20** is the only **multi-class** text loader (20 classes) and offers `new`/`new_test`/`new_all` subset constructors.
+> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception. A text corpus has no fixed feature matrix, so instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents). **SentimentSentences** also exposes `sources()` (the review site each sentence came from). **Newsgroups20** is the only **multi-class** text loader (20 classes) and offers `new`/`new_test`/`new_all` subset constructors.
 
 ## The `MlDataset` trait
 
-Every loader implements `dataset_ml::traits::MlDataset`, which covers the container operations that are the same whatever the loader parses into — so you can write a function over "some dataset" instead of one concrete struct:
+Every loader implements `dataset_ml::traits::MlDataset`, which covers the container operations that are the same whatever the loader parses into. This lets you write a function over "some dataset" instead of one concrete struct:
 
 ```rust
 use dataset_ml::traits::MlDataset;
@@ -133,13 +125,13 @@ fn main() {
 | `unload()`                      | Move the parsed data out, leaving the loader reusable                           |
 | `n_samples()`                   | Sample count, uniform across pair- and triple-shaped datasets                   |
 | `is_loaded()` / `storage_dir()` | Inspect the loader without touching the data                                    |
-| `invalidate()`                  | Drop the in-memory cache — reclaims the memory a large dataset holds            |
+| `invalidate()`                  | Drop the in-memory cache to free the memory a large dataset holds               |
 
 The trait's names deliberately differ from the inherent `data()` / `get_data()` / `take_data()`, so neither set ever shadows the other. Both are always available and always agree.
 
 ## Preprocessing
 
-`dataset_ml::preprocessing` turns what the loaders return into what a model consumes. Everything is deterministic given a seed and pulls in no extra crates.
+`dataset_ml::preprocessing` turns what the loaders return into what a model consumes. Everything is deterministic given a seed and needs no extra crates.
 
 ```rust
 use dataset_ml::preprocessing::{stratified_split, standardize, label_encode};
@@ -165,15 +157,15 @@ fn main() {
 | Function                                    | Purpose                                                                        |
 |---------------------------------------------|--------------------------------------------------------------------------------|
 | `train_test_split(n, ratio, seed)`          | Shuffled train/test row indices                                                |
-| `stratified_split(labels, ratio, seed)`     | The same, preserving each class's proportion — for the imbalanced datasets     |
-| `k_fold_indices(n, k, seed)`                | `k` `(train, validation)` index pairs; each sample validated exactly once      |
+| `stratified_split(labels, ratio, seed)`     | The same, but each class keeps its proportion. Use it for imbalanced datasets  |
+| `k_fold_indices(n, k, seed)`                | `k` `(train, validation)` index pairs. Each sample appears in validation once  |
 | `shuffled_indices(n, seed)`                 | A deterministic permutation of `0..n`                                          |
 | `standardize` / `min_max_scale`             | Per-column scaling, returning the fitted `Scaler`                              |
 | `apply_scaler(features, &scaler)`           | Replay a fitted scaler on new data, without refitting                          |
 | `one_hot_encode(categorical, names)`        | Expand the categorical `Array2<String>` into indicator columns                 |
-| `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes; count samples per class                    |
+| `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes and count samples per class                 |
 
-The splitting functions return **row indices** rather than arrays, because a sample is spread across two or three parallel arrays and one index list keeps them aligned — materialize with ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column, so the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing instead of poisoning the column.
+The splitting functions return **row indices**, not arrays, because a sample spans two or three parallel arrays. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. So the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing, instead of skewing the column's statistics.
 
 ## Migration from `dataset-core` 0.1.x
 
@@ -193,19 +185,19 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 | `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`     |
 | `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
 
-`dataset_core::utils::*` and `dataset_core::DatasetError` are unchanged — they remain in [`dataset-core`](https://crates.io/crates/dataset-core) under the `utils` feature.
+`dataset_core::utils::*` and `dataset_core::DatasetError` are unchanged. They remain in [`dataset-core`](https://crates.io/crates/dataset-core) under the `utils` feature.
 
 ## Performance Considerations
 
 - **First access**: downloads the file (if not on disk), validates SHA-256, parses, caches in memory.
-- **Subsequent accesses**: return a reference to the cached data — zero allocation, zero I/O.
-- **`.to_owned()`**: clones cached data into a new owned value — use only when mutation is needed.
-- **Offline**: once downloaded, datasets stay on disk; no network needed on subsequent runs.
+- **Later accesses**: return a reference to the cached data, with zero allocation and zero I/O.
+- **`.to_owned()`**: clones cached data into a new owned value. Use it only when you need to mutate the data.
+- **Offline**: after the initial download, datasets stay on disk. Later runs need no network access.
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](../../LICENSE) for details.
+This project is licensed under the MIT License. See [LICENSE](../../LICENSE) for details.
 
 ## Author
 
-**SomeB1oody** — [stanyin64@gmail.com](mailto:stanyin64@gmail.com)
+**SomeB1oody**: [stanyin64@gmail.com](mailto:stanyin64@gmail.com)

@@ -63,7 +63,7 @@ fn test_gunzip_nonexistent_source_errors() {
 }
 
 #[test]
-// Verifies that gunzip surfaces an error when the source is not a valid gzip stream.
+// Verifies that gunzip returns an error when the source is not a valid gzip stream.
 fn test_gunzip_invalid_stream_errors() {
     let dir = "./test_gunzip_invalid_stream_errors";
     create_dir_all(dir).unwrap();
@@ -134,7 +134,7 @@ fn test_unzip_nonexistent_zip_errors() {
 }
 
 #[test]
-// Verifies the basic happy-path: acquire_dataset writes a file and returns its path.
+// Verifies the basic case: acquire_dataset writes a file and returns its path.
 fn test_acquire_dataset_basic() {
     let dir = "./test_acquire_dataset_basic";
     create_dir_all(dir).unwrap();
@@ -160,7 +160,7 @@ fn test_acquire_dataset_basic() {
 }
 
 #[test]
-// Verifies that acquire_dataset succeeds without SHA256 validation when no hash is provided.
+// Verifies that acquire_dataset succeeds without SHA256 validation when the caller gives no hash.
 fn test_acquire_dataset_no_sha256_validation() {
     let dir = "./test_acquire_dataset_no_sha256_validation";
     create_dir_all(dir).unwrap();
@@ -178,7 +178,7 @@ fn test_acquire_dataset_no_sha256_validation() {
 }
 
 #[test]
-// Verifies that acquire_dataset returns an error when the prepared file's hash doesn't match.
+// Verifies that acquire_dataset returns an error when the prepared file's hash does not match.
 fn test_acquire_dataset_sha256_mismatch_errors() {
     let dir = "./test_acquire_dataset_sha256_mismatch_errors";
     create_dir_all(dir).unwrap();
@@ -201,16 +201,17 @@ fn test_acquire_dataset_sha256_mismatch_errors() {
 }
 
 #[test]
-// Verifies that the preparation closure is not invoked when a valid cached file already exists.
+// Verifies that acquire_dataset does not call the preparation closure when a
+// valid cached file already exists.
 fn test_acquire_dataset_skips_acquisition_when_cached() {
     let dir = "./test_acquire_dataset_skips_acquisition_when_cached";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
-    // Pre-populate the destination with the correct file
+    // The destination already has the correct file.
     fs::write(dir_path.join("output.txt"), b"hello world").unwrap();
 
-    // The closure must NOT be called; if it is, the test panics
+    // The closure must not run. If it runs, the test panics.
     let result = acquire_dataset(
         dir,
         "output.txt",
@@ -225,7 +226,8 @@ fn test_acquire_dataset_skips_acquisition_when_cached() {
 }
 
 #[test]
-// Verifies that the preparation closure is skipped when the file exists and no hash check is required.
+// Verifies that acquire_dataset skips the preparation closure when the file
+// exists and the caller requires no hash check.
 fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
     let dir = "./test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists";
     create_dir_all(dir).unwrap();
@@ -238,7 +240,7 @@ fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
     });
 
     assert!(result.is_ok());
-    // Original content is preserved
+    // acquire_dataset keeps the original content.
     assert_eq!(
         fs::read(dir_path.join("output.txt")).unwrap(),
         b"cached content"
@@ -248,13 +250,14 @@ fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
 }
 
 #[test]
-// Verifies that a stale file with a mismatched hash is overwritten by preparing a new file.
+// Verifies that acquire_dataset overwrites a stale file with a mismatched
+// hash by preparing a new file.
 fn test_acquire_dataset_overwrites_stale_file() {
     let dir = "./test_acquire_dataset_overwrites_stale_file";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
-    // Stale file whose hash doesn't match
+    // Stale file whose hash does not match
     fs::write(dir_path.join("output.txt"), b"stale content").unwrap();
 
     let result = acquire_dataset(
@@ -281,7 +284,7 @@ fn test_acquire_dataset_overwrites_stale_file() {
 #[test]
 // Verifies that acquire_dataset creates the destination directory if it does not exist.
 fn test_acquire_dataset_creates_directory() {
-    // dir does not exist yet — the function must create it
+    // dir does not exist yet. acquire_dataset must create it.
     let dir = "./test_acquire_dataset_creates_directory";
 
     let result = acquire_dataset(dir, "output.txt", "test_dataset", None, |temp_path| {

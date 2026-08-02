@@ -4,29 +4,21 @@
 
 一个通用的、线程安全的数据集容器，支持惰性加载和缓存，适用于 Rust。
 
-<p align="center">
-  <a href="https://www.rust-lang.org/"><img alt="rustc" src="https://img.shields.io/badge/rustc-1.88%2B-brown"></a>
-  <a href="https://doc.rust-lang.org/edition-guide/"><img alt="edition" src="https://img.shields.io/badge/edition-2024-orange"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green"></a>
-  <a href="https://crates.io/crates/dataset-core"><img alt="crates.io" src="https://img.shields.io/crates/v/dataset-core.svg"></a>
-  <br>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml"><img alt="fmt" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml"><img alt="clippy" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml"><img alt="test" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml"><img alt="doc" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc"></a>
-</p>
+[![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/dataset-core.svg)](https://crates.io/crates/dataset-core)
+
+[![fmt](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt)](https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml) [![clippy](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy)](https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml) [![test](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test)](https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml) [![doc](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc)](https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml)
 
 ## 概述
 
-`dataset-core` 提供了 `Dataset<T, E>`，一个轻量级封装，将存储目录与任意类型 `T` 的惰性初始化值配对。实际的加载逻辑由调用者通过在构造时存入的闭包提供，因此 `Dataset<T, E>` 可以与任何数据源配合使用——本地文件、远程 URL、数据库或内存生成。（`E` 为加载器的错误类型，由调用者自由选择。）
+`dataset-core` 提供了 `Dataset<T, E>`，一个轻量级封装，将存储目录与任意类型 `T` 的惰性初始化值配对。加载逻辑由调用者通过构造时存入的闭包提供。因此，`Dataset<T, E>` 可以配合任何数据源使用：本地文件、远程 URL、数据库，或内存生成。（`E` 是加载器的错误类型，由调用者自由选择。）
 
-第一次调用 `load()` 会执行闭包并通过 `OnceLock` 缓存结果；之后的每次调用都会返回缓存值的引用，即使在多线程环境下也是零开销。
+第一次调用 `load()` 会执行闭包，并通过 `OnceLock` 缓存结果。之后的每次调用都会返回缓存值的引用，即使在多线程环境下也是零开销。
 
-在此核心类型之上，还有一个**可选**的特性门控模块：
+在此核心类型之上，本 crate 还提供一个**可选**的特性门控模块：
 
-- **`utils`** — 用于下载文件、解压归档、验证 SHA-256 哈希值和管理临时目录的辅助工具。
+- **`utils`**：用于下载文件、解压归档、验证 SHA-256 哈希值和管理临时目录的辅助工具。
 
-需要经典机器学习数据集的开箱即用加载器？配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 提供 29 个加载器——从 Iris、Breast Cancer、California Housing 到 Covertype、KDD Cup '99 和 20 Newsgroups——它在启用 `utils` 特性的前提下依赖 `dataset-core`。
+如需经典机器学习数据集的开箱即用加载器，参见配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml)。它提供 29 个加载器——从 Iris、Breast Cancer、California Housing 到 Covertype、KDD Cup '99 和 20 Newsgroups。它在启用 `utils` 特性的前提下依赖 `dataset-core`。
 
 ## 安装
 
@@ -57,7 +49,7 @@ dataset-core = { version = "0.4", features = ["utils"] }
 use dataset_core::Dataset;
 
 fn my_loader(dir: &str) -> Result<Vec<String>, std::io::Error> {
-    // 在实际使用中，你会从 `dir` 读取/下载文件。
+    // 实际的加载器会从 `dir` 读取或下载文件。
     Ok(vec!["hello".to_string(), "world".to_string()])
 }
 
@@ -87,7 +79,7 @@ fn main() {
 | `into_inner()`       | `Option<T>`     | 消耗容器并返回缓存值                              |
 | `set_loader(loader)` | `()`            | 替换加载器并使缓存失效（下次访问惰性重新解析）   |
 | `invalidate()`       | `()`            | 丢弃缓存值、保留加载器（下次 `load` 用它重载）   |
-| `is_loaded()`        | `bool`          | 数据是否已加载                                    |
+| `is_loaded()`        | `bool`          | 该数据集是否已加载数据                            |
 | `storage_dir()`      | `&str`          | 存储目录路径                                      |
 
 ## 工具函数（特性 `utils`）
@@ -95,19 +87,19 @@ fn main() {
 | 函数                  | 用途                                                                             |
 |-----------------------|----------------------------------------------------------------------------------|
 | `download_to`         | 将远程文件下载到目录                                                             |
-| `download_to_with_retries` | 同上，并以指数退避重试瞬时失败                                              |
+| `download_to_with_retries` | 与 `download_to` 类似，但会以指数退避重试瞬时失败                          |
 | `unzip`               | 解压 ZIP 归档                                                                    |
 | `gunzip`              | 将 gzip（`.gz`）文件解压为单个输出文件                                           |
 | `untar`               | 将 tar（`.tar`）归档解压到目录                                                   |
-| `untar_gz`            | 以流式方式将 gzip 压缩的 tar（`.tar.gz` / `.tgz`）归档解压到目录                 |
-| `sha256_file`         | 计算文件的 SHA-256 摘要（十六进制），用于为新数据集固定哈希值                   |
+| `untar_gz`            | 将 gzip 压缩的 tar（`.tar.gz` / `.tgz`）归档解压到目录，并以流式方式处理，使中间数据不落盘 |
+| `sha256_file`         | 计算文件的 SHA-256 摘要（十六进制格式）。可用它为新数据集固定哈希值             |
 | `verify_sha256`       | 用已有的哈希值校验文件                                                           |
 | `read_latin1`         | 以 Latin-1 读取文件文本：无损，且不会因非 UTF-8 字节而失败                      |
-| `acquire_dataset`     | 缓存感知的数据集获取：复用有效本地文件、临时目录准备、哈希校验、移动到最终位置   |
+| `acquire_dataset`     | 缓存感知的数据集获取：复用有效的本地文件、在临时目录中准备文件、校验哈希值，然后移动到最终位置 |
 
 ## 构建自己的数据集
 
-`Dataset<T, E>` 设计成被封装使用。配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 展示了推荐的模式；以下是一个简化的大纲：
+你可以将 `Dataset<T, E>` 封装进自己的类型中。配套 crate [`dataset-ml`](https://crates.io/crates/dataset-ml) 展示了推荐的模式。以下是一个简化的大纲：
 
 ```rust,ignore
 use dataset_core::Dataset;
@@ -120,7 +112,7 @@ impl MyDataset {
     pub fn new(storage_dir: &str) -> Self {
         Self {
             inner: Dataset::new(storage_dir, |dir| {
-                // 从 `dir` 下载/读取/解析文件……
+                // 在这里从 `dir` 下载、读取或解析文件。
                 Ok((vec![1.0, 2.0], vec!["a".into(), "b".into()]))
             }),
         }
@@ -137,13 +129,13 @@ impl MyDataset {
 ## 性能考量
 
 - **首次访问**：运行一次加载器（可能涉及网络请求和解析），缓存结果。
-- **后续访问**：返回缓存数据的引用——零分配、零 I/O。
-- **跨线程安全**：只要 `T` 是 `Send + Sync`，`Dataset<T, E>` 就是 `Send + Sync`（存入的加载器始终是 `Send + Sync`）。并发调用下加载器也最多执行一次：内部互斥锁会串行化首次加载，后到的线程等待并共享其结果，而不会各自发起一次下载。
+- **后续访问**：返回缓存数据的引用，零分配、零 I/O。
+- **跨线程安全**：只要 `T` 是 `Send + Sync`，`Dataset<T, E>` 就是 `Send + Sync`（存入的加载器始终是 `Send + Sync`）。即使在并发调用下，加载器也最多执行一次。内部互斥锁会将首次加载串行化。中途到达的线程会等待结果并共享它，而不会各自发起下载。
 
 ## 许可证
 
-本项目采用 MIT 许可证——详见 [LICENSE](../../LICENSE)。
+本项目使用 MIT 许可证。详见 [LICENSE](../../LICENSE)。
 
 ## 作者
 
-**SomeB1oody** — [stanyin64@gmail.com](mailto:stanyin64@gmail.com)
+**SomeB1oody**：[stanyin64@gmail.com](mailto:stanyin64@gmail.com)

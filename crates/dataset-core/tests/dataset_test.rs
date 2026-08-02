@@ -1,15 +1,15 @@
-//! Integration tests for the `Dataset<T, E>` container itself.
+//! Integration tests for the `Dataset<T, E>` container.
 //!
-//! These exercise the container through its public API only (no `utils` feature
-//! needed): the lazy-loading contract, the cache-invalidating operations, and the
-//! "loader runs at most once" guarantee `load` makes across threads.
+//! These tests use only the public API. They do not need the `utils` feature.
+//! They test the lazy-loading contract, the cache-invalidating operations, and
+//! the guarantee that `load` runs the loader at most once across threads.
 
 use dataset_core::Dataset;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-/// A dataset whose loader counts its own invocations, so tests can assert exactly
-/// how many times it ran. The returned counter is shared with the loader.
+/// A dataset whose loader counts its own calls. Tests can check the exact
+/// number of runs. The loader shares its counter with the caller.
 fn counting_dataset() -> (Dataset<usize, std::convert::Infallible>, Arc<AtomicUsize>) {
     let calls = Arc::new(AtomicUsize::new(0));
     let loader_calls = Arc::clone(&calls);
@@ -22,7 +22,7 @@ fn counting_dataset() -> (Dataset<usize, std::convert::Infallible>, Arc<AtomicUs
 }
 
 #[test]
-// Verifies that the loader runs on first access only and the value is cached.
+// Verifies that the loader runs only on the first access and the dataset caches the value.
 fn load_runs_the_loader_once_and_caches() {
     let (dataset, calls) = counting_dataset();
 
@@ -33,14 +33,14 @@ fn load_runs_the_loader_once_and_caches() {
     assert_eq!(*first, 1);
     assert!(dataset.is_loaded());
 
-    // Repeated loads hand back the very same reference without re-running the loader.
+    // Repeated loads return the same reference without running the loader again.
     let second = dataset.load().unwrap();
     assert!(std::ptr::eq(first, second));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
-// Verifies that concurrent loads run the loader exactly once and all observe it.
+// Verifies that concurrent loads run the loader exactly once. All threads see the same result.
 fn concurrent_loads_run_the_loader_once() {
     const THREADS: usize = 16;
 
@@ -51,7 +51,7 @@ fn concurrent_loads_run_the_loader_once() {
         "./unused_dir",
         move |_| {
             loader_calls.fetch_add(1, Ordering::SeqCst);
-            // Widen the window in which a second thread could start its own load.
+            // The sleep widens the window in which a second thread could start its own load.
             std::thread::sleep(std::time::Duration::from_millis(50));
             Ok(42)
         },
@@ -68,18 +68,18 @@ fn concurrent_loads_run_the_loader_once() {
         assert_eq!(handle.join().unwrap(), 42);
     }
 
-    // Without serialization every thread would have started its own load — for a
-    // real loader, that means the same file downloaded `THREADS` times.
+    // Without serialization, every thread would start its own load. For a real
+    // loader, that means downloading the same file `THREADS` times.
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
-// Verifies that a failing loader is not cached and is retried on the next load.
+// Verifies that the dataset does not cache a failed load. The next load retries the loader.
 fn failed_load_is_not_cached() {
     let calls = Arc::new(AtomicUsize::new(0));
     let loader_calls = Arc::clone(&calls);
 
-    // Fails on the first attempt, succeeds afterwards.
+    // The loader fails on the first attempt. It succeeds after that.
     let dataset = Dataset::<usize, String>::new("./unused_dir", move |_| {
         if loader_calls.fetch_add(1, Ordering::SeqCst) == 0 {
             Err("transient failure".to_string())
@@ -132,7 +132,7 @@ fn invalidate_drops_the_cache_and_keeps_the_loader() {
     dataset.invalidate();
     assert!(!dataset.is_loaded());
 
-    // Same loader, run a second time: the counter it returns has advanced.
+    // The container runs the same loader again. The counter has advanced.
     assert_eq!(*dataset.load().unwrap(), 2);
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
@@ -147,7 +147,7 @@ fn set_loader_swaps_the_loader_and_invalidates() {
     dataset.set_loader(|_| Ok(1000));
     assert!(!dataset.is_loaded());
 
-    // The new loader is used, and the old one is never called again.
+    // The container uses the new loader. It never calls the old loader again.
     assert_eq!(*dataset.load().unwrap(), 1000);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
@@ -157,7 +157,7 @@ fn set_loader_swaps_the_loader_and_invalidates() {
 fn take_returns_the_value_and_resets_the_container() {
     let (mut dataset, calls) = counting_dataset();
 
-    // Nothing cached yet, so there is nothing to take — and no load is triggered.
+    // Nothing is cached yet, so take returns nothing. It does not trigger a load.
     assert!(dataset.take().is_none());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
 
@@ -174,7 +174,7 @@ fn take_returns_the_value_and_resets_the_container() {
 fn into_inner_consumes_the_container() {
     let (dataset, _calls) = counting_dataset();
 
-    // A container that was never loaded yields `None` without loading.
+    // A container with no cached value returns `None`. It does not trigger a load.
     assert_eq!(dataset.into_inner(), None);
 
     let (dataset, _calls) = counting_dataset();
@@ -191,7 +191,7 @@ fn storage_dir_is_reported_verbatim() {
 }
 
 #[test]
-// Verifies that the loader receives the storage directory it was constructed with.
+// Verifies that the loader receives the storage directory given at construction.
 fn loader_receives_the_storage_dir() {
     let dataset: Dataset<String, std::convert::Infallible> =
         Dataset::new("./expected/dir", |dir| Ok(dir.to_string()));

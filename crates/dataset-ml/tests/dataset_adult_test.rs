@@ -43,8 +43,8 @@ fn assert_adult_semantics(
         );
     }
 
-    // Every numeric feature is finite; `age` (col 0) and `hours-per-week` (col 5)
-    // are positive, the byte/capital counters (cols 3, 4) are non-negative.
+    // Every numeric feature is finite. `age` (col 0) and `hours-per-week` (col 5) are
+    // positive. The byte and capital counters (cols 3, 4) are non-negative.
     for row in 0..numerics.nrows() {
         for col in 0..numerics.ncols() {
             assert!(
@@ -68,9 +68,9 @@ fn assert_adult_semantics(
         );
     }
 
-    // The `?` missing token must have been mapped to empty strings, and at least
-    // one missing categorical value exists in the source (workclass/occupation/
-    // native-country), so empty strings should be present.
+    // The loader maps the `?` missing token to empty strings. At least one missing
+    // categorical value exists in the source (workclass/occupation/native-country),
+    // so empty strings appear among the parsed features.
     let has_empty = strings.iter().any(|s| s.is_empty());
     assert!(
         has_empty,
@@ -86,25 +86,24 @@ fn assert_adult_semantics(
 // Verifies that the Adult dataset loads with the correct shapes, label values,
 // and feature-domain invariants.
 fn test_load_adult() {
-    let download_dir = "./test_load_adult"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_adult"; // the loader creates this directory if it is missing
 
     let dataset = Adult::new(download_dir);
     let (strings, numerics, labels) = dataset.data().unwrap();
 
     assert_adult_semantics(strings, numerics, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Adult loading uses a pre-existing cached file without re-downloading.
+// Verifies that Adult reuses a cached file instead of a new download.
 fn test_adult_no_need_download() {
     let download_dir = "./test_load_adult_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
+    // The first load primes the cache. The second instance then reuses it.
     Adult::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("adult.csv"), ADULT_SHA256).unwrap(),
@@ -114,52 +113,48 @@ fn test_adult_no_need_download() {
     let dataset = Adult::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Adult data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Adult data file and
+// overwrites it with the real dataset.
 fn test_adult_overwrite() {
     let download_dir = "./test_load_adult_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Adult dataset in advance
     {
         let adult_path = download_dir_path.join("adult.csv");
         let mut fake_adult = File::create(adult_path).unwrap();
         fake_adult.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Adult dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = Adult::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("adult.csv"), ADULT_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_adult_into_data() {
     let download_dir = "./test_adult_into_data";
 
     let dataset = Adult::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(strings.shape(), &[N_SAMPLES, 8]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 6]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     numerics[[0, 0]] = 1234.0;
     assert_eq!(numerics[[0, 0]], 1234.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -172,13 +167,12 @@ fn test_adult_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[N_SAMPLES, 8]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 6]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

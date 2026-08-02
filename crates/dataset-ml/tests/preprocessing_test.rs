@@ -1,7 +1,7 @@
 //! Integration tests for the `preprocessing` module.
 //!
-//! These need no network: the module operates on arrays the caller supplies, so
-//! every property here is checked against hand-built inputs.
+//! The module operates on arrays the caller supplies, so these tests need no
+//! network access. Each test checks a property against hand-built inputs.
 
 use dataset_core::DatasetError;
 use dataset_ml::preprocessing::{
@@ -18,22 +18,19 @@ fn assert_is_permutation(indices: &[usize], n: usize) {
 }
 
 #[test]
-// Verifies that shuffled_indices permutes every index and is seed-deterministic.
 fn shuffled_indices_permutes_and_is_deterministic() {
     let order = shuffled_indices(100, 42);
     assert_is_permutation(&order, 100);
 
-    // Same seed, same order; a different seed gives a different one.
     assert_eq!(shuffled_indices(100, 42), order);
     assert_ne!(shuffled_indices(100, 43), order);
 
-    // Degenerate sizes are handled rather than panicking.
+    // A size of 0 or 1 does not cause a panic.
     assert!(shuffled_indices(0, 1).is_empty());
     assert_eq!(shuffled_indices(1, 1), vec![0]);
 }
 
 #[test]
-// Verifies that shuffled_indices actually reorders rather than returning 0..n.
 fn shuffled_indices_does_not_return_sorted_order() {
     let order = shuffled_indices(1000, 7);
 
@@ -41,14 +38,15 @@ fn shuffled_indices_does_not_return_sorted_order() {
 }
 
 #[test]
-// Verifies the train/test sizes, disjointness, and determinism of train_test_split.
+// Verifies the train and test sizes, confirms the two sets do not overlap, and
+// confirms the split is deterministic.
 fn train_test_split_partitions_by_ratio() {
     let (train, test) = train_test_split(150, 0.2, 42).unwrap();
 
     assert_eq!(train.len(), 120);
     assert_eq!(test.len(), 30);
 
-    // Together they cover every row exactly once, so the sides cannot overlap.
+    // Together the two sets cover every row exactly once, so they cannot overlap.
     let combined: Vec<usize> = train.iter().chain(test.iter()).copied().collect();
     assert_is_permutation(&combined, 150);
 
@@ -56,13 +54,13 @@ fn train_test_split_partitions_by_ratio() {
 }
 
 #[test]
-// Verifies that train_test_split keeps both sides non-empty at extreme ratios.
 fn train_test_split_keeps_both_sides_non_empty() {
-    // A ratio of 0 would round to an empty test set; one row is kept back instead.
+    // A ratio of 0 would round to an empty test set. train_test_split keeps one
+    // row back instead.
     let (train, test) = train_test_split(10, 0.0, 1).unwrap();
     assert_eq!((train.len(), test.len()), (9, 1));
 
-    // Likewise a ratio of 1 leaves one row for training.
+    // A ratio of 1 leaves one row for training.
     let (train, test) = train_test_split(10, 1.0, 1).unwrap();
     assert_eq!((train.len(), test.len()), (1, 9));
 
@@ -91,7 +89,6 @@ fn train_test_split_rejects_invalid_arguments() {
 }
 
 #[test]
-// Verifies that stratified_split preserves each class's proportion on both sides.
 fn stratified_split_preserves_class_proportions() {
     // 80 of class "a", 20 of class "b".
     let labels: Vec<&str> = (0..100).map(|i| if i < 80 { "a" } else { "b" }).collect();
@@ -112,7 +109,6 @@ fn stratified_split_preserves_class_proportions() {
 }
 
 #[test]
-// Verifies that stratified_split keeps a rare class present in the test set.
 fn stratified_split_keeps_rare_classes_in_the_test_set() {
     // A class holding 2% of the data would often vanish from an unstratified split.
     let labels: Vec<&str> = (0..100)
@@ -125,7 +121,6 @@ fn stratified_split_keeps_rare_classes_in_the_test_set() {
 }
 
 #[test]
-// Verifies that a single-member class is assigned to the train set.
 fn stratified_split_sends_singleton_classes_to_train() {
     let labels = ["a", "a", "a", "a", "b"];
 
@@ -152,7 +147,6 @@ fn stratified_split_rejects_invalid_arguments() {
 }
 
 #[test]
-// Verifies that k_fold_indices validates each sample exactly once across folds.
 fn k_fold_indices_covers_every_sample_once() {
     let folds = k_fold_indices(100, 5, 42).unwrap();
     assert_eq!(folds.len(), 5);
@@ -191,7 +185,6 @@ fn k_fold_indices_balances_uneven_folds() {
 }
 
 #[test]
-// Verifies that k_fold_indices rejects a fold count it cannot honour.
 fn k_fold_indices_rejects_invalid_k() {
     assert!(matches!(
         k_fold_indices(10, 1, 1),
@@ -206,13 +199,12 @@ fn k_fold_indices_rejects_invalid_k() {
         Err(DatasetError::DataFormatError(_))
     ));
 
-    // The boundary cases are accepted.
+    // k_fold_indices accepts the boundary values k = 2 and k = 10.
     assert!(k_fold_indices(10, 2, 1).is_ok());
     assert!(k_fold_indices(10, 10, 1).is_ok());
 }
 
 #[test]
-// Verifies that label_encode numbers classes in sorted order and round-trips.
 fn label_encode_numbers_classes_in_sorted_order() {
     let labels = array!["virginica", "setosa", "setosa", "versicolor"];
 
@@ -228,7 +220,8 @@ fn label_encode_numbers_classes_in_sorted_order() {
 }
 
 #[test]
-// Verifies that label_encode works for the non-string label types loaders produce.
+// Verifies that label_encode works with the non-string label types that dataset
+// loaders produce, such as u8 and char.
 fn label_encode_handles_numeric_and_char_labels() {
     let (codes, classes) = label_encode(&array![3u8, 1, 1, 7]).unwrap();
     assert_eq!(classes, vec![1, 3, 7]);
@@ -240,7 +233,6 @@ fn label_encode_handles_numeric_and_char_labels() {
 }
 
 #[test]
-// Verifies that label_encode rejects an empty label vector.
 fn label_encode_rejects_empty_labels() {
     let empty = ndarray::Array1::<u8>::zeros(0);
 
@@ -260,7 +252,6 @@ fn class_counts_totals_each_class() {
 }
 
 #[test]
-// Verifies that standardize centres each column and scales it to unit variance.
 fn standardize_centres_and_scales_each_column() {
     let features = array![[1.0, 100.0], [2.0, 200.0], [3.0, 300.0]];
 
@@ -282,7 +273,7 @@ fn standardize_centres_and_scales_each_column() {
 }
 
 #[test]
-// Verifies that a constant column maps to zeros instead of dividing by zero.
+// Verifies that a constant column maps to zeros and avoids a division by zero.
 fn standardize_maps_a_constant_column_to_zeros() {
     let features = array![[5.0], [5.0], [5.0]];
 
@@ -293,13 +284,15 @@ fn standardize_maps_a_constant_column_to_zeros() {
 }
 
 #[test]
-// Verifies that missing values are excluded from the statistics and left in place.
+// Verifies that standardize excludes missing values from its statistics and
+// leaves them in place.
 fn standardize_ignores_nan_and_preserves_it() {
     let features = array![[1.0], [f64::NAN], [3.0]];
 
     let (scaled, scaler) = standardize(&features).unwrap();
 
-    // The mean is over the finite values only: (1 + 3) / 2, not a NaN-poisoned one.
+    // The mean covers only the finite values: (1 + 3) / 2. The NaN in the input
+    // does not turn the mean into NaN.
     assert_eq!(scaler.center, array![2.0]);
     assert!(scaled[[1, 0]].is_nan());
     assert_eq!(scaled[[0, 0]], -1.0);
@@ -307,7 +300,6 @@ fn standardize_ignores_nan_and_preserves_it() {
 }
 
 #[test]
-// Verifies that min_max_scale maps each column onto [0, 1].
 fn min_max_scale_maps_columns_onto_unit_range() {
     let features = array![[1.0, -5.0], [2.0, 0.0], [3.0, 5.0]];
 
@@ -319,7 +311,6 @@ fn min_max_scale_maps_columns_onto_unit_range() {
 }
 
 #[test]
-// Verifies that min_max_scale also leaves missing values alone.
 fn min_max_scale_ignores_nan_and_preserves_it() {
     let features = array![[0.0], [f64::NAN], [10.0]];
 
@@ -331,7 +322,6 @@ fn min_max_scale_ignores_nan_and_preserves_it() {
 }
 
 #[test]
-// Verifies that the scalers reject an empty feature matrix.
 fn scalers_reject_an_empty_matrix() {
     let empty = Array2::<f64>::zeros((0, 3));
     assert!(matches!(
@@ -347,7 +337,6 @@ fn scalers_reject_an_empty_matrix() {
 }
 
 #[test]
-// Verifies that a fitted scaler transforms new data with the training statistics.
 fn apply_scaler_replays_training_statistics() {
     let train = array![[1.0], [2.0], [3.0]];
     let (_scaled_train, scaler) = standardize(&train).unwrap();
@@ -355,16 +344,17 @@ fn apply_scaler_replays_training_statistics() {
     let test = array![[2.0], [4.0]];
     let scaled_test = apply_scaler(&test, &scaler).unwrap();
 
-    // 2.0 was the training mean, so it maps to 0 — not to the test set's own mean.
+    // 2.0 was the training mean, so it maps to 0. It does not map to the test
+    // set's own mean.
     assert_eq!(scaled_test[[0, 0]], 0.0);
     assert!(scaled_test[[1, 0]] > 0.0);
 
-    // Re-applying the scaler to the training data reproduces the fitted output.
+    // This test applies the scaler again to the training data. It reproduces
+    // the fitted output.
     assert_eq!(apply_scaler(&train, &scaler).unwrap(), _scaled_train);
 }
 
 #[test]
-// Verifies that apply_scaler rejects a matrix with the wrong number of columns.
 fn apply_scaler_rejects_a_column_count_mismatch() {
     let (_scaled, scaler) = standardize(&array![[1.0, 2.0], [3.0, 4.0]]).unwrap();
 
@@ -375,7 +365,8 @@ fn apply_scaler_rejects_a_column_count_mismatch() {
 }
 
 #[test]
-// Verifies the layout, naming, and one-hot property of the encoded matrix.
+// Verifies the layout, the column names, and the one-hot property of the
+// encoded matrix.
 fn one_hot_encode_expands_each_column_into_indicators() {
     let categorical = array![
         ["male".to_string(), "S".to_string()],
@@ -385,21 +376,20 @@ fn one_hot_encode_expands_each_column_into_indicators() {
 
     let (encoded, names) = one_hot_encode(&categorical, Some(&["sex", "port"])).unwrap();
 
-    // Levels are sorted within each column, columns keep their original order.
+    // The encoder sorts levels within each column. Columns keep their original order.
     assert_eq!(names, vec!["sex=female", "sex=male", "port=C", "port=S"]);
     assert_eq!(encoded.shape(), &[3, 4]);
     assert_eq!(encoded.row(0).to_vec(), vec![0.0, 1.0, 0.0, 1.0]); // male, S
     assert_eq!(encoded.row(1).to_vec(), vec![1.0, 0.0, 1.0, 0.0]); // female, C
     assert_eq!(encoded.row(2).to_vec(), vec![0.0, 1.0, 1.0, 0.0]); // male, C
 
-    // Exactly one indicator is set per source column, in every row.
+    // In every row, exactly one indicator is set per source column.
     for row in encoded.rows() {
         assert_eq!(row.sum(), 2.0);
     }
 }
 
 #[test]
-// Verifies the generated column names when no names are supplied.
 fn one_hot_encode_generates_names_when_none_are_given() {
     let categorical = array![["x".to_string()], ["y".to_string()]];
 

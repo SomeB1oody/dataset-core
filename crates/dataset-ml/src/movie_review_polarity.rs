@@ -1,10 +1,10 @@
 //! Cornell Movie Review Polarity dataset (polarity dataset v2.0).
 //!
-//! Pang & Lee's classic sentiment-polarity benchmark: 2,000 full movie reviews
-//! from IMDb, split evenly into 1,000 `positive` and 1,000 `negative` reviews.
-//! Like the other text loaders ([`SmsSpam`](crate::sms_spam::SmsSpam),
-//! [`Newsgroups20`](crate::newsgroups20::Newsgroups20)) it is a **text** dataset,
-//! so the document accessor is [`MovieReviewPolarity::texts`] (an
+//! Pang and Lee's classic sentiment-polarity benchmark holds 2,000 full movie
+//! reviews from IMDb, split evenly into 1,000 `positive` and 1,000 `negative`
+//! reviews. Like the other text loaders ([`SmsSpam`](crate::sms_spam::SmsSpam),
+//! [`Newsgroups20`](crate::newsgroups20::Newsgroups20)) it is a **text** dataset.
+//! So the document accessor is [`MovieReviewPolarity::texts`] (an
 //! `Array1<String>` of raw reviews), not `features()`. It complements the
 //! sentence-level [`SentimentSentences`](crate::sentiment_sentences::SentimentSentences)
 //! with full-document reviews.
@@ -12,9 +12,9 @@
 //! **Documents:** `Array1<String>` of 2,000 movie reviews (already tokenized and
 //! lowercased, one review per document)
 //!
-//! **Target:** `label` — one of `positive` or `negative`
+//! **Target:** `label`, one of `positive` or `negative`
 //!
-//! **Samples:** 2,000 (1,000 positive, 1,000 negative; balanced)
+//! **Samples:** 2,000 (1,000 positive, 1,000 negative: a balanced split)
 //! **Application:** Binary text classification / sentiment analysis
 //!
 //! **Source:** Cornell movie-review data (polarity dataset v2.0)
@@ -34,8 +34,8 @@ type MovieReviewPolarityData = (Array1<String>, Array1<&'static str>);
 const MOVIE_REVIEW_POLARITY_DATA_URL: &str =
     "http://www.cs.cornell.edu/people/pabo/movie-review-data/review_polarity.tar.gz";
 
-/// The name of the cached archive (the `.tar.gz` is cached as-is; its SHA-256 is
-/// the integrity check, and it is re-extracted in memory on load).
+/// The name of the cached archive. The code caches the `.tar.gz` file as-is, uses
+/// its SHA-256 as the integrity check, and re-extracts it in memory on load.
 const MOVIE_REVIEW_POLARITY_ARCHIVE_FILENAME: &str = "review_polarity.tar.gz";
 
 /// The SHA256 hash of the cached `review_polarity.tar.gz` archive.
@@ -55,27 +55,27 @@ const N_SAMPLES: usize = 2_000;
 /// (lexicographic) order they are walked.
 const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")];
 
-/// A struct representing the Movie Review Polarity dataset with lazy loading.
+/// A struct that represents the Movie Review Polarity dataset with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
-/// The polarity dataset v2.0 (Pang & Lee, 2004) collects 2,000 movie reviews
-/// pulled from the IMDb archive — 1,000 with an overall positive rating and 1,000
-/// with an overall negative rating — for document-level sentiment classification.
-/// The reviews are distributed pre-tokenized and lowercased (the `txt_sentoken`
-/// form, one sentence per line). It is one of the most widely cited sentiment
-/// benchmarks.
+/// The polarity dataset v2.0 (Pang and Lee, 2004) collects 2,000 movie reviews
+/// pulled from the IMDb archive, for document-level sentiment classification.
+/// Of these, 1,000 have an overall positive rating and 1,000 have an overall
+/// negative rating. The reviews are distributed pre-tokenized and lowercased
+/// (the `txt_sentoken` form, one sentence per line). It is one of the most
+/// widely cited sentiment benchmarks.
 ///
 /// # Documents
 ///
-/// Unlike the tabular loaders, there is no feature matrix: each sample is a raw
+/// Unlike the tabular loaders, there is no feature matrix. Each sample is a raw
 /// review string. [`MovieReviewPolarity::texts`] returns a `(2000,)`
 /// `Array1<String>` of the reviews (the whole tokenized document, newlines
-/// included) — vectorize them (bag-of-words, TF-IDF, embeddings, …) yourself
-/// before feeding a model.
+/// included). Vectorize the reviews yourself (bag-of-words, TF-IDF, embeddings,
+/// and so on) before you use them as model input.
 ///
 /// # Labels
 ///
@@ -92,34 +92,36 @@ const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")]
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::movie_review_polarity::MovieReviewPolarity;
 ///
-/// let download_dir = "./movie_review_polarity"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./movie_review_polarity"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = MovieReviewPolarity::new(download_dir);
 /// let texts = dataset.texts().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (texts, labels) = dataset.data().unwrap(); // this is also a way to get texts and labels
+/// let (texts, labels) = dataset.data().unwrap(); // this also returns texts and labels
 /// assert_eq!(texts.len(), 2000);
 /// assert_eq!(labels.len(), 2000);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. Prefer this method over `.to_owned()` when you only need to
+/// // change values.
 /// if let Some((texts, labels)) = dataset.get_data_mut() {
 ///     texts[0] = "hello world".to_string();
 ///     labels[0] = "positive";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached archive.
+/// // `take_data()` moves the owned arrays out (no `to_owned()` clone). It leaves
+/// // the instance reusable. The next access reloads the data from the cached archive.
 /// let (owned_texts, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_texts.len(), 2000);
 /// assert_eq!(owned_labels.len(), 2000);
@@ -138,12 +140,12 @@ pub struct MovieReviewPolarity {
 impl MovieReviewPolarity {
     /// Create a new MovieReviewPolarity instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset is stored.
     ///
     /// # Returns
     ///
@@ -154,12 +156,12 @@ impl MovieReviewPolarity {
         }
     }
 
-    /// Acquire and parse the Movie Review Polarity dataset.
+    /// Get and parse the Movie Review Polarity dataset.
     fn load_data(dir: &str) -> Result<MovieReviewPolarityData, DatasetError> {
-        // Cache the compressed tarball as-is (its SHA-256 is the integrity check).
-        // Like `Newsgroups20`, the reviews are multi-line raw documents, so rather
-        // than re-serialize them we keep the canonical archive and re-extract it in
-        // memory on load.
+        // Cache the compressed tarball as-is. Its SHA-256 is the integrity check.
+        // Like `Newsgroups20`, the reviews are multi-line raw documents. Instead of
+        // re-serializing them, the code keeps the canonical archive and re-extracts
+        // it in memory on load.
         let archive_path = acquire_dataset(
             dir,
             MOVIE_REVIEW_POLARITY_ARCHIVE_FILENAME,
@@ -176,7 +178,8 @@ impl MovieReviewPolarity {
             },
         )?;
 
-        // Extract into a temp dir under `dir` that is cleaned up when it drops.
+        // Extract the archive into a temp dir under `dir`. The temp dir cleans up
+        // when it drops.
         let extract_dir = tempfile::Builder::new()
             .prefix("polarity-")
             .tempdir_in(dir)?;
@@ -186,14 +189,14 @@ impl MovieReviewPolarity {
         let mut texts: Vec<String> = Vec::with_capacity(N_SAMPLES);
         let mut labels: Vec<&'static str> = Vec::with_capacity(N_SAMPLES);
 
-        // Walk `neg` then `pos`, files in lexicographic order, so the sample
-        // ordering is deterministic.
+        // The code walks `neg`, then `pos`, and walks files within each folder in
+        // lexicographic order. This makes the sample order deterministic.
         for (folder, label) in CLASS_DIRS {
             let class_path = data_root.join(folder);
             for file_name in sorted_file_names(&class_path)? {
                 let bytes = fs::read(class_path.join(&file_name))?;
-                // Decode as Latin-1 (byte -> Unicode scalar), like scikit-learn's
-                // text loaders, so any non-UTF-8 byte is preserved losslessly.
+                // The code decodes each byte as Latin-1 (byte -> Unicode scalar), like
+                // scikit-learn's text loaders. This preserves non-UTF-8 bytes losslessly.
                 let text: String = bytes.iter().map(|&b| b as char).collect();
                 texts.push(text);
                 labels.push(label);
@@ -214,9 +217,9 @@ impl MovieReviewPolarity {
     /// This method triggers lazy loading on first call. Subsequent calls return
     /// the cached data instantly.
     ///
-    /// This is the Movie Review Polarity analogue of the tabular loaders'
-    /// `features()`: because the data is text, the "features" are the raw review
-    /// strings, so this returns a 1-D `Array1<String>` rather than a 2-D feature
+    /// This method is the Movie Review Polarity equivalent of the tabular loaders'
+    /// `features()`. The data is text, so the "features" are the raw review
+    /// strings. This method returns a 1-D `Array1<String>`, not a 2-D feature
     /// matrix.
     ///
     /// # Returns
@@ -229,7 +232,7 @@ impl MovieReviewPolarity {
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - Archive extraction or I/O operations fail
-    /// - Dataset size doesn't match expected dimensions (2,000 samples)
+    /// - Dataset size does not match expected dimensions (2,000 samples)
     pub fn texts(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
@@ -248,7 +251,7 @@ impl MovieReviewPolarity {
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - Archive extraction or I/O operations fail
-    /// - Dataset size doesn't match expected dimensions (2,000 samples)
+    /// - Dataset size does not match expected dimensions (2,000 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
@@ -268,7 +271,7 @@ impl MovieReviewPolarity {
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - Archive extraction or I/O operations fail
-    /// - Dataset size doesn't match expected dimensions (2,000 samples)
+    /// - Dataset size does not match expected dimensions (2,000 samples)
     pub fn data(&self) -> Result<&MovieReviewPolarityData, DatasetError> {
         self.dataset.load()
     }
@@ -276,10 +279,10 @@ impl MovieReviewPolarity {
     /// Get both review texts and labels as references **without** triggering loading.
     ///
     /// Unlike [`MovieReviewPolarity::data`], which loads the dataset on first call,
-    /// this never runs the loader: if the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing. Use it when you only want the
-    /// data if it is already cached and want to avoid paying the download/parse
-    /// cost otherwise.
+    /// this method never runs the loader. If the data has not loaded yet, this
+    /// method returns `None` instead of downloading and parsing it. Use this
+    /// method when you want the data only if it is already cached. This avoids
+    /// the download and parse cost when the data is not yet cached.
     ///
     /// # Returns
     ///
@@ -292,16 +295,16 @@ impl MovieReviewPolarity {
 
     /// Get mutable references to review texts and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize or clean the
-    /// review text) with no `to_owned()` clone and without removing them from the
-    /// cache: the changes persist, so later [`MovieReviewPolarity::texts`],
-    /// [`MovieReviewPolarity::data`], or [`MovieReviewPolarity::get_data`] calls
-    /// observe them.
+    /// This lets you change the cached arrays directly, for example to normalize or
+    /// clean the review text. It needs no `to_owned()` clone, and it does not
+    /// remove the arrays from the cache. The changes persist, so later calls to
+    /// [`MovieReviewPolarity::texts`], [`MovieReviewPolarity::data`], or
+    /// [`MovieReviewPolarity::get_data`] observe them.
     ///
-    /// Like [`MovieReviewPolarity::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`MovieReviewPolarity::data`]) first if you need to ensure the data is
-    /// present.
+    /// Like [`MovieReviewPolarity::get_data`], this method does not trigger
+    /// loading. It returns `None` if the dataset has not loaded yet. If you need
+    /// the data to be present, call a loading accessor first, for example
+    /// [`MovieReviewPolarity::data`].
     ///
     /// # Returns
     ///
@@ -315,12 +318,13 @@ impl MovieReviewPolarity {
     /// Consume the dataset and return **owned** review texts and labels.
     ///
     /// Unlike [`MovieReviewPolarity::data`], which borrows the cached data, this
-    /// moves it out and returns owned arrays directly — no `to_owned()` clone
-    /// needed. The dataset is loaded on first access if it has not been loaded yet.
+    /// method moves the data out and returns owned arrays directly. It needs no
+    /// `to_owned()` clone. If the dataset has not loaded yet, it loads on first
+    /// access.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`MovieReviewPolarity::take_data`] instead — it takes `&mut self` and leaves
+    /// This method consumes `self`, so you cannot use the instance afterward. If
+    /// you want owned data but need to keep using the instance, use
+    /// [`MovieReviewPolarity::take_data`] instead. It takes `&mut self` and leaves
     /// the instance reusable.
     ///
     /// # Returns
@@ -340,16 +344,18 @@ impl MovieReviewPolarity {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** review texts and labels out of the dataset, leaving it reusable.
+    /// Take **owned** review texts and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
-    /// Like [`MovieReviewPolarity::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`MovieReviewPolarity::texts`]
-    /// or [`MovieReviewPolarity::data`]) loads the dataset again.
+    /// Like [`MovieReviewPolarity::into_data`], this method returns owned arrays
+    /// with no `to_owned()` clone. But instead of consuming the instance, it takes
+    /// `&mut self` and moves the cached data out. This resets the instance to its
+    /// unloaded state. The next accessor call, for example
+    /// [`MovieReviewPolarity::texts`] or [`MovieReviewPolarity::data`], loads the
+    /// dataset again.
     ///
-    /// Use [`MovieReviewPolarity::into_data`] instead if you are done with the
-    /// instance.
+    /// If you are done with the instance, use [`MovieReviewPolarity::into_data`]
+    /// instead.
     ///
     /// # Returns
     ///
@@ -369,7 +375,7 @@ impl MovieReviewPolarity {
     }
 }
 
-/// List a directory's regular-file children, sorted lexicographically.
+/// List a directory's regular-file children in lexicographic order.
 fn sorted_file_names(path: &Path) -> Result<Vec<String>, DatasetError> {
     let mut names: Vec<String> = Vec::new();
     for entry in fs::read_dir(path)? {

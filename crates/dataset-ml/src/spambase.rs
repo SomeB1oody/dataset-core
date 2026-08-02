@@ -1,16 +1,17 @@
 //! Spambase dataset.
 //!
-//! A collection of 4,601 e-mails gathered at Hewlett-Packard Labs in 1999, each
-//! summarized by 57 hand-crafted frequency statistics rather than by its raw text.
-//! The spam came from a postmaster and from individuals who had filed spam; the
-//! non-spam came from filed work and personal e-mail. The task is to predict
-//! whether a message is spam from those statistics.
+//! This is a collection of 4,601 e-mails, gathered at Hewlett-Packard Labs in
+//! 1999. The dataset summarizes each email with 57 hand-crafted frequency
+//! statistics, not its raw text. The spam came from a postmaster and from
+//! individuals who had filed spam. The non-spam came from filed work and
+//! personal e-mail. The task is to predict whether a message is spam from those
+//! statistics.
 //!
 //! **Features (57, all numeric):** 48 `word_freq_WORD` percentages, 6
 //! `char_freq_CHAR` percentages, and 3 capital-run-length statistics (average,
-//! longest, total). All are non-negative; the frequency columns lie in `0..=100`.
+//! longest, total). All are non-negative. The frequency columns lie in `0..=100`.
 //!
-//! **Target:** `class` — one of `ham` or `spam`
+//! **Target:** `class` - one of `ham` or `spam`
 //!
 //! **Samples:** 4,601 total (2,788 ham, 1,813 spam)
 //! **Application:** Binary classification / spam detection
@@ -28,9 +29,9 @@ use csv::ReaderBuilder;
 
 /// The URL for the Spambase dataset.
 ///
-/// This is the UCI static package; it is a ZIP archive containing
-/// `spambase.DOCUMENTATION`, `spambase.data`, and `spambase.names`, of which only
-/// the `spambase.data` file is used.
+/// This is the UCI static package. It is a ZIP archive that contains
+/// `spambase.DOCUMENTATION`, `spambase.data`, and `spambase.names`. The loader
+/// uses only the `spambase.data` file.
 ///
 /// # Citation
 ///
@@ -38,7 +39,7 @@ use csv::ReaderBuilder;
 /// Learning Repository, \[Online\]. Available: <https://doi.org/10.24432/C53G6X>
 const SPAMBASE_DATA_URL: &str = "https://archive.ics.uci.edu/static/public/94/spambase.zip";
 
-/// The name the downloaded ZIP archive is saved under inside the temp directory.
+/// The filename for the downloaded ZIP archive inside the temp directory.
 const SPAMBASE_ZIP_FILENAME: &str = "spambase.zip";
 
 /// The name of the file inside the archive that holds the records.
@@ -56,11 +57,11 @@ const SPAMBASE_DATASET_NAME: &str = "spambase";
 /// Number of samples.
 const N_SAMPLES: usize = 4601;
 
-/// The number of numeric features per sample (48 word + 6 char frequencies + 3
-/// capital-run-length statistics).
+/// The number of numeric features per sample (48 word frequencies, 6 char
+/// frequencies, and 3 capital-run-length statistics).
 const N_FEATURES: usize = 57;
 
-/// The number of columns per CSV record (57 features + 1 label).
+/// The number of columns per CSV record (57 features and 1 label).
 const N_COLUMNS: usize = N_FEATURES + 1;
 
 /// Source column index of the label (`class`). The label is the **last** column.
@@ -69,29 +70,28 @@ const LABEL_COLUMN: usize = N_FEATURES;
 /// Type alias for the Spambase dataset: (features, labels).
 type SpambaseData = (Array2<f64>, Array1<&'static str>);
 
-/// A struct representing the Spambase dataset with lazy loading.
-///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// This struct represents the Spambase dataset. It loads data lazily: the dataset
+/// does not load until you call a data accessor method. Once loaded, the data
+/// stays cached for later accesses.
 ///
 /// # About Dataset
 ///
-/// The Spambase collection was generated at Hewlett-Packard Labs in June–July
-/// 1999 by Mark Hopkins, Erik Reeber, George Forman, and Jaap Suermondt. The
-/// "spam" concept is diverse: advertisements for products or web sites,
-/// make-money-fast schemes, chain letters, pornography. The spam e-mails came from
-/// the lab's postmaster and from individuals who had filed spam; the non-spam
-/// e-mails came from filed work and personal e-mail, which is why the word
-/// `george` and the area code `650` are strong non-spam indicators here — useful
-/// for a personalized filter, but they would have to be blinded to build a general
-/// purpose one.
+/// Mark Hopkins, Erik Reeber, George Forman, and Jaap Suermondt generated the
+/// Spambase collection at Hewlett-Packard Labs in June–July 1999. The "spam"
+/// concept is diverse: advertisements for products or web sites, make-money-fast
+/// schemes, chain letters, and pornography. The spam e-mails came from the lab's
+/// postmaster and from individuals who had filed spam. The non-spam e-mails came
+/// from filed work and personal e-mail. This is why the word `george` and the
+/// area code `650` are strong non-spam indicators here. They are useful for a
+/// personalized filter, but a general purpose filter would need to blind them.
 ///
-/// Each e-mail is reduced to 57 continuous statistics: how often selected words
-/// and characters occur, plus how long its runs of capital letters are.
+/// The dataset reduces each e-mail to 57 continuous statistics: how often
+/// selected words and characters occur, and how long its runs of capital letters
+/// are.
 ///
 /// # Feature columns
 ///
-/// All 57 features are quantitative, stored in one `(4601, 57)` `Array2<f64>`
+/// All 57 features are quantitative. They form one `(4601, 57)` `Array2<f64>`
 /// matrix. By 0-based column index:
 ///
 /// | Columns   | Attributes                            | Unit                              |
@@ -102,12 +102,13 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 /// | `55`      | `capital_run_length_longest`          | longest capital-run length        |
 /// | `56`      | `capital_run_length_total`            | total number of capital letters   |
 ///
-/// A `word_freq_WORD` column is `100 * (times WORD appears) / (total words)`; a
+/// A `word_freq_WORD` column is `100 * (times WORD appears) / (total words)`. A
 /// `char_freq_CHAR` column is `100 * (occurrences of CHAR) / (total characters)`.
 /// A "word" is any string of alphanumeric characters bounded by non-alphanumeric
-/// characters or end-of-string. The capital-run-length columns measure
-/// uninterrupted sequences of capital letters: their average, their maximum, and
-/// their sum (i.e. the total number of capital letters in the e-mail).
+/// characters or the end of the string. The capital-run-length columns measure
+/// uninterrupted sequences of capital letters. They report the average, the
+/// maximum, and the sum, that is, the total number of capital letters in the
+/// e-mail.
 ///
 /// The 48 words of columns `0..=47`, in order:
 ///
@@ -123,7 +124,7 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 /// # Labels
 ///
 /// - `class` (shape `(4601,)`): the `Array1<&'static str>` maps the source's
-///   nominal codes to readable names — `0` → `"ham"` (not spam), `1` → `"spam"`.
+///   nominal codes to readable names: `0` → `"ham"` (not spam), `1` → `"spam"`.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/94/spambase>.
 ///
@@ -134,14 +135,15 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` because all its fields implement them.
+/// This makes it safe to share the struct across threads. The internal
+/// [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::spambase::Spambase;
 ///
-/// let download_dir = "./spambase"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./spambase"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = Spambase::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -151,17 +153,17 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 /// assert_eq!(features.shape(), &[4601, 57]);
 /// assert_eq!(labels.len(), 4601);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place, with no clone and no reload. The change stays cached.
+/// // Prefer this method over `.to_owned()` when you only need to change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.5;
 ///     labels[0] = "ham";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves owned arrays out with no `to_owned()` clone. It leaves
+/// // the instance reusable. The next access reloads data from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[4601, 57]);
 /// assert_eq!(owned_labels.len(), 4601);
@@ -180,12 +182,13 @@ pub struct Spambase {
 impl Spambase {
     /// Create a new Spambase instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// The dataset does not load immediately. It loads the first time you call a
+    /// data accessor method. This call is lightweight: it only stores the storage
+    /// directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory that holds the dataset.
     ///
     /// # Returns
     ///
@@ -196,10 +199,10 @@ impl Spambase {
         }
     }
 
-    /// Acquire and parse the Spambase dataset.
+    /// Get and parse the Spambase dataset.
     fn load_data(dir: &str) -> Result<SpambaseData, DatasetError> {
-        // Prepare the dataset file: download the UCI ZIP package, extract it, and
-        // surface the `spambase.data` records (cached under `spambase.csv`).
+        // Download the UCI ZIP package, extract it, and read the `spambase.data`
+        // records. The result is cached as `spambase.csv`.
         let file_path = acquire_dataset(
             dir,
             SPAMBASE_FILENAME,
@@ -230,7 +233,7 @@ impl Spambase {
                 result.map_err(|e| DatasetError::csv_read_error(SPAMBASE_DATASET_NAME, e))?;
             let line_num = idx + 1; // headerless file, lines are 1-indexed
 
-            // Skip blank lines defensively (e.g. a trailing newline).
+            // Skip blank lines, for example a trailing newline.
             if record.iter().all(|f| f.is_empty()) {
                 continue;
             }
@@ -257,7 +260,7 @@ impl Spambase {
                 features.push(value);
             }
 
-            // Label, mapping the source's nominal code to a readable name.
+            // Map the source's nominal code to a readable label.
             let label = match record[LABEL_COLUMN].trim() {
                 "0" => "ham",
                 "1" => "spam",
@@ -289,7 +292,7 @@ impl Spambase {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -304,14 +307,14 @@ impl Spambase {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (4601 samples, 57 features)
+    /// - Dataset size does not match the expected dimensions (4601 samples, 57 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the labels vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -324,14 +327,14 @@ impl Spambase {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (4601 samples)
+    /// - Dataset size does not match the expected dimensions (4601 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -346,58 +349,60 @@ impl Spambase {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (4601 samples, 57 features)
+    /// - Dataset size does not match the expected dimensions (4601 samples, 57 features)
     pub fn data(&self) -> Result<&SpambaseData, DatasetError> {
         self.dataset.load()
     }
 
     /// Get both features and labels as references **without** triggering loading.
     ///
-    /// Unlike [`Spambase::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if it
-    /// is already cached and want to avoid paying the download/parse cost otherwise.
+    /// Unlike [`Spambase::data`], which loads the dataset on the first call, this
+    /// method never runs the loader. If the data has not loaded yet, this method
+    /// returns `None` instead of downloading and parsing it. Use this method only
+    /// when you want data that is already cached. This avoids the download and
+    /// parse cost if the dataset is not cached yet.
     ///
     /// # Returns
     ///
     /// - `Some(&SpambaseData)` - reference to the cached `(features, labels)` tuple
     ///   (feature matrix `(4601, 57)`, label vector `(4601,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&SpambaseData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// replace label values) with no `to_owned()` clone and without removing them
-    /// from the cache: the changes persist, so later [`Spambase::features`],
-    /// [`Spambase::data`], or [`Spambase::get_data`] calls observe them.
+    /// This method lets you change the cached arrays in place (for example, to
+    /// normalize features or replace label values). It needs no `to_owned()`
+    /// clone, and it does not remove the data from the cache. The changes persist,
+    /// so later calls to [`Spambase::features`], [`Spambase::data`], or
+    /// [`Spambase::get_data`] see them.
     ///
-    /// Like [`Spambase::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Spambase::data`]) first if you need to ensure the data is present.
+    /// Like [`Spambase::get_data`], this method does **not** trigger loading. It
+    /// returns `None` if the dataset has not loaded yet. If you need the data to
+    /// be present, call a loading accessor first, for example [`Spambase::data`].
     ///
     /// # Returns
     ///
     /// - `Some(&mut SpambaseData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(4601, 57)`, label vector
     ///   `(4601,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut SpambaseData> {
         self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and labels.
     ///
-    /// Unlike [`Spambase::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// Unlike [`Spambase::data`], which borrows the cached data, this method moves
+    /// the data out and returns owned arrays directly, with no `to_owned()` clone
+    /// needed. The dataset loads on the first access if it has not loaded yet.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Spambase::take_data`] instead — it takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This method **consumes** `self`, so you cannot use the instance afterward.
+    /// If you want owned data but need to keep using the instance, use
+    /// [`Spambase::take_data`] instead. That method takes `&mut self` and leaves
+    /// the instance reusable.
     ///
     /// # Returns
     ///
@@ -416,15 +421,15 @@ impl Spambase {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves it reusable.
     ///
-    /// Like [`Spambase::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Spambase::features`] or [`Spambase::data`]) loads the
-    /// dataset again.
+    /// Like [`Spambase::into_data`], this method returns owned arrays with no
+    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
+    /// and moves the cached data out. This resets the instance to its unloaded
+    /// state. The next accessor call, for example [`Spambase::features`] or
+    /// [`Spambase::data`], loads the dataset again.
     ///
-    /// Use [`Spambase::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`Spambase::into_data`] instead.
     ///
     /// # Returns
     ///

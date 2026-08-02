@@ -1,21 +1,21 @@
 //! A generic, thread-safe dataset container with lazy loading and caching.
 //!
 //! `dataset-core` provides [`Dataset<T, E>`], a lightweight wrapper that pairs a storage
-//! directory with a lazily-initialized value of any type `T`. The actual downloading
-//! and parsing logic is supplied by the caller through a loader closure stored at
-//! construction time, making `Dataset<T, E>` suitable for any data source — local
-//! files, remote URLs, databases, or in-memory generation.
+//! directory with a lazily-initialized value of any type `T`. The caller supplies the
+//! download and parse logic through a loader closure stored at construction time. This
+//! makes `Dataset<T, E>` suitable for any data source: local files, remote URLs,
+//! databases, or in-memory generation.
 //!
 //! On top of this core type, the crate offers an **optional** feature-gated module:
 //!
-//! - **`utils`** — helper functions for downloading files, extracting archives,
-//!   verifying SHA-256 hashes, and managing temporary directories.
+//! - **`utils`**: helper functions to download files, extract archives, verify
+//!   SHA-256 hashes, and manage temporary directories.
 //!
-//! Ready-to-use loaders for 26 classic ML datasets — from Iris, Breast Cancer, and
-//! Titanic to Forest CoverType, KDD Cup '99, and 20 Newsgroups — live in the
-//! companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml), which depends
+//! Ready-to-use loaders for 26 classic ML datasets live in the companion crate
+//! [`dataset-ml`](https://crates.io/crates/dataset-ml). Examples include Iris, Breast
+//! Cancer, Titanic, Forest CoverType, KDD Cup '99, and 20 Newsgroups. The crate depends
 //! on `dataset-core` with the `utils` feature enabled and serves as the reference
-//! implementation for wrapping `Dataset<T, E>`.
+//! implementation that wraps `Dataset<T, E>`.
 //!
 //! # Feature Flags
 //!
@@ -23,10 +23,10 @@
 //! |---------|--------------------------------------------------------------------------------------------|
 //! | `utils` | `download_to`, `download_to_with_retries`, `unzip`, `gunzip`, `untar`, `untar_gz`, `sha256_file`, `verify_sha256`, `read_latin1`, `acquire_dataset`, and the `error` module |
 //!
-//! With no features enabled, only `Dataset<T, E>` is available — depending only on
+//! With no features enabled, only `Dataset<T, E>` is available. It depends only on
 //! `std::sync::OnceLock`.
 //!
-//! # Quick Start — `Dataset<T, E>`
+//! # Quick Start: `Dataset<T, E>`
 //!
 //! ```rust
 //! use dataset_core::Dataset;
@@ -39,23 +39,23 @@
 //! // The loader is supplied once, at construction time.
 //! let mut ds: Dataset<Vec<String>, std::io::Error> = Dataset::new("./my_data", my_loader);
 //!
-//! // First call runs the loader; subsequent calls return the cached reference.
+//! // The first call runs the loader. Later calls return the cached reference.
 //! let data = ds.load().unwrap();
 //! assert_eq!(data.len(), 2);
 //!
 //! let data_again = ds.load().unwrap();
 //! assert!(std::ptr::eq(data, data_again)); // same reference, no reload
 //!
-//! // `get` borrows the cached value without ever running the loader;
-//! // `get_mut` edits it in place (no clone, no reload — the change stays cached).
+//! // `get` borrows the cached value. It does not run the loader.
+//! // `get_mut` edits the value in place, with no clone or reload. The change stays cached.
 //! assert!(ds.get().is_some());
 //! if let Some(v) = ds.get_mut() {
 //!     v[0] = "HELLO".to_string();
 //! }
 //! assert_eq!(ds.get().unwrap()[0], "HELLO");
 //!
-//! // Move the cached value out without cloning. `take` leaves `ds` reusable
-//! // (a later `load` re-runs the loader); `into_inner` consumes `ds`.
+//! // Move the cached value out without cloning. `take` leaves `ds` reusable.
+//! // A later `load` call re-runs the loader. `into_inner` consumes `ds`.
 //! let owned = ds.take().unwrap();
 //! assert_eq!(owned.len(), 2);
 //! assert!(!ds.is_loaded());
@@ -67,10 +67,10 @@
 //!
 //! # Swapping the loader
 //!
-//! Because the loader lives inside the `Dataset`, you change *how* the data is
-//! parsed with [`Dataset::set_loader`], which also invalidates the cache so the
-//! next access re-parses with the new loader. To re-run the **same** loader
-//! (e.g. the file on disk changed), use [`Dataset::invalidate`].
+//! Because the loader lives inside the `Dataset`, [`Dataset::set_loader`] lets you
+//! change *how* the loader parses the data. It also invalidates the cache, so the
+//! next access re-parses with the new loader. To re-run the **same** loader, for
+//! example when the file on disk changes, use [`Dataset::invalidate`].
 //!
 //! ```rust
 //! use dataset_core::Dataset;
@@ -78,29 +78,31 @@
 //! let mut ds: Dataset<i32, std::convert::Infallible> = Dataset::new("./data", |_| Ok(1));
 //! assert_eq!(*ds.load().unwrap(), 1);
 //!
-//! ds.set_loader(|_| Ok(2)); // swap the loader; old cache is dropped
+//! ds.set_loader(|_| Ok(2)); // swap the loader and drop the old cache
 //! assert!(!ds.is_loaded());
 //! assert_eq!(*ds.load().unwrap(), 2); // next load uses the new loader
 //! ```
 //!
 //! # Utility Functions (feature `utils`)
 //!
-//! - `download_to` — download a remote file into a directory
-//! - `download_to_with_retries` — the same, retrying transient failures with backoff
-//! - `unzip` — extract a ZIP archive
-//! - `gunzip` — decompress a gzip (`.gz`) file into a single output file
-//! - `untar` — extract a tar (`.tar`) archive into a directory
-//! - `untar_gz` — extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive, streaming
-//! - `sha256_file` — compute a file's SHA-256 digest (for pinning a hash)
-//! - `verify_sha256` — check a file against a hash you already have
-//! - `read_latin1` — read a file as Latin-1 text, losslessly and without failing on non-UTF-8 bytes
-//! - `acquire_dataset` — cache-aware dataset acquisition workflow
+//! - `download_to` - download a remote file into a directory
+//! - `download_to_with_retries` - same as `download_to`, but retries transient failures
+//!   with backoff
+//! - `unzip` - extract a ZIP archive
+//! - `gunzip` - decompress a gzip (`.gz`) file into a single output file
+//! - `untar` - extract a tar (`.tar`) archive into a directory
+//! - `untar_gz` - extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive as a stream
+//! - `sha256_file` - compute a file's SHA-256 digest, to pin as an expected hash
+//! - `verify_sha256` - check a file against a hash you already have
+//! - `read_latin1` - read a file as Latin-1 text, with no data loss and no failure on
+//!   non-UTF-8 bytes
+//! - `acquire_dataset` - cache-aware dataset acquisition workflow
 //!   (temp dir → prepare → optional hash check → move to final location)
 //!
-//! `acquire_dataset` is the single entry point for caching a dataset file; temp-dir
-//! creation and SHA-256 verification are internal steps it performs for you, so
-//! reach for `sha256_file` / `verify_sha256` only outside that workflow — pinning a
-//! new dataset's hash, or asserting in a test which file ended up on disk.
+//! `acquire_dataset` is the single entry point for caching a dataset file. It performs
+//! temp-dir creation and SHA-256 verification as internal steps. Use `sha256_file` and
+//! `verify_sha256` only outside that workflow: to pin a new dataset's hash, or to check
+//! which file is on disk after a test runs.
 
 #[cfg(feature = "utils")]
 pub use error::{DataFormatErrorKind, DatasetError};
@@ -113,42 +115,42 @@ pub use utils::{
 
 /// The boxed loader stored inside a [`Dataset`].
 ///
-/// A loader takes the storage directory path and returns the parsed dataset (or
-/// an error). It is stored behind a `Box<dyn Fn ...>` so the concrete closure
-/// type does not leak into `Dataset`'s type parameters. The `Send + Sync` bound
-/// keeps `Dataset<T, E>` shareable across threads; the implied `'static` bound
-/// means the loader may not borrow from its environment — capture by value or
-/// clone instead.
+/// A loader takes the storage directory path and returns the parsed dataset, or an
+/// error. It is stored behind a `Box<dyn Fn ...>`, so the concrete closure type does
+/// not leak into `Dataset`'s type parameters. The `Send + Sync` bound keeps
+/// `Dataset<T, E>` shareable across threads. The implied `'static` bound means the
+/// loader must not borrow from its environment: it must capture by value or clone.
 type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 
 /// A generic, thread-safe dataset container with lazy loading and in-memory caching.
 ///
 /// `Dataset<T, E>` is a thin caching wrapper that holds a `storage_dir` (the directory
 /// where dataset files are stored on disk), a loader closure, and a lazily-initialized
-/// value of type `T`. The downloading and parsing logic is provided by the caller
-/// through the loader passed to [`Dataset::new`] and run on first access by
-/// [`Dataset::load`].
+/// value of type `T`. The caller supplies the download and parse logic through the
+/// loader passed to [`Dataset::new`]. [`Dataset::load`] runs this loader on first
+/// access.
 ///
-/// This struct is designed to be the building block for both the loaders shipped in
-/// the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) and any
-/// custom datasets defined by external users.
+/// This struct serves as the building block for the loaders in the companion crate
+/// [`dataset-ml`](https://crates.io/crates/dataset-ml) and for custom datasets that
+/// external users define.
 ///
 /// # Type Parameters
 ///
-/// - `T` - The type of the parsed dataset. Can be any type, such as
-///   `(Array2<f64>, Array1<f64>)`, a custom struct, or any other data representation.
-///   `T` must implement `Send + Sync` for `Dataset<T, E>` to be shared across threads.
-/// - `E` - The error type returned by the loader. Callers choose it freely (e.g.
-///   `std::io::Error`, a crate-specific `DatasetError`, or `std::convert::Infallible`
-///   for loaders that cannot fail).
+/// - `T` - The type of the parsed dataset. It can be any type, such as
+///   `(Array2<f64>, Array1<f64>)`, a custom struct, or another data shape.
+///   `T` must implement `Send + Sync` so that `Dataset<T, E>` can be shared across
+///   threads.
+/// - `E` - The error type returned by the loader. Callers choose it freely, for
+///   example `std::io::Error`, a crate-specific `DatasetError`, or
+///   `std::convert::Infallible` for loaders that cannot fail.
 ///
 /// # Thread Safety
 ///
 /// `Dataset<T, E>` is `Send + Sync` when `T` is `Send + Sync` (the stored loader is
 /// always `Send + Sync`). The loader runs at most once even when multiple threads
-/// call [`Dataset::load`] concurrently: an internal mutex serializes the first
-/// load, so late arrivals wait for it and then share its result rather than each
-/// starting a download of their own.
+/// call [`Dataset::load`] concurrently. An internal mutex serializes the first
+/// load, so late arrivals wait for it and then share its result, rather than each
+/// thread starting its own download.
 ///
 /// # Example
 ///
@@ -158,8 +160,8 @@ type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 /// // Define a simple loader that reads a value from the storage directory path.
 /// // The loader can return any error type you choose.
 /// fn my_loader(dir: &str) -> Result<Vec<String>, std::io::Error> {
-///     // In a real use case, you would download/read files from `dir`.
-///     // Here we just demonstrate the caching behavior.
+///     // A real use case downloads or reads files from `dir`.
+///     // This shows the caching behavior.
 ///     Ok(vec!["hello".to_string(), "world".to_string()])
 /// }
 ///
@@ -177,19 +179,19 @@ type Loader<T, E> = Box<dyn Fn(&str) -> Result<T, E> + Send + Sync>;
 /// // Check whether data has been loaded
 /// assert!(dataset.is_loaded());
 ///
-/// // Borrow the cached value without reloading, or edit it in place via `get_mut`.
+/// // Borrow the cached value without reloading, or edit it in place with `get_mut`.
 /// if let Some(v) = dataset.get_mut() {
 ///     v[0] = "HELLO".to_string();
 /// }
 /// assert_eq!(dataset.get().unwrap()[0], "HELLO");
 ///
 /// // Move the cached value out without cloning.
-/// // `take` leaves `dataset` reusable; `into_inner` consumes it.
+/// // `take` leaves `dataset` reusable. `into_inner` consumes it.
 /// let owned = dataset.take().unwrap();
 /// assert_eq!(owned.len(), 2);
-/// assert!(!dataset.is_loaded()); // `take` reset it to unloaded
+/// assert!(!dataset.is_loaded()); // `take` resets it to unloaded
 ///
-/// dataset.load().unwrap(); // reloads, since `take` cleared the cache
+/// dataset.load().unwrap(); // this reloads, because `take` cleared the cache
 /// let owned = dataset.into_inner().unwrap();
 /// assert_eq!(owned.len(), 2);
 /// ```
@@ -200,9 +202,9 @@ pub struct Dataset<T, E> {
     /// Serializes the loader so that concurrent [`Dataset::load`] calls run it
     /// **once** rather than racing to produce a value only one of them keeps.
     ///
-    /// The mutex guards no data of its own — it exists purely to make the
-    /// check-run-store sequence in `load` atomic — so a poisoned lock (a loader
-    /// that panicked on another thread) is recovered from rather than propagated.
+    /// The mutex guards no data of its own. It exists only to make the check-run-store
+    /// sequence in `load` atomic. So `load` recovers from a poisoned lock (caused by a
+    /// loader that panicked on another thread) rather than propagating it.
     init_lock: Mutex<()>,
 }
 
@@ -210,18 +212,19 @@ impl<T, E> Dataset<T, E> {
     /// Create a new `Dataset` instance without loading any data.
     ///
     /// This is a lightweight operation that only stores the storage directory path
-    /// and the loader. No I/O or network requests are performed until
-    /// [`Dataset::load`] is called.
+    /// and the loader. It performs no I/O or network requests until [`Dataset::load`]
+    /// runs.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where dataset files will be stored. The directory
-    ///   will be created automatically when the loader runs if it does not exist.
+    /// - `storage_dir` - The directory where the loader stores dataset files. If the
+    ///   directory does not yet exist, the loader creates it automatically when it
+    ///   runs.
     /// - `loader` - A closure or function that takes the storage directory path (`&str`)
-    ///   and returns `Result<T, E>`. This is where you perform downloading, file I/O,
-    ///   and parsing. It runs at most once (see [`Dataset::load`]). Because it is
-    ///   stored behind `Box<dyn Fn ...>`, it must be `Send + Sync + 'static` —
-    ///   capture owned values or clones rather than borrowing from the environment.
+    ///   and returns `Result<T, E>`. This is where you download data, handle file I/O,
+    ///   and parse it. It runs at most once (see [`Dataset::load`]). `Dataset::new`
+    ///   stores it behind `Box<dyn Fn ...>`, so it must be `Send + Sync + 'static`.
+    ///   Capture owned values or clones instead of borrowing from the environment.
     ///
     /// # Returns
     ///
@@ -238,23 +241,23 @@ impl<T, E> Dataset<T, E> {
         }
     }
 
-    /// Load the dataset, executing the stored loader on first call and caching the result.
+    /// Load the dataset. The first call runs the stored loader and caches the result.
     ///
-    /// On the first call, the loader supplied to [`Dataset::new`] (or last set via
-    /// [`Dataset::set_loader`]) is invoked with the storage directory path. The
-    /// returned value is cached internally. All subsequent calls — from any thread —
-    /// return a reference to the cached value without running the loader again.
+    /// On the first call, `load` runs the loader supplied to [`Dataset::new`] (or last
+    /// set via [`Dataset::set_loader`]) with the storage directory path. It caches the
+    /// returned value. Later calls, from any thread, return a reference to the cached
+    /// value without running the loader again.
     ///
     /// # Concurrency
     ///
     /// The loader runs **at most once**, even when several threads call `load`
-    /// simultaneously: threads that arrive while a load is in flight block until it
-    /// finishes and then share its result. This matters for the typical loader,
-    /// which downloads into `storage_dir` — concurrent callers would otherwise each
-    /// start their own download of the same file.
+    /// simultaneously. Threads that arrive while a load is in flight block until it
+    /// finishes, then share its result. This matters for the typical loader, which
+    /// downloads into `storage_dir`: concurrent callers would otherwise each start
+    /// their own download of the same file.
     ///
     /// A loader that returns `Err` leaves the `Dataset` unloaded, so a later `load`
-    /// retries it (the error is not cached).
+    /// retries it. `load` does not cache the error.
     ///
     /// # Returns
     ///
@@ -262,19 +265,20 @@ impl<T, E> Dataset<T, E> {
     ///
     /// # Errors
     ///
-    /// Returns any error produced by the loader on first invocation. Once data is
-    /// successfully loaded and cached, this method never returns an error.
+    /// Returns any error the loader produces on the first call. After the first
+    /// successful load, this method never returns an error.
     pub fn load(&self) -> Result<&T, E> {
         // Fast path: already loaded, no locking needed.
         if let Some(data) = self.data.get() {
             return Ok(data);
         }
 
-        // A poisoned lock only means some other thread's loader panicked; the guard
-        // protects no invariant of its own, so recover and carry on.
+        // A poisoned lock only means that some other thread's loader panicked. The
+        // guard protects no invariant of its own, so recover from the poison and
+        // continue.
         let _guard = self.init_lock.lock().unwrap_or_else(|e| e.into_inner());
 
-        // Re-check: another thread may have loaded while we waited for the lock.
+        // Check again: another thread may have loaded while this one waited for the lock.
         if let Some(data) = self.data.get() {
             return Ok(data);
         }
@@ -290,14 +294,15 @@ impl<T, E> Dataset<T, E> {
 
     /// Load the dataset if needed, then return a **mutable** reference to it.
     ///
-    /// This is the loading counterpart of [`Dataset::get_mut`]: where `get_mut`
-    /// returns `None` when nothing is cached yet, `load_mut` runs the loader first,
-    /// so it always hands back a mutable reference on success. Use it to load and
-    /// then adjust the data in one step (e.g. normalize features right after
-    /// parsing) instead of calling [`Dataset::load`] and [`Dataset::get_mut`] in
-    /// sequence.
+    /// This is the loading counterpart of [`Dataset::get_mut`]. Unlike `get_mut`,
+    /// which returns `None` when nothing is cached yet, `load_mut` runs the loader
+    /// first. It always returns a mutable reference on success. Use it to load the
+    /// data and adjust it in one step. For example, normalize features right after
+    /// parsing, rather than calling [`Dataset::load`] and [`Dataset::get_mut`]
+    /// separately.
     ///
-    /// As with `get_mut`, the edits are made in place and persist in the cache.
+    /// As with `get_mut`, you edit the value in place, and the change persists in
+    /// the cache.
     ///
     /// # Returns
     ///
@@ -305,7 +310,7 @@ impl<T, E> Dataset<T, E> {
     ///
     /// # Errors
     ///
-    /// Returns any error produced by the loader on first invocation.
+    /// Returns any error the loader produces on the first call.
     ///
     /// # Example
     ///
@@ -315,12 +320,12 @@ impl<T, E> Dataset<T, E> {
     /// let mut ds: Dataset<Vec<i32>, std::convert::Infallible> =
     ///     Dataset::new("./data", |_| Ok(vec![1, 2, 3]));
     ///
-    /// // Loads on first call, then hands back a mutable reference.
+    /// // Loads on first call, then returns a mutable reference.
     /// ds.load_mut().unwrap().push(4);
     /// assert_eq!(ds.get(), Some(&vec![1, 2, 3, 4])); // the change persisted
     /// ```
     pub fn load_mut(&mut self) -> Result<&mut T, E> {
-        // Ensure the value is present; the shared borrow ends with this statement.
+        // Make sure the value is present. The shared borrow ends with this statement.
         self.load()?;
 
         Ok(self
@@ -331,11 +336,11 @@ impl<T, E> Dataset<T, E> {
 
     /// Replace the loader and invalidate any cached data.
     ///
-    /// Use this when the parsing logic itself needs to change. The new loader is
-    /// **not** run immediately: this method only swaps the loader and drops the
-    /// cached value (resetting the `Dataset` to its unloaded state), so the next
-    /// [`Dataset::load`] lazily re-parses with the new loader. This keeps the
-    /// "no I/O until access" contract intact.
+    /// Use this when the parsing logic itself needs to change. `set_loader` does not
+    /// run the new loader right away. It only swaps the loader and drops the cached
+    /// value, which resets the `Dataset` to its unloaded state. The next
+    /// [`Dataset::load`] call then re-parses the data with the new loader. This keeps
+    /// the "no I/O until access" contract intact.
     ///
     /// To re-run the *same* loader instead, use [`Dataset::invalidate`].
     ///
@@ -352,7 +357,7 @@ impl<T, E> Dataset<T, E> {
     /// let mut ds: Dataset<i32, std::convert::Infallible> = Dataset::new("./data", |_| Ok(1));
     /// assert_eq!(*ds.load().unwrap(), 1);
     ///
-    /// ds.set_loader(|_| Ok(2)); // swap the loader; the old cache is dropped
+    /// ds.set_loader(|_| Ok(2)); // swaps the loader and drops the old cache
     /// assert!(!ds.is_loaded());
     /// assert_eq!(*ds.load().unwrap(), 2); // next load uses the new loader
     /// ```
@@ -363,12 +368,12 @@ impl<T, E> Dataset<T, E> {
 
     /// Drop the cached value, keeping the current loader.
     ///
-    /// Resets the `Dataset` to its unloaded state so the next [`Dataset::load`]
-    /// re-runs the **current** loader from scratch — useful when the underlying
-    /// files have changed on disk and you want to re-parse them. To swap in a
+    /// This resets the `Dataset` to its unloaded state, so the next [`Dataset::load`]
+    /// call re-runs the **current** loader from scratch. If the underlying files
+    /// change on disk and you want to re-parse them, call this method. To swap in a
     /// *different* loader, use [`Dataset::set_loader`].
     ///
-    /// Unlike [`Dataset::take`], this does not hand the cached value back; it simply
+    /// Unlike [`Dataset::take`], this does not return the cached value. It simply
     /// discards it.
     ///
     /// # Example
@@ -409,20 +414,20 @@ impl<T, E> Dataset<T, E> {
 
     /// Get a reference to the cached value **without** triggering loading.
     ///
-    /// Unlike [`Dataset::load`], this never runs the loader: if the dataset has
-    /// not been loaded yet, it returns `None` rather than downloading/parsing.
-    /// Use it when you only want the data if it is already in memory and want to
-    /// avoid paying the loader's I/O cost otherwise — for example a fast path
-    /// that falls back to other work when the dataset is not yet cached.
+    /// Unlike [`Dataset::load`], this never runs the loader. If the dataset is not
+    /// loaded yet, it returns `None` instead of downloading or parsing anything. When
+    /// you want data only if it is already in memory, use `get`. This avoids the
+    /// loader's I/O cost when the data is not cached. For example, a fast path can
+    /// fall back to other work when the dataset is not yet cached.
     ///
     /// This is the reference-returning companion of [`Dataset::is_loaded`]:
-    /// `is_loaded()` answers *whether* the value is cached, `get()` hands you the
+    /// `is_loaded()` answers *whether* the value is cached, and `get()` returns the
     /// cached reference when it is.
     ///
     /// # Returns
     ///
-    /// - `Some(&T)` - a reference to the cached value, if the dataset had been loaded.
-    /// - `None` - if the dataset has not been loaded.
+    /// - `Some(&T)` - a reference to the cached value, if the dataset is loaded.
+    /// - `None` - if the dataset is not loaded.
     ///
     /// # Example
     ///
@@ -431,7 +436,7 @@ impl<T, E> Dataset<T, E> {
     ///
     /// let ds: Dataset<Vec<i32>, std::convert::Infallible> =
     ///     Dataset::new("./data", |_| Ok(vec![1, 2, 3]));
-    /// assert!(ds.get().is_none()); // not loaded yet — no loader is run
+    /// assert!(ds.get().is_none()); // not loaded yet, no loader runs
     ///
     /// ds.load().unwrap();
     /// assert_eq!(ds.get(), Some(&vec![1, 2, 3]));
@@ -442,25 +447,24 @@ impl<T, E> Dataset<T, E> {
 
     /// Get a mutable reference to the cached value for **in-place** editing.
     ///
-    /// This is the only way to mutate the cached value without moving it out:
-    /// you can tweak the loaded data (e.g. normalize features, fill in missing
-    /// entries, augment samples) and the changes persist in the cache, so later
-    /// [`Dataset::load`] / [`Dataset::get`] calls observe them.
+    /// This is the only way to mutate the cached value without moving it out. You can
+    /// tweak the loaded data, for example to normalize features, add missing values,
+    /// or augment samples. The changes persist in the cache, so later [`Dataset::load`]
+    /// and [`Dataset::get`] calls observe them.
     ///
-    /// Because it requires unique access (`&mut self`), there is no aliasing or
-    /// race concern. And unlike [`take`](Dataset::take) /
-    /// [`into_inner`](Dataset::into_inner), it neither clones nor removes the
-    /// value — the `Dataset` stays loaded.
+    /// Because it needs unique access (`&mut self`), there is no risk of aliasing or a
+    /// race. Unlike both [`take`](Dataset::take) and [`into_inner`](Dataset::into_inner),
+    /// it neither clones nor removes the value. The `Dataset` stays loaded.
     ///
-    /// Like [`Dataset::get`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call [`Dataset::load`] first if
-    /// you need to ensure the value is present.
+    /// Like [`Dataset::get`], this does **not** trigger loading. It returns `None` if
+    /// the dataset is not loaded. If you need the value to be present, call
+    /// [`Dataset::load`] first.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut T)` - a mutable reference to the cached value, if the dataset
-    ///   had been loaded.
-    /// - `None` - if the dataset has not been loaded.
+    /// - `Some(&mut T)` - a mutable reference to the cached value, if the dataset is
+    ///   loaded.
+    /// - `None` - if the dataset is not loaded.
     ///
     /// # Example
     ///
@@ -469,7 +473,7 @@ impl<T, E> Dataset<T, E> {
     ///
     /// let mut ds: Dataset<Vec<i32>, std::convert::Infallible> =
     ///     Dataset::new("./data", |_| Ok(vec![1, 2, 3]));
-    /// assert!(ds.get_mut().is_none()); // not loaded yet — no loader is run
+    /// assert!(ds.get_mut().is_none()); // not loaded yet, no loader runs
     ///
     /// ds.load().unwrap();
     /// if let Some(data) = ds.get_mut() {
@@ -483,17 +487,17 @@ impl<T, E> Dataset<T, E> {
 
     /// Consume the `Dataset` and return the cached value, if any.
     ///
-    /// This **moves** the cached `T` out of the container — there is no clone.
-    /// Because it takes `self` by value, the `Dataset` is consumed and cannot be
-    /// used afterwards.
+    /// This **moves** the cached `T` out of the container. There is no clone.
+    /// Because it takes `self` by value, this consumes the `Dataset`. You cannot use
+    /// it afterward.
     ///
-    /// This method does **not** trigger loading: it returns `None` if the dataset
-    /// was never loaded. Call [`Dataset::load`] first if you need to ensure the
-    /// value is present.
+    /// This method does **not** trigger loading. It returns `None` if the dataset was
+    /// never loaded. If you need the value to be present, call [`Dataset::load`]
+    /// first.
     ///
     /// # `into_inner` vs [`take`](Dataset::take)
     ///
-    /// Both move the cached value out without cloning; the difference is what
+    /// Both move the cached value out without cloning. The difference is what
     /// happens to the container:
     ///
     /// - [`into_inner`](Dataset::into_inner) takes `self` and **consumes** the
@@ -504,7 +508,7 @@ impl<T, E> Dataset<T, E> {
     ///
     /// # Returns
     ///
-    /// - `Some(T)` - the cached value, if the dataset had been loaded.
+    /// - `Some(T)` - the cached value, if the dataset is loaded.
     /// - `None` - if the dataset was never loaded.
     ///
     /// # Example
@@ -518,7 +522,7 @@ impl<T, E> Dataset<T, E> {
     ///
     /// let owned: Vec<i32> = ds.into_inner().unwrap();
     /// assert_eq!(owned, vec![1, 2, 3]);
-    /// // `ds` has been consumed and can no longer be used.
+    /// // `into_inner` consumed `ds`. You can no longer use it.
     ///
     /// // A dataset that was never loaded yields `None`.
     /// let empty: Dataset<Vec<i32>, std::convert::Infallible> =
@@ -532,17 +536,17 @@ impl<T, E> Dataset<T, E> {
 
     /// Take the cached value out of the `Dataset`, leaving it reusable.
     ///
-    /// This **moves** the cached `T` out — there is no clone — and resets the
+    /// This **moves** the cached `T` out. There is no clone. It also resets the
     /// `Dataset` to its unloaded state. Unlike [`into_inner`](Dataset::into_inner),
-    /// the container is left intact: it can be used again, and a later
-    /// [`Dataset::load`] will run the loader from scratch.
+    /// `take` leaves the container intact. You can use it again, and a later
+    /// [`Dataset::load`] call runs the loader from scratch.
     ///
-    /// This method does **not** trigger loading: it returns `None` if the dataset
-    /// was not loaded.
+    /// This method does **not** trigger loading. It returns `None` if the dataset is
+    /// not loaded.
     ///
     /// # `take` vs [`into_inner`](Dataset::into_inner)
     ///
-    /// Both move the cached value out without cloning; the difference is what
+    /// Both move the cached value out without cloning. The difference is what
     /// happens to the container:
     ///
     /// - [`take`](Dataset::take) takes `&mut self` and keeps the `Dataset`
@@ -552,8 +556,8 @@ impl<T, E> Dataset<T, E> {
     ///
     /// # Returns
     ///
-    /// - `Some(T)` - the cached value, if the dataset had been loaded.
-    /// - `None` - if the dataset was not loaded.
+    /// - `Some(T)` - the cached value, if the dataset is loaded.
+    /// - `None` - if the dataset is not loaded.
     ///
     /// # Example
     ///
@@ -589,15 +593,15 @@ impl<T, E> std::fmt::Debug for Dataset<T, E> {
 
 /// Error handling module.
 ///
-/// Provides structured error types for dataset loading operations including
-/// download failures, validation errors, I/O errors, and detailed data format
-/// errors with line numbers and contextual information for debugging.
+/// This module provides structured error types for dataset loading operations, such
+/// as download failures, validation errors, and I/O errors. It also provides detailed
+/// data format errors with line numbers and context for debugging.
 #[cfg(feature = "utils")]
 pub mod error;
 
 /// Utility functions for dataset authors.
 ///
-/// Provides helpers for downloading files, extracting archives, verifying
-/// SHA256 hashes, and managing the dataset acquisition workflow.
+/// Provides helpers to download files, extract archives, verify SHA-256 hashes, and
+/// manage the dataset acquisition workflow.
 #[cfg(feature = "utils")]
 pub mod utils;

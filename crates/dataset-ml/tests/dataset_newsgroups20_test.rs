@@ -40,9 +40,9 @@ const CATEGORIES: [&str; 20] = [
     "talk.religion.misc",
 ];
 
-/// Assert the train-partition invariants: the sample count, all 20 categories
-/// present with a known per-class count, non-empty posts, and the pinned first
-/// document (fixed by the deterministic lexicographic walk).
+/// Assert the train-partition invariants: the sample count, all 20 categories with
+/// a known per-class count, non-empty posts, and the first document. The
+/// deterministic lexicographic walk fixes this first document.
 fn assert_newsgroups20_train_semantics(
     texts: &ndarray::Array1<String>,
     labels: &ndarray::Array1<&'static str>,
@@ -87,14 +87,14 @@ fn assert_newsgroups20_train_semantics(
 // Verifies that the 20 Newsgroups train partition loads with the correct sample
 // count, categories, per-class counts, and non-empty posts.
 fn test_load_newsgroups20() {
-    let download_dir = "./test_load_newsgroups20"; // the code will create the directory if it doesn't exist
+    // If the directory does not exist, the code creates it.
+    let download_dir = "./test_load_newsgroups20";
 
     let dataset = Newsgroups20::new(download_dir);
     let (texts, labels) = dataset.data().unwrap();
 
     assert_newsgroups20_train_semantics(texts, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -119,7 +119,6 @@ fn test_newsgroups20_subsets() {
     assert_eq!(N_TRAIN + N_TEST, N_ALL);
     assert!(all_labels.iter().all(|l| known.contains(l)));
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -145,12 +144,12 @@ fn test_newsgroups20_no_need_download() {
     let dataset = Newsgroups20::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake archive is detected and overwritten with the real one.
+// Verifies that the loader detects a corrupt or fake archive and overwrites it
+// with the real one.
 fn test_newsgroups20_overwrite() {
     let download_dir = "./test_newsgroups20_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -166,7 +165,7 @@ fn test_newsgroups20_overwrite() {
     let dataset = Newsgroups20::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
+    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("20news-bydate.tar.gz"),
@@ -175,7 +174,6 @@ fn test_newsgroups20_overwrite() {
         .unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -186,16 +184,15 @@ fn test_newsgroups20_into_data() {
 
     let dataset = Newsgroups20::new(download_dir);
     let (mut texts, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // into_data() consumes `dataset`. The returned arrays are fully owned.
 
     assert_eq!(texts.len(), N_TRAIN);
     assert_eq!(labels.len(), N_TRAIN);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     texts[0] = "cleaned text".to_string();
     assert_eq!(texts[0], "cleaned text");
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -210,13 +207,12 @@ fn test_newsgroups20_take_data() {
     assert_eq!(texts.len(), N_TRAIN);
     assert_eq!(labels.len(), N_TRAIN);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached archive) and yields the same shapes.
+    // After take_data, the instance resets to unloaded but stays usable. The next
+    // access reloads the data (from the cached archive) and yields the same shapes.
     let (reloaded_texts, reloaded_labels) = dataset.data().unwrap();
     assert_eq!(reloaded_texts.len(), N_TRAIN);
     assert_eq!(reloaded_labels.len(), N_TRAIN);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -235,7 +231,6 @@ fn test_newsgroups20_get_data() {
     assert_eq!(texts.len(), N_TRAIN);
     assert_eq!(labels.len(), N_TRAIN);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -248,7 +243,7 @@ fn test_newsgroups20_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached texts in place (no clone, no reload).
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((texts, _labels)) = dataset.get_data_mut() {
         texts[0] = "normalized".to_string();
@@ -258,6 +253,5 @@ fn test_newsgroups20_get_data_mut() {
     let (texts, _labels) = dataset.data().unwrap();
     assert_eq!(texts[0], "normalized");
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

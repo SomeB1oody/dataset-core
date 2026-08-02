@@ -1,8 +1,8 @@
 //! Integration tests for the `MlDataset` trait.
 //!
-//! Most assertions here need no network: the trait's inspection methods
-//! (`storage_dir`, `is_loaded`, `peek`) are defined never to load. The two tests
-//! that do load use Iris, the smallest dataset in the crate.
+//! Most assertions here need no network access. The trait's inspection methods
+//! (`storage_dir`, `is_loaded`, `peek`) never trigger a load. The two tests that
+//! do load use Iris, the smallest dataset in the crate.
 
 use dataset_ml::traits::{MlDataset, NumSamples};
 use dataset_ml::{Digits, Iris, SmsSpam, Titanic};
@@ -25,7 +25,7 @@ fn inspection_methods_do_not_load() {
     assert!(dataset.peek().is_none());
     assert_eq!(Iris::NAME, "iris");
 
-    // Nothing above should have created the storage directory.
+    // None of the previous calls created the storage directory.
     assert!(!std::path::Path::new("./test_traits_no_load").exists());
 }
 
@@ -68,7 +68,7 @@ fn load_peek_and_invalidate_cycle() {
     let mut dataset = Iris::new(download_dir);
     assert!(dataset.peek().is_none());
 
-    // `load` populates the cache; `peek` then sees the same value without reloading.
+    // `load` populates the cache. `peek` then sees the same value, with no reload.
     let (features, labels) = dataset.load().unwrap();
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
@@ -86,12 +86,11 @@ fn load_peek_and_invalidate_cycle() {
     assert_eq!(dataset.n_samples().unwrap(), 150);
     assert!(dataset.is_loaded());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that load_mut edits persist and that unload hands the data back.
+// Verifies that load_mut edits persist and that unload returns the data.
 fn load_mut_and_unload_move_data_without_cloning() {
     let download_dir = "./test_traits_load_mut_unload";
 
@@ -110,19 +109,18 @@ fn load_mut_and_unload_move_data_without_cloning() {
     assert_eq!(owned_labels.len(), 150);
     assert!(!dataset.is_loaded());
 
-    // Reset means reloaded from disk, so the edit is gone.
+    // The reset loader reads the file again from disk, so the edit is gone.
     assert_eq!(dataset.load().unwrap().0[[0, 0]], 5.1);
 
-    // `unload` on an unloaded instance returns None rather than loading.
+    // `unload` on an unloaded instance returns None. It does not load data first.
     dataset.invalidate();
     assert!(dataset.unload().is_none());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_dataset hands back the underlying container.
+// Verifies that into_dataset returns the underlying container.
 fn into_dataset_yields_the_underlying_container() {
     let dataset = Iris::new("./test_traits_into_dataset");
 

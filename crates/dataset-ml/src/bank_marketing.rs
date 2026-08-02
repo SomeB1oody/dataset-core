@@ -1,9 +1,9 @@
 //! Bank Marketing dataset.
 //!
-//! Direct marketing campaign records (phone calls) of a Portuguese banking
-//! institution, used to predict whether a client will subscribe a term deposit.
-//! This loader uses the full `bank-full.csv` partition (45,211 records, 16
-//! features), the classic version of the dataset.
+//! Direct marketing campaign records (phone calls) from a Portuguese bank. The
+//! task is to predict if a client will subscribe to a term deposit. This
+//! loader uses the full `bank-full.csv` partition: 45,211 records and 16
+//! features. This is the classic version of the dataset.
 //!
 //! **Features (16, mixed):**
 //! - String features (9): `job`, `marital`, `education`, `default`, `housing`,
@@ -11,8 +11,8 @@
 //! - Numeric features (7): `age`, `balance`, `day`, `duration`, `campaign`,
 //!   `pdays`, `previous`
 //!
-//! **Target:** `y` — binary label kept verbatim (`yes` or `no`): has the client
-//! subscribed a term deposit?
+//! **Target:** `y`. This binary label is kept verbatim (`yes` or `no`). It
+//! shows if the client subscribed to a term deposit.
 //!
 //! **Samples:** 45,211
 //! **Application:** Binary classification / term-deposit subscription prediction
@@ -91,20 +91,20 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// A struct representing the Bank Marketing dataset with lazy loading.
 ///
 /// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// Once loaded, the dataset caches the data for subsequent accesses.
 ///
 /// # About Dataset
 ///
 /// The Bank Marketing dataset records direct marketing campaigns (phone calls) of a
 /// Portuguese banking institution. The classification goal is to predict whether a
-/// client will subscribe a term deposit (`y`) from 16 client, contact, and campaign
+/// client will subscribe to a term deposit (`y`) from 16 client, contact, and campaign
 /// attributes. It is a standard benchmark for mixed categorical/numeric, heavily
 /// imbalanced binary classification.
 ///
 /// # Feature columns
 ///
-/// Features are split across two matrices: a `(45211, 9)` string matrix and a
-/// `(45211, 7)` numeric `f64` matrix.
+/// The loader splits features across two matrices: a `(45211, 9)` string matrix
+/// and a `(45211, 7)` numeric `f64` matrix.
 ///
 /// String features (`Array2<String>`), by 0-based column:
 ///
@@ -134,15 +134,15 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Labels
 ///
-/// - `y` (shape `(45211,)`): the `Array1<String>` is kept verbatim, each entry being
-///   either `yes` or `no` (whether the client subscribed a term deposit).
+/// - `y` (shape `(45211,)`). The `Array1<String>` holds `yes` or `no` verbatim.
+///   This shows whether the client subscribed to a term deposit.
 ///
 /// Missing values:
 /// - Some categorical attributes (`job`, `education`, `contact`, `poutcome`) use the
 ///   literal label `unknown`. This loader keeps `unknown` **verbatim** as a category
-///   value (unlike some datasets that map a missing token to an empty string), since
-///   it is a documented level — in particular `poutcome = unknown` means there was no
-///   previous campaign contact, which is informative.
+///   value, unlike loaders that map a missing token to an empty string. `unknown` is
+///   a documented level: for `poutcome`, it means there was no previous campaign
+///   contact. This is useful information, not a missing value.
 /// - The numeric features have no missing values (`pdays = -1` encodes "not
 ///   previously contacted").
 ///
@@ -155,35 +155,40 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` automatically, because all its fields
+/// implement them. This makes it safe to share across threads. The internal
+/// [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::bank_marketing::BankMarketing;
 ///
-/// let download_dir = "./bank_marketing"; // the code will create the directory if it doesn't exist
+/// // the loader creates this directory if it does not exist yet
+/// let download_dir = "./bank_marketing";
 ///
 /// let mut dataset = BankMarketing::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
+/// // data() also returns all data at once
+/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
 /// assert_eq!(string_features.shape(), &[45211, 9]);
 /// assert_eq!(numeric_features.shape(), &[45211, 7]);
 /// assert_eq!(labels.len(), 45211);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits them in place. This needs no clone and no reload, and the change
+/// // stays in the cache. Prefer this method over `.to_owned()` when you only
+/// // need to change values.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 99.0;
 ///     labels[0] = "yes".to_string();
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out, with no `to_owned()` clone, and
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[45211, 9]);
 /// assert_eq!(owned_numerics.shape(), &[45211, 7]);
@@ -204,12 +209,12 @@ pub struct BankMarketing {
 impl BankMarketing {
     /// Create a new Bank Marketing instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
+    /// The dataset loads lazily, on the first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory where the dataset is stored.
     ///
     /// # Returns
     ///
@@ -220,10 +225,10 @@ impl BankMarketing {
         }
     }
 
-    /// Acquire and parse the Bank Marketing dataset.
+    /// Get and parse the Bank Marketing dataset.
     fn load_data(dir: &str) -> Result<BankMarketingData, DatasetError> {
-        // Prepare the dataset file: download the ZIP, extract it, and use the
-        // full `bank-full.csv` partition (cached under `bank_marketing.csv`).
+        // Download the ZIP archive and extract it. Use the full `bank-full.csv`
+        // partition, cached as `bank_marketing.csv`.
         let file_path = acquire_dataset(
             dir,
             BANK_FILENAME,
@@ -241,8 +246,9 @@ impl BankMarketing {
             },
         )?;
 
-        // The source is semicolon-separated with double-quoted string fields and a
-        // header row; csv strips the quotes and `has_headers(true)` skips the header.
+        // The source is semicolon-separated, with double-quoted string fields and a
+        // header row. The `csv` crate strips the quotes, and `has_headers(true)`
+        // skips the header.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .delimiter(b';')
@@ -257,7 +263,7 @@ impl BankMarketing {
             let record = result.map_err(|e| DatasetError::csv_read_error(BANK_DATASET_NAME, e))?;
             let line_num = idx + 2; // +1 for the header, +1 for 1-based lines
 
-            // Skip blank lines defensively (e.g. a trailing newline).
+            // Skip blank lines, such as a trailing newline at the end of the file.
             if record.iter().all(|f| f.is_empty()) {
                 continue;
             }
@@ -352,7 +358,7 @@ impl BankMarketing {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (45,211 samples)
+    /// - Dataset size does not match expected dimensions (45,211 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -373,7 +379,7 @@ impl BankMarketing {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (45,211 samples)
+    /// - Dataset size does not match expected dimensions (45,211 samples)
     pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
@@ -395,7 +401,7 @@ impl BankMarketing {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (45,211 samples)
+    /// - Dataset size does not match expected dimensions (45,211 samples)
     pub fn data(&self) -> Result<&BankMarketingData, DatasetError> {
         self.dataset.load()
     }
@@ -403,11 +409,10 @@ impl BankMarketing {
     /// Get string features, numeric features and labels as references
     /// **without** triggering loading.
     ///
-    /// Unlike [`BankMarketing::data`], which loads the dataset on first call, this
-    /// never runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// Unlike [`BankMarketing::data`], this method never runs the loader. If the
+    /// data is not loaded yet, it returns `None` instead of downloading and
+    /// parsing it. Use this method when you want the data only if it is already
+    /// cached. This skips the cost of a download and a parse.
     ///
     /// # Returns
     ///
@@ -422,15 +427,16 @@ impl BankMarketing {
     /// Get mutable references to string features, numeric features, and labels
     /// for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. encode categorical
-    /// features, normalize numeric features) with no `to_owned()` clone and without
-    /// removing them from the cache: the changes persist, so later
-    /// [`BankMarketing::features`], [`BankMarketing::data`], or
-    /// [`BankMarketing::get_data`] calls observe them.
+    /// This lets you change the cached arrays directly. For example, you can encode
+    /// categorical features or normalize numeric features. This needs no
+    /// `.to_owned()` clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`BankMarketing::features`],
+    /// [`BankMarketing::data`], or [`BankMarketing::get_data`] see the changes.
     ///
-    /// Like [`BankMarketing::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`BankMarketing::data`]) first if you need to ensure the data is present.
+    /// Like [`BankMarketing::get_data`], this does **not** trigger loading. It
+    /// returns `None` if the dataset has not been loaded yet. If you need the data
+    /// to be present, call a loading accessor first, for example
+    /// [`BankMarketing::data`].
     ///
     /// # Returns
     ///
@@ -445,13 +451,13 @@ impl BankMarketing {
     /// Consume the dataset and return **owned** string features, numeric features,
     /// and labels.
     ///
-    /// Unlike [`BankMarketing::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly — no `to_owned()` clone needed. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// Unlike [`BankMarketing::data`], which borrows the cached data, this moves the
+    /// data out and returns owned arrays directly. It needs no `to_owned()` clone.
+    /// If the dataset has not loaded yet, the first access loads it.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`BankMarketing::take_data`] instead — it takes `&mut self` and leaves the
+    /// This **consumes** `self`. After the call, you cannot use the instance again.
+    /// If you want owned data but need to keep using the instance, use
+    /// [`BankMarketing::take_data`] instead. It takes `&mut self` and leaves the
     /// instance reusable.
     ///
     /// # Returns
@@ -476,12 +482,12 @@ impl BankMarketing {
     /// dataset, leaving it reusable.
     ///
     /// Like [`BankMarketing::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g. [`BankMarketing::features`] or
-    /// [`BankMarketing::data`]) loads the dataset again.
+    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
+    /// and moves the cached data out. This resets the instance to its unloaded
+    /// state. The next accessor call, for example [`BankMarketing::features`] or
+    /// [`BankMarketing::data`], loads the dataset again.
     ///
-    /// Use [`BankMarketing::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`BankMarketing::into_data`] instead.
     ///
     /// # Returns
     ///

@@ -32,8 +32,8 @@ fn assert_bank_semantics(
         "Bank Marketing should have exactly the two `y` classes `yes` and `no`"
     );
 
-    // `marital` (string column 1) is one of the recorded values; `default`,
-    // `housing`, `loan` (cols 3, 4, 5) are binary yes/no.
+    // `marital` (string column 1) is one of the recorded values. `default`,
+    // `housing`, and `loan` (cols 3, 4, 5) are binary yes/no values.
     let valid_marital: HashSet<&str> = ["married", "single", "divorced"].into_iter().collect();
     let yes_no: HashSet<&str> = ["yes", "no"].into_iter().collect();
     for row in 0..strings.nrows() {
@@ -54,9 +54,9 @@ fn assert_bank_semantics(
         }
     }
 
-    // Every numeric feature is finite; `age` (col 0) is positive, while
-    // `duration` (col 3), `campaign` (col 4), and `previous` (col 6) are
-    // non-negative (`duration` can be 0 for a 0-second call).
+    // Every numeric feature is finite. `age` (col 0) is positive. `duration`
+    // (col 3), `campaign` (col 4), and `previous` (col 6) are non-negative.
+    // `duration` can be 0 for a 0-second call.
     for row in 0..numerics.nrows() {
         for col in 0..numerics.ncols() {
             assert!(
@@ -75,8 +75,9 @@ fn assert_bank_semantics(
         );
     }
 
-    // `unknown` is kept verbatim as a category value (not mapped to empty), and it
-    // does appear in the source (e.g. in `poutcome`/`contact`).
+    // The loader keeps `unknown` verbatim as a category value. It does not map this
+    // to an empty string. This value appears in the source, for example in
+    // `poutcome` or `contact`.
     assert!(
         strings.iter().any(|s| s == "unknown"),
         "the `unknown` category label should be preserved verbatim"
@@ -91,25 +92,24 @@ fn assert_bank_semantics(
 // Verifies that the Bank Marketing dataset loads with the correct shapes, label
 // values, and feature-domain invariants.
 fn test_load_bank_marketing() {
-    let download_dir = "./test_load_bank_marketing"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_bank_marketing"; // the loader creates this directory if missing
 
     let dataset = BankMarketing::new(download_dir);
     let (strings, numerics, labels) = dataset.data().unwrap();
 
     assert_bank_semantics(strings, numerics, labels);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Bank Marketing loading uses a pre-existing cached file without re-downloading.
+// Verifies that Bank Marketing reuses a cached file instead of a new download.
 fn test_bank_marketing_no_need_download() {
     let download_dir = "./test_load_bank_marketing_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
+    // The first load primes the cache. The second instance then reuses it.
     BankMarketing::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("bank_marketing.csv"), BANK_SHA256).unwrap(),
@@ -119,54 +119,50 @@ fn test_bank_marketing_no_need_download() {
     let dataset = BankMarketing::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Bank Marketing data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Bank Marketing data file and
+// overwrites it with the real dataset.
 fn test_bank_marketing_overwrite() {
     let download_dir = "./test_load_bank_marketing_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Bank Marketing dataset in advance
     {
         let bank_path = download_dir_path.join("bank_marketing.csv");
         let mut fake_bank = File::create(bank_path).unwrap();
         fake_bank.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Bank Marketing dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = BankMarketing::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(
         file_sha256_matches(&download_dir_path.join("bank_marketing.csv"), BANK_SHA256).unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_bank_marketing_into_data() {
     let download_dir = "./test_bank_marketing_into_data";
 
     let dataset = BankMarketing::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(strings.shape(), &[N_SAMPLES, 9]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 7]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     numerics[[0, 0]] = 1234.0;
     assert_eq!(numerics[[0, 0]], 1234.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -179,13 +175,12 @@ fn test_bank_marketing_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[N_SAMPLES, 9]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 7]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

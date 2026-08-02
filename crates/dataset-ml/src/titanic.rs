@@ -1,7 +1,8 @@
 //! Titanic survival dataset.
 //!
-//! Passenger records from the Kaggle `Titanic: Machine Learning from Disaster`
-//! competition, used to predict survival on the RMS Titanic.
+//! The dataset holds passenger records from the Kaggle `Titanic: Machine
+//! Learning from Disaster` competition. The task is to predict survival on
+//! the RMS Titanic.
 //!
 //! **Features (11, mixed):**
 //! - String features: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`
@@ -42,10 +43,10 @@ const TITANIC_DATASET_NAME: &str = "titanic";
 /// One CSV record of the Titanic dataset, with fields in source column order.
 ///
 /// Numeric columns are `Option<f64>` so that empty fields deserialize to `None`
-/// (later mapped to `NaN`); text columns are `String` (empty fields become `""`).
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the loader disables csv's header handling), so this struct is independent of
-/// the exact header spelling.
+/// (later mapped to `NaN`). Text columns are `String`, and empty fields become
+/// `""`. Fields are declared in CSV column order and deserialized
+/// **positionally**. The loader disables csv's header handling, so this
+/// struct does not depend on the exact header spelling.
 #[derive(Deserialize)]
 struct TitanicRecord {
     passenger_id: Option<f64>,
@@ -62,16 +63,18 @@ struct TitanicRecord {
     embarked: String,
 }
 
-/// A struct representing the Titanic dataset with lazy loading.
+/// This struct represents the Titanic dataset and loads it lazily.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// Nothing loads until you call a data accessor method. After loading, the
+/// data stays cached for later accesses.
 ///
 /// # About Dataset
 ///
-/// On April 15, 1912, during her maiden voyage, the widely considered "unsinkable" RMS Titanic sank after colliding with an iceberg.
-/// Unfortunately, there weren't enough lifeboats for everyone on board, resulting in the death of 1502 out of 2224 passengers and crew.
-/// While there was some element of luck involved in surviving, it seems some groups of people were more likely to survive than others.
+/// On April 15, 1912, during her maiden voyage, the widely considered
+/// "unsinkable" RMS Titanic sank after it collided with an iceberg. The ship
+/// did not have enough lifeboats for everyone on board. As a result, 1502 of
+/// the 2224 passengers and crew died. Luck played some role in survival, but
+/// some groups of people were more likely to survive than others.
 ///
 /// # Feature columns
 ///
@@ -102,12 +105,12 @@ struct TitanicRecord {
 ///
 /// # Labels
 ///
-/// - `Survived` (shape `(891,)`): `0.0` (died) or `1.0` (survived); `NaN` if
+/// - `Survived` (shape `(891,)`): `0.0` (died), `1.0` (survived), or `NaN` if
 ///   missing in the source
 ///
 /// Missing values:
-/// - Numeric fields are parsed as `NaN` when missing.
-/// - String fields are parsed as empty strings when missing.
+/// - The loader parses missing numeric fields as `NaN`.
+/// - The loader parses missing string fields as empty strings.
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 ///
@@ -118,27 +121,29 @@ struct TitanicRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// Every field implements `Send` and `Sync`, so this struct implements them too. It is safe
+/// to share across threads.
+/// The internal [`Dataset`] makes initialization thread-safe and lazy.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::titanic::Titanic;
 ///
-/// let download_dir = "./titanic"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./titanic"; // creates the directory if it is missing
 ///
 /// let mut dataset = Titanic::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // this is also a way to get all data
+/// let (string_features, numeric_features, labels) = dataset.data().unwrap(); // also gets all data
 /// assert_eq!(string_features.shape(), &[891, 5]);
 /// assert_eq!(numeric_features.shape(), &[891, 6]);
 /// assert_eq!(labels.len(), 891);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place. It needs no clone and no reload, and the change
+/// // stays cached. Prefer this method over cloning with `.to_owned()` when
+/// // you only need to change values.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 1.0;
 ///     labels[0] = 1.0;
@@ -146,7 +151,7 @@ struct TitanicRecord {
 /// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached file.
+/// // the instance reusable. The next access reloads from the cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[891, 5]);
 /// assert_eq!(owned_numerics.shape(), &[891, 6]);
@@ -167,12 +172,13 @@ pub struct Titanic {
 impl Titanic {
     /// Create a new Titanic instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// This does not load the dataset. The dataset loads on the first call to a
+    /// data accessor method. This is a lightweight operation: it only stores the
+    /// storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory used to store the dataset.
     ///
     /// # Returns
     ///
@@ -183,7 +189,7 @@ impl Titanic {
         }
     }
 
-    /// Acquire and parse the Titanic dataset.
+    /// Get and parse the Titanic dataset.
     fn load_data(dir: &str) -> Result<TitanicData, DatasetError> {
         // Prepare the dataset file
         let file_path = acquire_dataset(
@@ -267,8 +273,8 @@ impl Titanic {
 
     /// Get a reference to both string and numeric feature matrices.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -297,7 +303,7 @@ impl Titanic {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (891 samples)
+    /// - Dataset size does not match the expected dimensions (891 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -305,12 +311,14 @@ impl Titanic {
 
     /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
-    /// - `&Array1<f64>` - Reference to label vector with shape `(891,)` containing `Survived` values (`0.0` or `1.0`, `NaN` if missing in source)
+    /// - `&Array1<f64>` - Reference to label vector with shape `(891,)`
+    ///   containing `Survived` values (`0.0` or `1.0`, `NaN` if missing in
+    ///   source)
     ///
     /// # Errors
     ///
@@ -318,15 +326,15 @@ impl Titanic {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (891 samples)
+    /// - Dataset size does not match the expected dimensions (891 samples)
     pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -342,19 +350,20 @@ impl Titanic {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (891 samples)
+    /// - Dataset size does not match the expected dimensions (891 samples)
     pub fn data(&self) -> Result<&TitanicData, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and labels as references
-    /// **without** triggering loading.
+    /// Get string features, numeric features and labels as references, without
+    /// triggering loading.
     ///
     /// Unlike [`Titanic::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// runs the loader. If the data has not been loaded yet, it returns `None`
+    /// instead of downloading and parsing.
+    ///
+    /// Use this method when you want the data only if it is already cached. This
+    /// avoids the download and parse cost when the data is not cached.
     ///
     /// # Returns
     ///
@@ -368,15 +377,15 @@ impl Titanic {
     /// Get mutable references to string features, numeric features, and labels
     /// for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize numeric
-    /// features, replace missing values) with no `to_owned()` clone and without
-    /// removing them from the cache: the changes persist, so later
-    /// [`Titanic::features`], [`Titanic::data`], or [`Titanic::get_data`] calls
-    /// observe them.
+    /// This lets you change the cached arrays directly (e.g. normalize numeric
+    /// features, replace missing values). It needs no `to_owned()` clone, and
+    /// the arrays stay in the cache. The changes persist, so later calls to
+    /// [`Titanic::features`], [`Titanic::data`], or [`Titanic::get_data`] see
+    /// them.
     ///
-    /// Like [`Titanic::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Titanic::data`]) first if you need to ensure the data is present.
+    /// Like [`Titanic::get_data`], this does **not** trigger loading. It returns
+    /// `None` if the dataset has not been loaded. If you need to make sure the
+    /// data is present, call a loading accessor first (e.g. [`Titanic::data`]).
     ///
     /// # Returns
     ///
@@ -392,13 +401,13 @@ impl Titanic {
     /// and labels.
     ///
     /// Unlike [`Titanic::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly — no `to_owned()` clone needed. The dataset
-    /// is loaded on first access if it has not been loaded yet.
+    /// and returns owned arrays directly. It needs no `to_owned()` clone. The
+    /// dataset is loaded on first access if it has not been loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
-    /// [`Titanic::take_data`] instead — it takes `&mut self` and leaves the instance
-    /// reusable.
+    /// [`Titanic::take_data`] instead. It takes `&mut self` and leaves the
+    /// instance reusable.
     ///
     /// # Returns
     ///
@@ -419,15 +428,15 @@ impl Titanic {
     }
 
     /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset, leaving it reusable.
+    /// dataset. The instance stays reusable.
     ///
     /// Like [`Titanic::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Titanic::features`] or [`Titanic::data`]) loads the
-    /// dataset again.
+    /// the cached data out. This resets the instance to its unloaded state. The
+    /// next accessor call (e.g. [`Titanic::features`] or [`Titanic::data`]) loads
+    /// the dataset again.
     ///
-    /// Use [`Titanic::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`Titanic::into_data`] instead.
     ///
     /// # Returns
     ///

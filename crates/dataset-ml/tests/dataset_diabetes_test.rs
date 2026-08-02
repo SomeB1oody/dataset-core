@@ -14,7 +14,7 @@ const DIABETES_FILENAME: &str = "diabetes.tab";
 const DIABETES_SHA256: &str = "4733febee697862c22139cdac87478a300ce0d101593deb07ed6c0f3328a99cd";
 
 /// Assert the defining properties of scikit-learn's standardized diabetes
-/// features: every value is finite, each column has mean ~0, and each column's
+/// features. Every value is finite. Each column has mean ~0, and each column's
 /// sum of squares is ~1.
 fn assert_features_standardized(features: &ndarray::Array2<f64>) {
     assert_eq!(features.shape(), &[442, 10]);
@@ -33,8 +33,8 @@ fn assert_features_standardized(features: &ndarray::Array2<f64>) {
         }
     }
 
-    // Defining property of sklearn's scaling: per column, mean ~ 0 and the sum of
-    // squares totals 1.
+    // This matches sklearn's definition of scaling: for each column, the mean is
+    // about 0 and the sum of squares totals 1.
     let n = features.nrows() as f64;
     for j in 0..features.ncols() {
         let col = features.column(j);
@@ -75,24 +75,25 @@ fn assert_targets_in_range(targets: &ndarray::Array1<f64>) {
 // Verifies that the Diabetes dataset loads with the correct shape, standardized
 // features, and unscaled regression targets.
 fn test_load_diabetes() {
-    let download_dir = "./test_load_diabetes"; // the code will create the directory if it doesn't exist
+    // If the directory does not exist, the code creates it.
+    let download_dir = "./test_load_diabetes";
 
     let dataset = Diabetes::new(download_dir);
     let features = dataset.features().unwrap();
     let targets = dataset.targets().unwrap();
 
-    // Accessor consistency: data() returns the same arrays as features() and targets()
+    // This checks accessor consistency: data() returns the same arrays as
+    // features() and targets() do.
     assert_eq!(features.shape(), &[442, 10]);
     assert_eq!(targets.len(), 442);
 
-    let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+    let (features, targets) = dataset.data().unwrap();
 
-    // Standardized features (sklearn load_diabetes default) and unscaled targets.
     assert_features_standardized(features);
     assert_targets_in_range(targets);
 
-    // Pin against scikit-learn's published reference: the first standardized `age`
-    // value and the first (unscaled) target.
+    // Check against scikit-learn's published reference: the first standardized
+    // `age` value and the first (unscaled) target.
     assert!(
         (features[[0, 0]] - 0.0380759).abs() < 1e-4,
         "features[0, 0] = {} does not match sklearn's reference 0.0380759",
@@ -114,13 +115,12 @@ fn test_load_diabetes() {
         distinct.len()
     );
 
-    // You can use `.to_owned()` to get an owned, mutable copy of the data.
+    // `.to_owned()` returns an owned, mutable copy of the data.
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
     features_owned[[0, 0]] = 0.05;
     targets_owned[0] = 200.0;
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -131,21 +131,21 @@ fn test_diabetes_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Diabetes dataset in advance, under the loader's expected filename
+    // download the Diabetes dataset in advance, under the loader's expected filename
     {
         download_to(DIABETES_URL, download_dir_path, Some(DIABETES_FILENAME)).unwrap();
     }
 
-    // should use cached Diabetes dataset
+    // should use the cached Diabetes dataset
     let dataset = Diabetes::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Diabetes data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Diabetes data file and
+// overwrites it with the real dataset.
 fn test_diabetes_overwrite() {
     let download_dir = "./test_diabetes_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -161,12 +161,11 @@ fn test_diabetes_overwrite() {
     let dataset = Diabetes::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
+    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(&download_dir_path.join(DIABETES_FILENAME), DIABETES_SHA256).unwrap()
     );
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -177,16 +176,16 @@ fn test_diabetes_into_data() {
 
     let dataset = Diabetes::new(download_dir);
     let (mut features, targets) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; `features`/`targets` are fully owned.
+    // into_data() consumes `dataset`. The returned `features` and `targets` are
+    // fully owned.
 
     assert_features_standardized(&features);
     assert_targets_in_range(&targets);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 0.05;
     assert_eq!(features[[0, 0]], 0.05);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -201,13 +200,12 @@ fn test_diabetes_take_data() {
     assert_eq!(features.shape(), &[442, 10]);
     assert_eq!(targets.len(), 442);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
+    // After take_data, the instance resets to unloaded but stays usable. The next
     // access reloads it (from the cached file) and yields the same shapes.
     let (reloaded_features, reloaded_targets) = dataset.data().unwrap();
     assert_eq!(reloaded_features.shape(), &[442, 10]);
     assert_eq!(reloaded_targets.len(), 442);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -226,7 +224,6 @@ fn test_diabetes_get_data() {
     assert_eq!(features.shape(), &[442, 10]);
     assert_eq!(targets.len(), 442);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -239,7 +236,7 @@ fn test_diabetes_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached features in place (no clone, no reload).
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((features, _targets)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;
@@ -249,6 +246,5 @@ fn test_diabetes_get_data_mut() {
     let (features, _targets) = dataset.data().unwrap();
     assert_eq!(features[[0, 0]], 99.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }

@@ -1,11 +1,11 @@
 //! Preprocessing helpers for the loaded datasets.
 //!
-//! Every loader in this crate hands back raw [`ndarray`] arrays: numbers exactly as
-//! the source published them, and categorical values as strings. Turning those into
-//! model input almost always means the same four steps — split off an evaluation
-//! set, scale the numeric columns, encode the categorical ones, and encode the
-//! labels. This module provides those steps, so a user does not have to reimplement
-//! them (or pull in a framework) just to run a baseline.
+//! Every loader in this crate returns raw [`ndarray`] arrays: numbers exactly as
+//! the source published them, and categorical values as strings. Model input
+//! usually needs four steps: split off an evaluation set, scale the numeric
+//! columns, encode the categorical columns, and encode the labels. This module
+//! provides those steps, so a user does not need to reimplement them or add a
+//! framework dependency just to run a baseline.
 //!
 //! # Splitting is index-based
 //!
@@ -13,10 +13,10 @@
 //! [`stratified_split`](crate::preprocessing::stratified_split),
 //! [`k_fold_indices`](crate::preprocessing::k_fold_indices),
 //! [`shuffled_indices`](crate::preprocessing::shuffled_indices)) return **row indices**, not arrays.
-//! That is deliberate: a sample is spread across two or three parallel arrays
-//! (`features` + `labels`, or `categorical` + `numeric` + `labels`, or
-//! `texts` + `sources` + `labels`), and one index list keeps them aligned. Turn
-//! indices into arrays with ndarray's own `select`:
+//! That is deliberate. A sample spans two or three parallel arrays (`features` +
+//! `labels`, or `categorical` + `numeric` + `labels`, or `texts` + `sources` +
+//! `labels`). One index list keeps them aligned. Convert indices to arrays with
+//! ndarray's own `select`:
 //!
 //! ```no_run
 //! use dataset_ml::iris::Iris;
@@ -41,46 +41,47 @@
 //!
 //! Everything that shuffles takes an explicit `u64` seed and uses a
 //! [SplitMix64](https://doi.org/10.1145/2714064.2660195) generator built into this
-//! crate — no `rand` dependency, and no hidden global state. The same seed and the
-//! same inputs always produce the same split, on every platform and every release
-//! of this crate.
+//! crate. It has no `rand` dependency and no hidden global state. The same seed
+//! and the same inputs always produce the same split, on every platform and every
+//! release of this crate.
 //!
 //! # Missing values
 //!
 //! Several loaders encode a missing number as `NaN` (`titanic`, `palmer_penguins`,
-//! `heart_disease`). The scalers here compute their statistics over the **finite**
-//! values of each column and leave non-finite entries untouched, so a missing value
-//! stays missing instead of poisoning the whole column. Decide how to impute it
-//! yourself.
+//! `heart_disease`). The scalers here compute their statistics over the
+//! **finite** values of each column. Non-finite entries stay untouched, so a
+//! missing value stays missing instead of corrupting the whole column's
+//! statistics. Decide how to impute it yourself.
 
 use dataset_core::DatasetError;
 use ndarray::{Array1, Array2, ArrayView2};
 use std::collections::HashMap;
 
-/// The name used to tag errors raised by this module.
+/// The name this module uses to tag its errors.
 const MODULE_NAME: &str = "preprocessing";
 
-/// A pair of disjoint row-index lists produced by a splitting function.
+/// A pair of disjoint row-index lists that a splitting function produces.
 ///
 /// The first list is the training side, the second is the held-out side (the test
 /// set for [`train_test_split`] / [`stratified_split`], the validation fold for
-/// [`k_fold_indices`]). Index them into your arrays with ndarray's
+/// [`k_fold_indices`]). Use them to index into your arrays with ndarray's
 /// `select(Axis(0), &indices)`.
 pub type IndexSplit = (Vec<usize>, Vec<usize>);
 
 /// A small, fast, fully deterministic pseudo-random number generator.
 ///
-/// This is Steele, Lea & Flood's SplitMix64 — the finalizer used to seed many
-/// modern generators. It is not cryptographically secure and is not meant to be:
-/// it exists so that shuffling and splitting are reproducible across platforms
-/// without taking on a dependency, and it is more than good enough for choosing
-/// which rows land in which fold.
+/// This is Steele, Lea, and Flood's SplitMix64, the finalizer that seeds many
+/// modern generators. It is not cryptographically secure. It does not need to
+/// be: it exists to make shuffling and splitting reproducible across platforms
+/// without adding a dependency. It works well enough for choosing which rows
+/// land in which fold.
 struct SplitMix64 {
     state: u64,
 }
 
 impl SplitMix64 {
-    /// The odd constant SplitMix64 advances its state by (the 64-bit golden ratio).
+    /// The odd constant this generator adds to its state at each step (the 64-bit
+    /// golden ratio).
     const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
 
     /// Seed a generator. Every `u64` is a valid seed, including `0`.
@@ -101,9 +102,9 @@ impl SplitMix64 {
 
     /// Produce a uniformly distributed value in `0..bound`.
     ///
-    /// Uses rejection sampling rather than a plain modulo, so every value in the
-    /// range is equally likely (a modulo would over-represent the low values
-    /// whenever `bound` does not divide 2^64).
+    /// This uses rejection sampling rather than a plain modulo. Every value in the
+    /// range is then equally likely: a modulo would over-represent the low values
+    /// whenever `bound` does not divide 2^64.
     ///
     /// # Panics
     ///
@@ -111,8 +112,8 @@ impl SplitMix64 {
     fn below(&mut self, bound: u64) -> u64 {
         assert!(bound > 0, "bound must be positive");
 
-        // The largest multiple of `bound` that fits in a u64; draws at or above it
-        // would bias the result, so they are discarded and redrawn.
+        // The largest multiple of `bound` that fits in a u64. Draws at or above it
+        // would bias the result, so the generator discards and redraws them.
         let limit = u64::MAX - (u64::MAX % bound) - (bound - 1);
 
         loop {
@@ -134,15 +135,15 @@ impl SplitMix64 {
 
 /// Return `0..n_samples` in a deterministic pseudo-random order.
 ///
-/// This is the shuffling primitive the other functions here are built on, exposed
-/// for when you want to reorder a dataset without splitting it — for instance
-/// before a sequential pass over data that arrived grouped by class (as `iris`,
-/// `covtype`, and `movie_review_polarity` do).
+/// The other functions in this module build on this shuffling primitive. Use it
+/// directly to reorder a dataset without splitting it. For example, use it before
+/// a pass over data that arrived grouped by class, as `iris`, `covtype`, and
+/// `movie_review_polarity` do.
 ///
 /// # Parameters
 ///
 /// - `n_samples` - How many indices to produce.
-/// - `seed` - Seed for the internal generator; the same seed always yields the same order.
+/// - `seed` - Seed for the internal generator. The same seed always yields the same order.
 ///
 /// # Returns
 ///
@@ -173,9 +174,9 @@ pub fn shuffled_indices(n_samples: usize, seed: u64) -> Vec<usize> {
 /// Split `0..n_samples` into shuffled train and test index lists.
 ///
 /// The test set gets `round(n_samples * test_ratio)` rows, clamped so that neither
-/// side is empty whenever there are at least two samples; the train set gets the
+/// side is empty whenever there are at least two samples. The train set gets the
 /// rest. Both lists are in shuffled order, so a dataset stored grouped by class
-/// (the common case) does not produce a train set missing a class entirely.
+/// (the common case) does not produce a train set missing a class.
 ///
 /// To keep each class's proportion intact, use [`stratified_split`] instead.
 ///
@@ -183,7 +184,7 @@ pub fn shuffled_indices(n_samples: usize, seed: u64) -> Vec<usize> {
 ///
 /// - `n_samples` - Total number of samples to split.
 /// - `test_ratio` - Fraction of samples to place in the test set, in `0.0..=1.0`.
-/// - `seed` - Seed for the internal generator; the same seed always yields the same split.
+/// - `seed` - Seed for the internal generator. The same seed always yields the same split.
 ///
 /// # Returns
 ///
@@ -192,7 +193,7 @@ pub fn shuffled_indices(n_samples: usize, seed: u64) -> Vec<usize> {
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `n_samples` is 0, or when
+/// - `DatasetError::ValidationError` - Returns this when `n_samples` is 0, or when
 ///   `test_ratio` is not a finite value in `0.0..=1.0`.
 ///
 /// # Example
@@ -228,22 +229,23 @@ pub fn train_test_split(
 
 /// Split into train and test index lists that preserve each class's proportion.
 ///
-/// Like [`train_test_split`], but the split is drawn **within** each class rather
-/// than over the dataset as a whole, so a class holding 10% of the samples holds
-/// about 10% of the train set and 10% of the test set. This matters for the
-/// imbalanced loaders — `sms_spam` (13% spam), `covtype` (its rarest cover type is
-/// under 0.5%), `kddcup99` — where an unstratified split can leave a rare class out
-/// of the test set altogether.
+/// Like [`train_test_split`], but this function draws the split **within** each
+/// class rather than over the whole dataset. A class that holds 10% of the
+/// samples then holds about 10% of the train set and 10% of the test set. This
+/// matters for the imbalanced loaders: `sms_spam` (13% spam), `covtype` (its
+/// rarest cover type is under 0.5%), and `kddcup99`. An unstratified split can
+/// omit a rare class from the test set completely.
 ///
 /// Every class with at least two members contributes at least one row to each side.
 /// A class with a single member contributes it to the train set.
 ///
 /// # Parameters
 ///
-/// - `labels` - The per-sample class labels; any comparable, hashable type
-///   (`&str`, `String`, `u8`, `char`, … — every label type this crate produces).
+/// - `labels` - The per-sample class labels, of any comparable, hashable type
+///   (`&str`, `String`, `u8`, `char`, and so on). This covers every label type
+///   this crate produces.
 /// - `test_ratio` - Fraction of each class to place in the test set, in `0.0..=1.0`.
-/// - `seed` - Seed for the internal generator; the same seed always yields the same split.
+/// - `seed` - Seed for the internal generator. The same seed always yields the same split.
 ///
 /// # Returns
 ///
@@ -252,7 +254,7 @@ pub fn train_test_split(
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `labels` is empty, or when
+/// - `DatasetError::ValidationError` - Returns this when `labels` is empty, or when
 ///   `test_ratio` is not a finite value in `0.0..=1.0`.
 ///
 /// # Example
@@ -319,16 +321,17 @@ pub fn stratified_split<T: std::hash::Hash + Eq>(
 
 /// Partition `0..n_samples` into `k` cross-validation folds.
 ///
-/// The samples are shuffled once and dealt into `k` folds whose sizes differ by at
-/// most one. Each entry of the result is the `(train, validation)` pair for one
-/// fold: the validation list is that fold, and the train list is everything else.
-/// Every sample is used for validation exactly once across the `k` rounds.
+/// This function shuffles the samples once and deals them into `k` folds whose
+/// sizes differ by at most one. Each entry of the result is the
+/// `(train, validation)` pair for one fold. The validation list is that fold, and
+/// the train list is everything else. Every sample serves as validation exactly
+/// once across the `k` rounds.
 ///
 /// # Parameters
 ///
 /// - `n_samples` - Total number of samples to partition.
-/// - `k` - Number of folds; must be at least 2 and at most `n_samples`.
-/// - `seed` - Seed for the internal generator; the same seed always yields the same folds.
+/// - `k` - Number of folds. Must be at least 2 and at most `n_samples`.
+/// - `seed` - Seed for the internal generator. The same seed always yields the same folds.
 ///
 /// # Returns
 ///
@@ -336,7 +339,7 @@ pub fn stratified_split<T: std::hash::Hash + Eq>(
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `n_samples` is 0, or when `k`
+/// - `DatasetError::ValidationError` - Returns this when `n_samples` is 0, or when `k`
 ///   is less than 2 or greater than `n_samples`.
 ///
 /// # Example
@@ -399,11 +402,12 @@ pub fn k_fold_indices(
 
 /// Map labels of any type to consecutive integer codes.
 ///
-/// Turns the label vector a loader produces — `&'static str` species names,
-/// `String` categories, `char` letters — into the `0..n_classes` codes most
-/// training code expects, plus the class list needed to read a prediction back.
-/// Classes are numbered in **sorted** order, so the encoding depends only on the
-/// set of labels present and never on their order in the file.
+/// Turns the label vector a loader produces (`&'static str` species names,
+/// `String` categories, `char` letters) into the `0..n_classes` codes most
+/// training code expects. It also returns the class list needed to decode a
+/// prediction. This function numbers classes in **sorted** order, so the
+/// encoding depends only on the set of labels present, never on their order in
+/// the file.
 ///
 /// # Parameters
 ///
@@ -416,7 +420,7 @@ pub fn k_fold_indices(
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `labels` is empty.
+/// - `DatasetError::ValidationError` - Returns this when `labels` is empty.
 ///
 /// # Example
 /// ```rust
@@ -426,11 +430,11 @@ pub fn k_fold_indices(
 /// let labels = array!["virginica", "setosa", "setosa", "versicolor"];
 /// let (codes, classes) = label_encode(&labels).unwrap();
 ///
-/// // Classes are numbered alphabetically, not in order of appearance.
+/// // Classes get numbers alphabetically, not in order of appearance.
 /// assert_eq!(classes, vec!["setosa", "versicolor", "virginica"]);
 /// assert_eq!(codes, array![2, 0, 0, 1]);
 ///
-/// // Read a prediction back through the class list.
+/// // Decode a prediction through the class list.
 /// assert_eq!(classes[codes[0]], "virginica");
 /// ```
 pub fn label_encode<T: Clone + Ord>(
@@ -455,9 +459,9 @@ pub fn label_encode<T: Clone + Ord>(
 
 /// Count how many samples carry each label.
 ///
-/// A quick way to see how balanced a dataset is before choosing between
-/// [`train_test_split`] and [`stratified_split`]. Counts are returned in sorted
-/// class order, matching the numbering [`label_encode`] assigns.
+/// This is a quick way to see how balanced a dataset is before choosing between
+/// [`train_test_split`] and [`stratified_split`]. This function returns counts in
+/// sorted class order, matching the numbering [`label_encode`] assigns.
 ///
 /// # Parameters
 ///
@@ -490,15 +494,15 @@ pub fn class_counts<T: Clone + Ord>(labels: &Array1<T>) -> Vec<(T, usize)> {
     counts
 }
 
-/// Per-column statistics produced by fitting a scaler, so the same transform can be
-/// replayed on new data.
+/// Fitting a scaler produces these per-column statistics. Reuse them to replay the
+/// same transform on new data.
 ///
-/// A scaler must be fitted on the **training** rows only and then applied unchanged
-/// to the test rows; fitting it on everything leaks information about the test set
-/// into training. That is why [`standardize`] and [`min_max_scale`] hand back this
-/// struct: keep it, and pass it to [`apply_scaler`] for every later batch.
+/// Fit a scaler on the **training** rows only. Then apply it unchanged to the test
+/// rows. Fitting it on everything leaks information about the test set into
+/// training. That is why [`standardize`] and [`min_max_scale`] return this struct.
+/// Keep it. Pass it to [`apply_scaler`] for every later batch.
 ///
-/// The two fields are named for the general shape of the transform,
+/// The two field names describe the general shape of the transform,
 /// `(value - center) / scale`:
 ///
 /// - [`standardize`] sets `center` to the column mean and `scale` to its standard
@@ -515,16 +519,16 @@ pub struct Scaler {
 
 /// Standardize each feature column to zero mean and unit variance.
 ///
-/// The classic z-score transform, `(value - mean) / std_dev`, applied per column.
-/// It is what distance- and gradient-based models want from the raw numeric matrices
-/// these loaders return, whose columns routinely differ by orders of magnitude
-/// (`adult`'s `fnlwgt` runs to the hundreds of thousands while `education-num` tops
-/// out at 16).
+/// This is the classic z-score transform, `(value - mean) / std_dev`, applied per
+/// column. It is what distance-based and gradient-based models want from the raw
+/// numeric matrices these loaders return. Those columns routinely differ by orders
+/// of magnitude: for example, `adult`'s `fnlwgt` runs to the hundreds of thousands,
+/// while `education-num` goes no higher than 16.
 ///
-/// The mean and standard deviation (population, i.e. divided by `n`) are computed
-/// over the **finite** values of each column; non-finite entries are copied through
-/// untouched, so a `NaN` marking a missing value stays a `NaN`. A column with no
-/// variation gets a scale of 1 and maps to all zeros rather than dividing by 0.
+/// This function computes the mean and standard deviation (population, that is,
+/// divided by `n`) over the **finite** values of each column. Non-finite entries
+/// stay untouched, so a `NaN` marking a missing value stays a `NaN`. A column with
+/// no variation gets a scale of 1 and maps to all zeros rather than dividing by 0.
 ///
 /// # Parameters
 ///
@@ -537,7 +541,7 @@ pub struct Scaler {
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `features` has no rows or no columns.
+/// - `DatasetError::ValidationError` - Returns this when `features` has no rows or no columns.
 ///
 /// # Example
 /// ```rust
@@ -577,12 +581,13 @@ pub fn standardize(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Data
 
 /// Rescale each feature column into the `[0, 1]` range.
 ///
-/// Min-max scaling, `(value - min) / (max - min)`, applied per column. Prefer it
-/// over [`standardize`] when a bounded range matters more than a comparable spread —
-/// for pixel-like features (`digits`), or as input to a model that expects `[0, 1]`.
+/// This is min-max scaling, `(value - min) / (max - min)`, applied per column.
+/// Prefer it over [`standardize`] when a bounded range matters more than a
+/// comparable spread. Use it for pixel-like features (`digits`), or as input to a
+/// model that expects `[0, 1]`.
 ///
-/// As with [`standardize`], the minimum and maximum come from the **finite** values
-/// of each column, non-finite entries pass through untouched, and a constant column
+/// As with [`standardize`], the minimum and maximum come from the **finite**
+/// values of each column. Non-finite entries stay untouched. A constant column
 /// maps to all zeros rather than dividing by 0.
 ///
 /// # Parameters
@@ -596,7 +601,7 @@ pub fn standardize(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Data
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `features` has no rows or no columns.
+/// - `DatasetError::ValidationError` - Returns this when `features` has no rows or no columns.
 ///
 /// # Example
 /// ```rust
@@ -634,11 +639,11 @@ pub fn min_max_scale(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Da
 
 /// Apply an already-fitted [`Scaler`] to a feature matrix.
 ///
-/// This is how a scaler fitted on the training rows is replayed on the test rows —
-/// or on data that arrives later — without refitting, which would give the two sets
-/// different transforms and leak test statistics into training.
+/// Use this to replay a training-fitted scaler onto the test rows, or onto later
+/// data, without refitting. Refitting would give the two sets different transforms
+/// and leak test statistics into training.
 ///
-/// Non-finite entries are copied through untouched, matching the fitting functions.
+/// Non-finite entries stay untouched, matching the fitting functions.
 ///
 /// # Parameters
 ///
@@ -651,7 +656,7 @@ pub fn min_max_scale(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Da
 ///
 /// # Errors
 ///
-/// - `DatasetError::LengthMismatch` - Returned when the scaler was fitted on a
+/// - `DatasetError::LengthMismatch` - Returns this when the scaler was fitted on a
 ///   different number of columns than `features` has.
 ///
 /// # Example
@@ -662,7 +667,7 @@ pub fn min_max_scale(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Da
 /// let train = array![[1.0], [2.0], [3.0]];
 /// let (_scaled_train, scaler) = standardize(&train).unwrap();
 ///
-/// // The test rows are transformed with the training statistics, not their own.
+/// // This transforms the test rows with the training statistics, not their own.
 /// let test = array![[2.0], [4.0]];
 /// let scaled_test = apply_scaler(&test, &scaler).unwrap();
 /// assert_eq!(scaled_test[[0, 0]], 0.0); // 2.0 was the training mean
@@ -698,18 +703,20 @@ pub fn apply_scaler(features: &Array2<f64>, scaler: &Scaler) -> Result<Array2<f6
 ///
 /// The mixed-type loaders (`adult`, `titanic`, `bank_marketing`, `abalone`,
 /// `kddcup99`, `palmer_penguins`) and the all-categorical ones (`mushroom`,
-/// `car_evaluation`) hand back their categorical columns as an `Array2<String>`,
-/// which no numeric model can consume. This expands each column into one indicator
-/// column per level it takes: a row gets `1.0` in the column for its own level and
-/// `0.0` everywhere else.
+/// `car_evaluation`) return their categorical columns as an `Array2<String>`. No
+/// numeric model can consume that directly. This expands each column into one
+/// indicator column per level it takes. A row gets `1.0` in the column for its own
+/// level, and `0.0` everywhere else.
 ///
-/// Levels within a column are sorted, so the output layout depends only on the
-/// values present. The returned names identify the columns as `<column>=<level>`,
-/// using `column_names` when supplied and `column_0`, `column_1`, … otherwise.
+/// This function sorts levels within a column, so the output layout depends only
+/// on the values present. The returned names identify the columns as
+/// `<column>=<level>`, using `column_names` when supplied, and `column_0`,
+/// `column_1`, and so on otherwise.
 ///
-/// Note that this widens the matrix by however many distinct levels the data holds —
-/// harmless for `mushroom` (22 columns become 117), but worth checking before
-/// running it on `kddcup99`'s `service` column (70 levels over millions of rows).
+/// This widens the matrix by however many distinct levels the data holds. That is
+/// harmless for `mushroom` (22 columns become 117). Before running it on
+/// `kddcup99`'s `service` column (70 levels over millions of rows), check the
+/// resulting width.
 ///
 /// # Parameters
 ///
@@ -724,8 +731,8 @@ pub fn apply_scaler(features: &Array2<f64>, scaler: &Scaler) -> Result<Array2<f6
 ///
 /// # Errors
 ///
-/// - `DatasetError::ValidationError` - Returned when `categorical` has no rows or no columns.
-/// - `DatasetError::LengthMismatch` - Returned when `column_names` is supplied but
+/// - `DatasetError::ValidationError` - Returns this when `categorical` has no rows or no columns.
+/// - `DatasetError::LengthMismatch` - Returns this when `column_names` is supplied but
 ///   does not have one entry per column.
 ///
 /// # Example
@@ -765,7 +772,7 @@ pub fn one_hot_encode(
     }
 
     // Collect each column's sorted levels first, so the output width is known before
-    // any allocation of the result matrix.
+    // allocating the result matrix.
     let mut levels_per_column: Vec<Vec<&String>> = Vec::with_capacity(n_columns);
     for column_index in 0..n_columns {
         // `into_iter` on the view yields references borrowed from `categorical`
@@ -816,8 +823,8 @@ fn validate_ratio(ratio: f64) -> Result<(), DatasetError> {
     Ok(())
 }
 
-/// How many of `n` samples the test side gets, keeping both sides non-empty when
-/// there is more than one sample to go around.
+/// How many of `n` samples go to the test side. Both sides stay non-empty
+/// whenever more than one sample exists.
 fn test_size(n: usize, ratio: f64) -> usize {
     let requested = (n as f64 * ratio).round() as usize;
 
@@ -834,8 +841,9 @@ fn finite_sum(column: &ndarray::ArrayView1<f64>) -> (f64, usize) {
 
 /// Build a [`Scaler`] by applying `statistics` to every column of `features`.
 ///
-/// The closure returns that column's `(center, scale)`; a scale of 0 (a constant
-/// column) is replaced by 1 so the transform maps it to zeros instead of `NaN`.
+/// The closure returns that column's `(center, scale)`. If the scale is 0 (a
+/// constant column), the function replaces it with 1, so the transform maps that
+/// column to zeros instead of `NaN`.
 fn fit_scaler(
     features: ArrayView2<f64>,
     statistics: impl Fn(&ndarray::ArrayView1<f64>) -> (f64, f64),

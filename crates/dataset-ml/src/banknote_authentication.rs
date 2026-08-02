@@ -1,15 +1,16 @@
 //! Banknote Authentication dataset.
 //!
-//! Features extracted from images of genuine and forged banknote-like specimens.
-//! The images were digitized with an industrial camera usually deployed for print
-//! inspection, and a Wavelet Transform tool was used to derive four continuous
-//! statistics from each image. The task is to predict the class of a specimen
-//! from those four features.
+//! The dataset holds features extracted from images of genuine and forged
+//! banknote-like specimens. Researchers digitized the images with an
+//! industrial camera normally used for print inspection. They then used a
+//! Wavelet Transform tool to derive four continuous statistics from each
+//! image. The task is to predict the class of a specimen from those four
+//! features.
 //!
 //! **Features (4, all numeric):** `variance`, `skewness`, `curtosis`, and
 //! `entropy` of the Wavelet-Transformed image, all continuous `f64` values.
 //!
-//! **Target:** `class` — the raw integer code from the source, `0` or `1`
+//! **Target:** `class`, the raw integer code from the source, `0` or `1`
 //!
 //! **Samples:** 1372 total (762 of class `0`, 610 of class `1`)
 //! **Application:** Binary classification / banknote authentication
@@ -27,8 +28,8 @@ use csv::ReaderBuilder;
 
 /// The URL for the Banknote Authentication dataset.
 ///
-/// This is the UCI static package; it is a ZIP archive containing a single file,
-/// `data_banknote_authentication.txt`.
+/// This is the UCI static package. It is a ZIP archive that contains a single
+/// file, `data_banknote_authentication.txt`.
 ///
 /// # Citation
 ///
@@ -70,20 +71,21 @@ const FEATURE_NAMES: [&str; N_FEATURES] = ["variance", "skewness", "curtosis", "
 /// Type alias for the Banknote Authentication dataset: (features, labels).
 type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 
-/// A struct representing the Banknote Authentication dataset with lazy loading.
+/// This struct represents the Banknote Authentication dataset and loads it lazily.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// Nothing loads until you call a data accessor method. After loading, the
+/// data stays cached for later accesses.
 ///
 /// # About Dataset
 ///
-/// The data were extracted from images taken of genuine and forged banknote-like
-/// specimens. For digitization, an industrial camera usually deployed for print
-/// inspection was used, yielding 400×400 pixel grayscale images with a resolution
-/// of about 660 dpi. A Wavelet Transform tool was then used to extract four
-/// continuous statistics from each image — the variance, skewness, curtosis, and
-/// entropy of the transformed image — giving a compact pure-numeric feature
-/// matrix over 1372 specimens.
+/// Researchers extracted the data from images of genuine and forged
+/// banknote-like specimens. They digitized the images with an industrial
+/// camera normally used for print inspection. This camera produced 400×400
+/// pixel grayscale images at a resolution of about 660 dpi. Researchers then
+/// used a Wavelet Transform tool to extract four continuous statistics from
+/// each image. These statistics are the variance, skewness, curtosis, and
+/// entropy of the transformed image. Together they form a compact,
+/// pure-numeric feature matrix over 1372 specimens.
 ///
 /// # Feature columns
 ///
@@ -103,8 +105,8 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 /// # Labels
 ///
 /// - `class` (shape `(1372,)`): the `Array1<u8>` holds the raw integer code from
-///   the source (`0` or `1`); UCI does not document which code corresponds to
-///   genuine vs forged notes, so it is exposed verbatim.
+///   the source (`0` or `1`). UCI does not document which code corresponds to
+///   genuine vs forged notes, so the loader exposes it verbatim.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/267/banknote+authentication>.
@@ -116,26 +118,28 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// Every field implements `Send` and `Sync`, so this struct implements them too. It is safe
+/// to share across threads.
+/// The internal [`Dataset`] makes initialization thread-safe and lazy.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::banknote_authentication::BanknoteAuthentication;
 ///
-/// let download_dir = "./banknote_authentication"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./banknote_authentication"; // creates the directory if it is missing
 ///
 /// let mut dataset = BanknoteAuthentication::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+/// let (features, labels) = dataset.data().unwrap(); // also a way to get features and labels
 /// assert_eq!(features.shape(), &[1372, 4]);
 /// assert_eq!(labels.len(), 1372);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place. It needs no clone and no reload, and the change
+/// // stays cached. Prefer this method over cloning with `.to_owned()` when
+/// // you only need to change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.5;
 ///     labels[0] = 1;
@@ -143,7 +147,7 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 /// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // instance reusable. The next access reloads from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[1372, 4]);
 /// assert_eq!(owned_labels.len(), 1372);
@@ -162,12 +166,13 @@ pub struct BanknoteAuthentication {
 impl BanknoteAuthentication {
     /// Create a new BanknoteAuthentication instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// This does not load the dataset. The dataset loads on the first call to a
+    /// data accessor method. This is a lightweight operation: it only stores the
+    /// storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory used to store the dataset.
     ///
     /// # Returns
     ///
@@ -178,7 +183,7 @@ impl BanknoteAuthentication {
         }
     }
 
-    /// Acquire and parse the Banknote Authentication dataset.
+    /// Get and parse the Banknote Authentication dataset.
     fn load_data(dir: &str) -> Result<BanknoteAuthenticationData, DatasetError> {
         // Prepare the dataset file: download the UCI ZIP package, extract it, and
         // surface the single `data_banknote_authentication.txt` file it contains.
@@ -284,8 +289,8 @@ impl BanknoteAuthentication {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -299,19 +304,20 @@ impl BanknoteAuthentication {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (1372 samples, 4 features)
+    /// - Dataset size does not match the expected dimensions (1372 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the labels vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
-    /// - `&Array1<u8>` - Reference to labels vector with shape `(1372,)` containing the raw class codes (`0` or `1`).
+    /// - `&Array1<u8>` - Reference to labels vector with shape `(1372,)`
+    ///   containing the raw class codes (`0` or `1`).
     ///
     /// # Errors
     ///
@@ -319,15 +325,15 @@ impl BanknoteAuthentication {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (1372 samples)
+    /// - Dataset size does not match the expected dimensions (1372 samples)
     pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -342,18 +348,19 @@ impl BanknoteAuthentication {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (1372 samples, 4 features)
+    /// - Dataset size does not match the expected dimensions (1372 samples, 4 features)
     pub fn data(&self) -> Result<&BanknoteAuthenticationData, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get both features and labels as references, without triggering loading.
     ///
     /// Unlike [`BanknoteAuthentication::data`], which loads the dataset on first
-    /// call, this never runs the loader: if the data has not been loaded yet, it
-    /// returns `None` instead of downloading and parsing. Use it when you only
-    /// want the data if it is already cached and want to avoid paying the
-    /// download/parse cost otherwise.
+    /// call, this never runs the loader. If the data has not been loaded yet, it
+    /// returns `None` instead of downloading and parsing.
+    ///
+    /// Use this method when you want the data only if it is already cached. This
+    /// avoids the download and parse cost when the data is not cached.
     ///
     /// # Returns
     ///
@@ -367,16 +374,16 @@ impl BanknoteAuthentication {
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// replace label values) with no `to_owned()` clone and without removing them
-    /// from the cache: the changes persist, so later
+    /// This lets you change the cached arrays directly (e.g. normalize features,
+    /// replace label values). It needs no `to_owned()` clone, and the arrays
+    /// stay in the cache. The changes persist, so later calls to
     /// [`BanknoteAuthentication::features`], [`BanknoteAuthentication::data`], or
-    /// [`BanknoteAuthentication::get_data`] calls observe them.
+    /// [`BanknoteAuthentication::get_data`] see them.
     ///
     /// Like [`BanknoteAuthentication::get_data`], this does **not** trigger
-    /// loading: it returns `None` if the dataset has not been loaded. Call a
-    /// loading accessor (e.g. [`BanknoteAuthentication::data`]) first if you need
-    /// to ensure the data is present.
+    /// loading. It returns `None` if the dataset has not been loaded. If you
+    /// need to make sure the data is present, call a loading accessor first
+    /// (e.g. [`BanknoteAuthentication::data`]).
     ///
     /// # Returns
     ///
@@ -391,12 +398,13 @@ impl BanknoteAuthentication {
     /// Consume the dataset and return **owned** features and labels.
     ///
     /// Unlike [`BanknoteAuthentication::data`], which borrows the cached data,
-    /// this moves it out and returns owned arrays directly — no `to_owned()` clone
-    /// needed. The dataset is loaded on first access if it has not been loaded yet.
+    /// this moves it out and returns owned arrays directly. It needs no
+    /// `to_owned()` clone. The dataset is loaded on first access if it has not
+    /// been loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
-    /// [`BanknoteAuthentication::take_data`] instead — it takes `&mut self` and
+    /// [`BanknoteAuthentication::take_data`] instead. It takes `&mut self` and
     /// leaves the instance reusable.
     ///
     /// # Returns
@@ -416,17 +424,18 @@ impl BanknoteAuthentication {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. The instance stays
+    /// reusable.
     ///
     /// Like [`BanknoteAuthentication::into_data`], this returns owned arrays with
     /// no `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out, resetting the instance to its
-    /// unloaded state: the next accessor call (e.g.
+    /// `&mut self` and moves the cached data out. This resets the instance to
+    /// its unloaded state. The next accessor call (e.g.
     /// [`BanknoteAuthentication::features`] or [`BanknoteAuthentication::data`])
     /// loads the dataset again.
     ///
-    /// Use [`BanknoteAuthentication::into_data`] instead if you are done with the
-    /// instance.
+    /// If you are done with the instance, use
+    /// [`BanknoteAuthentication::into_data`] instead.
     ///
     /// # Returns
     ///

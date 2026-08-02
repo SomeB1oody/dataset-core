@@ -47,7 +47,7 @@ pub type WineData = (Array2<f64>, Array1<f64>);
 ///
 /// Fields are declared in CSV column order and deserialized **positionally**
 /// (the parser disables csv's header handling), so this struct is independent
-/// of the exact header spelling.
+/// of the header spelling.
 #[derive(Deserialize)]
 struct WineRecord {
     fixed_acidity: f64,
@@ -66,7 +66,7 @@ struct WineRecord {
 
 /// Parses a single Wine Quality CSV (red or white) into `(features, targets)`.
 ///
-/// The CSV is expected to be `;`-separated with a **header row**, followed by data rows.
+/// The CSV must be `;`-separated with a **header row**, followed by data rows.
 /// Each data row must contain:
 /// - 11 feature columns (all parseable as `f64`)
 /// - 1 target column (`quality`, parseable as `f64`)
@@ -91,7 +91,6 @@ fn parse_wine_data_to_array<R: std::io::Read>(
     dataset_name: &str,
     reader: R,
 ) -> Result<WineData, DatasetError> {
-    // csv deserializes into the struct
     let mut rdr = ReaderBuilder::new()
         .delimiter(b';')
         .has_headers(false)

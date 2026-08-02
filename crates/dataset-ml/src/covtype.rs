@@ -1,24 +1,24 @@
 //! Forest Cover Type dataset.
 //!
-//! The Forest CoverType dataset for multi-class classification, identical to the
-//! one scikit-learn exposes through `fetch_covtype`. Each of the 581,012 samples
-//! describes a 30×30 metre cell of wilderness in the Roosevelt National Forest of
-//! northern Colorado, and the task is to predict which of seven forest cover types
-//! the cell belongs to from 54 cartographic features.
+//! The Forest CoverType dataset supports multi-class classification. It matches
+//! the dataset that scikit-learn exposes through `fetch_covtype`. Each of the
+//! 581,012 samples describes a 30×30 meter cell of wilderness in the Roosevelt
+//! National Forest of northern Colorado. The task is to predict the forest cover
+//! type of the cell, one of seven classes, from 54 cartographic features.
 //!
-//! **Features (54):** these encode 12 logical attributes (10 numeric + 2
-//! categorical), with the two categorical attributes already **one-hot expanded**.
+//! **Features (54):** these encode 12 logical attributes (10 numeric and 2
+//! categorical). The two categorical attributes are already **one-hot expanded**.
 //! By 0-based column index:
-//! - cols `0..=9` — 10 distinct quantitative variables: `Elevation`, `Aspect`,
+//! - cols `0..=9`, 10 distinct quantitative variables: `Elevation`, `Aspect`,
 //!   `Slope`, `Horizontal_Distance_To_Hydrology`, `Vertical_Distance_To_Hydrology`,
 //!   `Horizontal_Distance_To_Roadways`, `Hillshade_9am`, `Hillshade_Noon`,
 //!   `Hillshade_3pm`, `Horizontal_Distance_To_Fire_Points`
-//! - cols `10..=13` — `Wilderness_Area`: **one** categorical attribute (4 areas)
-//!   one-hot encoded, so exactly one of these columns is `1` and the rest are `0`
-//! - cols `14..=53` — `Soil_Type`: **one** categorical attribute (40 soil types)
-//!   one-hot encoded, so exactly one of these columns is `1` and the rest are `0`
+//! - cols `10..=13`, `Wilderness_Area`: **one** categorical attribute (4 areas),
+//!   one-hot encoded. Exactly one of these columns is `1` and the rest are `0`.
+//! - cols `14..=53`, `Soil_Type`: **one** categorical attribute (40 soil types),
+//!   one-hot encoded. Exactly one of these columns is `1` and the rest are `0`.
 //!
-//! All 54 are stored as `f64` (the one-hot columns hold `0.0`/`1.0`), so each
+//! All 54 columns use `f64` values (the one-hot columns hold `0.0`/`1.0`), so each
 //! one-hot block sums to `1` per row. See the struct docs for a per-column table.
 //!
 //! **Target:** `cover_type` - the forest cover type, one of `1`–`7` (stored as
@@ -41,9 +41,9 @@ use std::fs::File;
 
 /// The URL for the Forest Cover Type dataset.
 ///
-/// This is the gzip-compressed `covtype.data.gz` mirror used by scikit-learn's
-/// `fetch_covtype`. The URL has no filename segment, so the download is saved under
-/// an explicit name ([`COVTYPE_GZ_FILENAME`]).
+/// This is the gzip-compressed `covtype.data.gz` mirror that scikit-learn's
+/// `fetch_covtype` uses. The URL has no filename segment, so the code saves the
+/// download under an explicit name ([`COVTYPE_GZ_FILENAME`]).
 ///
 /// # Citation
 ///
@@ -51,7 +51,7 @@ use std::fs::File;
 /// \[Online\]. Available: <https://doi.org/10.24432/C50K5N>
 const COVTYPE_DATA_URL: &str = "https://ndownloader.figshare.com/files/5976039";
 
-/// The name the downloaded gzip archive is saved under inside the temp directory.
+/// The filename for the downloaded gzip archive inside the temp directory.
 const COVTYPE_GZ_FILENAME: &str = "covtype.data.gz";
 
 /// The name of the final cached (decompressed) Cover Type dataset file.
@@ -59,8 +59,8 @@ const COVTYPE_FILENAME: &str = "covtype.csv";
 
 /// The SHA256 hash of the **decompressed** Cover Type dataset file (`covtype.csv`).
 ///
-/// Note this is the hash of the uncompressed comma-separated data, not of the
-/// downloaded `covtype.data.gz`, because the cached file is the decompressed one.
+/// This hash covers the uncompressed comma-separated data, not the downloaded
+/// `covtype.data.gz`, because the cached file is the decompressed one.
 const COVTYPE_SHA256: &str = "0a9371cef7c964b5475d6053cc3e0894a5aa6f65ad1ed3ecb01c45aa96217945";
 
 /// The name of the dataset
@@ -69,7 +69,7 @@ const COVTYPE_DATASET_NAME: &str = "covtype";
 /// The number of cartographic features per sample.
 const N_FEATURES: usize = 54;
 
-/// The number of columns per CSV record (54 features + 1 cover-type label).
+/// The number of columns per CSV record (54 features and 1 cover-type label).
 const N_COLUMNS: usize = N_FEATURES + 1;
 
 /// The expected number of samples, used only to pre-allocate the parse buffers.
@@ -78,32 +78,32 @@ const N_SAMPLES: usize = 581_012;
 /// Type alias for the Cover Type dataset: (features, labels).
 type CovtypeData = (Array2<f64>, Array1<u8>);
 
-/// A struct representing the Forest Cover Type dataset with lazy loading.
-///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// This struct represents the Forest Cover Type dataset. It loads data lazily: the
+/// dataset does not load until you call a data accessor method. Once loaded, the
+/// data stays cached for later accesses.
 ///
 /// # About Dataset
 ///
 /// The Forest CoverType dataset contains 581,012 cartographic samples, each
-/// describing a 30×30 metre cell of the Roosevelt National Forest in northern
+/// describing a 30×30 meter cell of the Roosevelt National Forest in northern
 /// Colorado. The 54 features combine 10 quantitative measurements (elevation,
-/// slope, distances to hydrology/roadways/fire points, hillshade indices) with two
-/// one-hot blocks: 4 `Wilderness_Area` columns and 40 `Soil_Type` columns. The
-/// target is the forest cover type (`1`–`7`).
+/// slope, distances to hydrology, roadways, and fire points, and hillshade
+/// indices) with two one-hot blocks. The one-hot blocks are 4 `Wilderness_Area`
+/// columns and 40 `Soil_Type` columns. The target is the forest cover type
+/// (`1`–`7`).
 ///
-/// This is the same data scikit-learn exposes through `fetch_covtype`.
+/// This is the same data that scikit-learn exposes through `fetch_covtype`.
 ///
 /// # Feature columns
 ///
-/// The 54 feature columns are **not** 54 independent variables: they encode 12
-/// logical attributes (10 numeric + 2 categorical), where the two categorical
+/// The 54 feature columns are **not** 54 independent variables. They encode 12
+/// logical attributes: 10 numeric and 2 categorical. The two categorical
 /// attributes are already **one-hot expanded** into many binary indicator columns.
-/// By 0-based column index in the feature matrix:
+/// The table below lists them by 0-based column index in the feature matrix:
 ///
 /// | Columns   | Attribute(s)                                  | Encoding                                   |
 /// |-----------|-----------------------------------------------|--------------------------------------------|
-/// | `0`       | `Elevation`                                   | quantitative (metres)                      |
+/// | `0`       | `Elevation`                                   | quantitative (meters)                      |
 /// | `1`       | `Aspect`                                      | quantitative (azimuth degrees)             |
 /// | `2`       | `Slope`                                       | quantitative (degrees)                     |
 /// | `3`       | `Horizontal_Distance_To_Hydrology`            | quantitative                               |
@@ -116,12 +116,13 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 /// | `10..=13` | `Wilderness_Area` (one attribute, 4 areas)    | one-hot: exactly one column is `1`, rest `0` |
 /// | `14..=53` | `Soil_Type` (one attribute, 40 soil types)    | one-hot: exactly one column is `1`, rest `0` |
 ///
-/// So columns `0..=9` are ten distinct numeric features, but columns `10..=13`
-/// jointly answer "which of 4 wilderness areas" and columns `14..=53` jointly
-/// answer "which of 40 soil types" — each block is a single categorical variable,
-/// with `1` marking the active category and `0` everywhere else (the block sums to
-/// `1`). All 54 columns are stored as `f64` (the one-hot columns hold `0.0`/`1.0`),
-/// matching scikit-learn's dense `fetch_covtype` matrix.
+/// Columns `0..=9` hold ten distinct numeric features. Columns `10..=13` jointly
+/// answer "which of 4 wilderness areas", and columns `14..=53` jointly answer
+/// "which of 40 soil types". Each of these two blocks is a single categorical
+/// variable: `1` marks the active category, and `0` marks every other column in
+/// the block. Each block sums to `1`. All 54 columns use `f64` values (the one-hot
+/// columns hold `0.0` or `1.0`), which matches scikit-learn's dense `fetch_covtype`
+/// matrix.
 ///
 /// # Labels
 ///
@@ -139,14 +140,15 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// This struct implements `Send` and `Sync` because all its fields implement them.
+/// This makes it safe to share the struct across threads. The internal
+/// [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::covtype::Covtype;
 ///
-/// let download_dir = "./covtype"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./covtype"; // the code creates the directory if it does not exist
 ///
 /// let mut dataset = Covtype::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -156,23 +158,23 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 /// assert_eq!(features.shape(), &[581012, 54]);
 /// assert_eq!(labels.len(), 581012);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place, with no clone and no reload. The change stays cached.
+/// // Prefer this method over `.to_owned()` when you only need to change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 2596.0;
 ///     labels[0] = 5;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable — the next access reloads from the cached file.
+/// // `take_data()` moves owned arrays out with no `to_owned()` clone. It leaves
+/// // the instance reusable. The next access reloads data from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[581012, 54]);
 /// assert_eq!(owned_labels.len(), 581012);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns owned arrays with no clone, but it consumes the
+/// // instance. Use it only when you are done with the dataset.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[581012, 54]);
 /// assert_eq!(owned_labels.len(), 581012);
@@ -185,12 +187,13 @@ pub struct Covtype {
 impl Covtype {
     /// Create a new Covtype instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// The dataset does not load immediately. It loads the first time you call a
+    /// data accessor method. This call is lightweight: it only stores the storage
+    /// directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory that holds the dataset.
     ///
     /// # Returns
     ///
@@ -201,10 +204,10 @@ impl Covtype {
         }
     }
 
-    /// Acquire and parse the Forest Cover Type dataset.
+    /// Get and parse the Forest Cover Type dataset.
     fn load_data(dir: &str) -> Result<CovtypeData, DatasetError> {
-        // Prepare the dataset file: download the gzip-compressed `covtype.data.gz`
-        // and decompress it into the plain comma-separated `covtype.csv`.
+        // Download the gzip-compressed `covtype.data.gz` file, then decompress it
+        // into the plain comma-separated `covtype.csv` file.
         let file_path = acquire_dataset(
             dir,
             COVTYPE_FILENAME,
@@ -229,8 +232,8 @@ impl Covtype {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        // Pre-allocate for the known sample count to avoid repeatedly growing a
-        // ~250 MB feature buffer; parsing still works for any actual row count.
+        // Pre-allocate for the known sample count. This avoids repeatedly growing
+        // a ~250 MB feature buffer. Parsing still works for any actual row count.
         let mut features = Vec::with_capacity(N_SAMPLES * N_FEATURES);
         let mut labels = Vec::with_capacity(N_SAMPLES);
 
@@ -290,7 +293,7 @@ impl Covtype {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -305,14 +308,14 @@ impl Covtype {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (581012 samples, 54 features)
+    /// - Dataset size does not match the expected dimensions (581012 samples, 54 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the labels vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -325,14 +328,14 @@ impl Covtype {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (581012 samples)
+    /// - Dataset size does not match the expected dimensions (581012 samples)
     pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
+    /// This method loads the dataset lazily on the first call. Later calls return
     /// the cached data instantly.
     ///
     /// # Returns
@@ -347,58 +350,60 @@ impl Covtype {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size doesn't match expected dimensions (581012 samples, 54 features)
+    /// - Dataset size does not match the expected dimensions (581012 samples, 54 features)
     pub fn data(&self) -> Result<&CovtypeData, DatasetError> {
         self.dataset.load()
     }
 
     /// Get both features and labels as references **without** triggering loading.
     ///
-    /// Unlike [`Covtype::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// Unlike [`Covtype::data`], which loads the dataset on the first call, this
+    /// method never runs the loader. If the data has not loaded yet, this method
+    /// returns `None` instead of downloading and parsing it. Use this method only
+    /// when you want data that is already cached. This avoids the download and
+    /// parse cost if the dataset is not cached yet.
     ///
     /// # Returns
     ///
     /// - `Some(&CovtypeData)` - reference to the cached `(features, labels)` tuple
     ///   (feature matrix `(581012, 54)`, label vector `(581012,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&CovtypeData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. normalize features,
-    /// replace label values) with no `to_owned()` clone and without removing them
-    /// from the cache: the changes persist, so later [`Covtype::features`],
-    /// [`Covtype::data`], or [`Covtype::get_data`] calls observe them.
+    /// This method lets you change the cached arrays in place (for example, to
+    /// normalize features or replace label values). It needs no `to_owned()`
+    /// clone, and it does not remove the data from the cache. The changes persist,
+    /// so later calls to [`Covtype::features`], [`Covtype::data`], or
+    /// [`Covtype::get_data`] see them.
     ///
-    /// Like [`Covtype::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Covtype::data`]) first if you need to ensure the data is present.
+    /// Like [`Covtype::get_data`], this method does **not** trigger loading. It
+    /// returns `None` if the dataset has not loaded yet. If you need the data to
+    /// be present, call a loading accessor first, for example [`Covtype::data`].
     ///
     /// # Returns
     ///
     /// - `Some(&mut CovtypeData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(581012, 54)`, label vector
     ///   `(581012,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut CovtypeData> {
         self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** features and labels.
     ///
-    /// Unlike [`Covtype::data`], which borrows the cached data, this moves it out and
-    /// returns owned arrays directly — no `to_owned()` clone needed. The dataset is
-    /// loaded on first access if it has not been loaded yet.
+    /// Unlike [`Covtype::data`], which borrows the cached data, this method moves
+    /// the data out and returns owned arrays directly, with no `to_owned()` clone
+    /// needed. The dataset loads on the first access if it has not loaded yet.
     ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use [`Covtype::take_data`]
-    /// instead — it takes `&mut self` and leaves the instance reusable.
+    /// This method **consumes** `self`, so you cannot use the instance afterward.
+    /// If you want owned data but need to keep using the instance, use
+    /// [`Covtype::take_data`] instead. That method takes `&mut self` and leaves
+    /// the instance reusable.
     ///
     /// # Returns
     ///
@@ -417,15 +422,15 @@ impl Covtype {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves it reusable.
     ///
-    /// Like [`Covtype::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Covtype::features`] or [`Covtype::data`]) loads the
-    /// dataset again.
+    /// Like [`Covtype::into_data`], this method returns owned arrays with no
+    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
+    /// and moves the cached data out. This resets the instance to its unloaded
+    /// state. The next accessor call, for example [`Covtype::features`] or
+    /// [`Covtype::data`], loads the dataset again.
     ///
-    /// Use [`Covtype::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`Covtype::into_data`] instead.
     ///
     /// # Returns
     ///

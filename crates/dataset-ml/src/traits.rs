@@ -1,27 +1,28 @@
 //! The [`MlDataset`] trait shared by every loader in this crate.
 //!
-//! Each loader has its own inherent accessors named for what it actually holds —
-//! `features()`/`labels()` for the tabular ones, `targets()` for the regression
-//! ones, `texts()` for the text corpora. Those names are the reason the loaders are
-//! pleasant to use directly, but they are also why nothing could be written
-//! *generically* over a dataset before this trait existed.
+//! Each loader has its own inherent accessors, named for what it holds:
+//! `features()`/`labels()` for the tabular loaders, `targets()` for the regression
+//! loaders, `texts()` for the text corpora. Those names make each loader pleasant
+//! to use directly. Before this trait existed, though, no code could work with
+//! datasets *generically*.
 //!
 //! [`MlDataset`] is the common denominator: the container operations that are the
 //! same whatever the loader parses into. It adds three capabilities the inherent
-//! APIs never exposed —
+//! APIs never exposed:
 //!
-//! - [`invalidate`](MlDataset::invalidate), to drop the in-memory cache and force
-//!   the next access to re-read (and re-verify) the file on disk;
-//! - [`is_loaded`](MlDataset::is_loaded) and [`storage_dir`](MlDataset::storage_dir),
-//!   to inspect a loader without touching the data;
-//! - [`n_samples`](MlDataset::n_samples), a uniform sample count that works across
-//!   the pair-shaped and triple-shaped datasets alike.
+//! - [`invalidate`](MlDataset::invalidate) drops the in-memory cache and forces the
+//!   next access to re-read (and re-verify) the file on disk.
+//! - [`is_loaded`](MlDataset::is_loaded) and [`storage_dir`](MlDataset::storage_dir)
+//!   let you inspect a loader without touching the data.
+//! - [`n_samples`](MlDataset::n_samples) gives a uniform sample count that works
+//!   across the pair-shaped and triple-shaped datasets alike.
 //!
-//! The trait's data accessors are deliberately named [`load`](MlDataset::load) /
-//! [`peek`](MlDataset::peek) / [`unload`](MlDataset::unload) rather than reusing
-//! `data` / `get_data` / `take_data`, so a trait method never silently shadows —
-//! or is shadowed by — the inherent method of the same name. Both sets are always
-//! available and always agree; use whichever reads better where you are.
+//! This trait deliberately names its data accessors [`load`](MlDataset::load),
+//! [`peek`](MlDataset::peek), and [`unload`](MlDataset::unload) rather than reusing
+//! `data`, `get_data`, and `take_data`. This way, a trait method never silently
+//! shadows the inherent method of the same name, and the inherent method never
+//! shadows the trait method either. Both sets are always available and always
+//! agree. Use whichever reads better where you are.
 //!
 //! # Example
 //!
@@ -29,7 +30,7 @@
 //! use dataset_ml::traits::MlDataset;
 //! use dataset_ml::{Iris, SmsSpam};
 //!
-//! // One function, any loader — including the text corpora, whose data has an
+//! // One function works for any loader, including the text corpora, whose data has an
 //! // entirely different shape from Iris's.
 //! fn describe<D: MlDataset>(dataset: &D) -> String {
 //!     format!("{} ({} samples)", D::NAME, dataset.n_samples().unwrap())
@@ -44,14 +45,15 @@ use ndarray::{Array, Axis, Dimension};
 
 /// A parsed dataset whose samples can be counted.
 ///
-/// Implemented for the array pairs and triples every loader in this crate parses
-/// into — `(features, labels)`, `(features, targets)`, `(texts, labels)`,
-/// `(categorical, numeric, labels)`, `(texts, sources, labels)`. In all of them the
-/// first array's leading axis is the sample axis, so that is what gets counted.
+/// This crate implements it for the array pairs and triples every loader parses
+/// into. Examples are `(features, labels)`, `(features, targets)`,
+/// `(texts, labels)`, `(categorical, numeric, labels)`, and
+/// `(texts, sources, labels)`. In all of them, the first array's leading axis is
+/// the sample axis, so this counts that axis.
 ///
 /// You only need this trait directly to call [`MlDataset::n_samples`] in a generic
-/// function; implement it for your own data type if you want the same from a
-/// loader of your own.
+/// function. If you want the same from a loader of your own, implement it for your
+/// own data type.
 pub trait NumSamples {
     /// The number of samples the parsed data holds.
     fn num_samples(&self) -> usize;
@@ -78,11 +80,11 @@ where
     }
 }
 
-/// The lazy-loading behaviour every dataset loader in this crate shares.
+/// The lazy-loading behavior every dataset loader in this crate shares.
 ///
 /// Implementors wrap a [`Dataset<Self::Data, DatasetError>`](dataset_core::Dataset)
-/// and only have to hand it out through the three required methods; everything
-/// else is provided.
+/// and only need to expose it through the three needed methods. The trait
+/// provides everything else.
 ///
 /// # Implementing it for your own loader
 ///
@@ -115,17 +117,17 @@ where
 /// }
 /// ```
 pub trait MlDataset: Sized {
-    /// What this loader parses into — the module's `…Data` type alias.
+    /// What this loader parses into: the module's `…Data` type alias.
     ///
     /// It must implement [`NumSamples`], which the array pairs and triples every
-    /// loader here produces already do. Requiring it up front (rather than as a
-    /// bound on [`n_samples`](Self::n_samples)) is what lets a generic
-    /// `fn f<D: MlDataset>(d: &D)` call `d.n_samples()` without repeating the
-    /// bound itself.
+    /// loader here produces already satisfy. This trait needs that bound up
+    /// front, rather than placing it on [`n_samples`](Self::n_samples) itself.
+    /// That way, a generic `fn f<D: MlDataset>(d: &D)` can call `d.n_samples()`
+    /// without repeating the bound.
     type Data: NumSamples;
 
     /// The dataset's identifier, matching the one used in its error messages
-    /// (e.g. `"iris"`, `"sms_spam"`).
+    /// (for example, `"iris"`, `"sms_spam"`).
     const NAME: &'static str;
 
     /// Borrow the underlying container.
@@ -152,9 +154,10 @@ pub trait MlDataset: Sized {
 
     /// Load the dataset if needed and borrow the parsed data **mutably**.
     ///
-    /// Edits are made in place and persist in the cache, so later accesses observe
-    /// them. Unlike the inherent `get_data_mut()`, this loads rather than returning
-    /// `None` when nothing is cached yet.
+    /// If you edit the data in place through the returned reference, the change
+    /// persists in the cache, so later accesses observe it. Unlike the inherent
+    /// `get_data_mut()`, this loads rather than returning `None` when nothing is
+    /// cached yet.
     ///
     /// # Errors
     ///
@@ -166,7 +169,7 @@ pub trait MlDataset: Sized {
     /// Borrow the parsed data **without** triggering loading.
     ///
     /// The generic equivalent of each loader's inherent `get_data()`. Returns
-    /// `None` — rather than downloading — when the dataset is not loaded yet.
+    /// `None`, rather than downloading, when the dataset is not loaded yet.
     fn peek(&self) -> Option<&Self::Data> {
         self.dataset().get()
     }
@@ -179,7 +182,7 @@ pub trait MlDataset: Sized {
         self.dataset_mut().take()
     }
 
-    /// Whether the data is currently held in memory.
+    /// Whether the cache currently holds the data.
     ///
     /// Never triggers loading, so this is the cheap way to ask whether an accessor
     /// would return instantly or start a download.
@@ -194,20 +197,20 @@ pub trait MlDataset: Sized {
 
     /// Drop the cached data, keeping the loader usable.
     ///
-    /// The next access re-reads the file from `storage_dir` — re-running the
-    /// SHA-256 check and the parser, and re-downloading if the file is gone or no
-    /// longer matches. Use it to reclaim the memory a large dataset occupies
-    /// (`covtype`, `kddcup99`) or to pick up a file that changed on disk.
+    /// The next access re-reads the file from `storage_dir`. This re-runs the
+    /// SHA-256 check and the parser, and re-downloads if the file is gone or no
+    /// longer matches. Use it to reclaim the memory a dataset occupies
+    /// (`covtype`, `kddcup99`), or to read a file that changed on disk.
     ///
-    /// To get the data back rather than discard it, use [`unload`](Self::unload).
+    /// To retrieve the data rather than discard it, use [`unload`](Self::unload).
     fn invalidate(&mut self) {
         self.dataset_mut().invalidate();
     }
 
     /// The number of samples in the dataset, loading it if needed.
     ///
-    /// Reads the leading axis of the data's first array, so it is the row count for
-    /// the tabular loaders and the document count for the text ones.
+    /// Reads the leading axis of the data's first array: the row count for the
+    /// tabular loaders, the document count for the text ones.
     ///
     /// # Errors
     ///
@@ -221,8 +224,8 @@ pub trait MlDataset: Sized {
 /// `dataset`.
 ///
 /// Every loader in this crate has that exact shape, so the implementation is
-/// entirely mechanical — this macro writes the three required methods and leaves
-/// the rest to the trait's defaults. It is crate-internal; downstream loaders
+/// entirely mechanical. This macro writes the three needed methods and leaves
+/// the rest to the trait's defaults. It is crate-internal. Downstream loaders
 /// implement the trait directly (see [`MlDataset`]'s own example).
 macro_rules! impl_ml_dataset {
     ($struct_name:ident, $data_type:ty, $name:literal) => {

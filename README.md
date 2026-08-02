@@ -2,18 +2,11 @@
 
 # dataset-core workspace
 
-A Cargo workspace for building and consuming Rust dataset loaders. The architecture layer and the built-in dataset implementations are split into two crates so you only depend on what you actually need.
+A Cargo workspace for building and consuming Rust dataset loaders. This workspace splits the architecture layer and the built-in dataset implementations into two crates. You depend only on what you need.
 
-<p align="center">
-  <a href="https://www.rust-lang.org/"><img alt="rustc" src="https://img.shields.io/badge/rustc-1.88%2B-brown"></a>
-  <a href="https://doc.rust-lang.org/edition-guide/"><img alt="edition" src="https://img.shields.io/badge/edition-2024-orange"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE"><img alt="License" src="https://img.shields.io/badge/License-MIT-green"></a>
-  <br>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml"><img alt="fmt" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml"><img alt="clippy" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml"><img alt="test" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test"></a>
-  <a href="https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml"><img alt="doc" src="https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc"></a>
-</p>
+[![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE)
+
+[![fmt](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/fmt.yml?branch=master&label=fmt)](https://github.com/SomeB1oody/dataset-core/actions/workflows/fmt.yml) [![clippy](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/clippy.yml?branch=master&label=clippy)](https://github.com/SomeB1oody/dataset-core/actions/workflows/clippy.yml) [![test](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/test.yml?branch=master&label=test)](https://github.com/SomeB1oody/dataset-core/actions/workflows/test.yml) [![doc](https://img.shields.io/github/actions/workflow/status/SomeB1oody/dataset-core/doc.yml?branch=master&label=doc)](https://github.com/SomeB1oody/dataset-core/actions/workflows/doc.yml)
 
 ## Crates
 
@@ -34,7 +27,7 @@ dataset-core (workspace root)
 ## Which crate do I want?
 
 - **Just need lazy caching for your own data?** Depend on [`dataset-core`](crates/dataset-core).
-- **Want the classic ML datasets out of the box?** Depend on [`dataset-ml`](crates/dataset-ml) — it pulls in `dataset-core` automatically.
+- **Want the classic ML datasets out of the box?** Depend on [`dataset-ml`](crates/dataset-ml). It includes `dataset-core` automatically.
 
 ``` toml
 # Minimal: just Dataset<T, E>
@@ -85,16 +78,16 @@ Each crate has its own changelog:
 
 ## License
 
-This project is licensed under the MIT License — see [LICENSE](LICENSE) for details.
+This project uses the MIT License. See [LICENSE](LICENSE) for details.
 
 ## Code of Conduct
 
-Please review the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+Review the [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
 
 ## Contributing
 
-Contributions are welcome! Please open an issue or pull request on [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core).
+Contributions are welcome. Open an issue or a pull request on [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core).
 
 ## Author
 
-**SomeB1oody** — [stanyin64@gmail.com](mailto:stanyin64@gmail.com)
+**SomeB1oody**: [stanyin64@gmail.com](mailto:stanyin64@gmail.com)

@@ -1,10 +1,11 @@
 //! Mushroom dataset.
 //!
-//! Records drawn from *The Audubon Society Field Guide to North American
-//! Mushrooms* (1981), describing 23 species of gilled mushrooms in the Agaricus
-//! and Lepiota family, used to predict whether a mushroom is edible or poisonous.
-//! This is the first **all-categorical** loader: every feature is a string code,
-//! so there is no numeric feature matrix.
+//! The dataset holds records from *The Audubon Society Field Guide to North
+//! American Mushrooms* (1981). The records describe 23 species of gilled
+//! mushrooms in the Agaricus and Lepiota family. The task is to predict
+//! whether a mushroom is edible or poisonous. This is the first
+//! **all-categorical** loader. Every feature is a string code, so there is no
+//! numeric feature matrix.
 //!
 //! **Features (22, all categorical):** `cap-shape`, `cap-surface`, `cap-color`,
 //! `bruises`, `odor`, `gill-attachment`, `gill-spacing`, `gill-size`,
@@ -13,7 +14,7 @@
 //! `veil-type`, `veil-color`, `ring-number`, `ring-type`, `spore-print-color`,
 //! `population`, `habitat`. Each value is a single-letter code.
 //!
-//! **Target:** `class` — binary label kept verbatim (`e` = edible, `p` = poisonous)
+//! **Target:** `class`, binary label kept verbatim (`e` = edible, `p` = poisonous)
 //!
 //! **Samples:** 8,124
 //! **Application:** Binary classification / edibility prediction
@@ -86,20 +87,21 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 /// The token marking a missing categorical value in the source (only in `stalk-root`).
 const MISSING_TOKEN: &str = "?";
 
-/// A struct representing the Mushroom dataset with lazy loading.
+/// This struct represents the Mushroom dataset and loads it lazily.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// Nothing loads until you call a data accessor method. After loading, the
+/// data stays cached for later accesses.
 ///
 /// # About Dataset
 ///
-/// The Mushroom dataset describes hypothetical samples corresponding to 23 species
-/// of gilled mushrooms in the Agaricus and Lepiota family, drawn from *The Audubon
-/// Society Field Guide to North American Mushrooms* (1981). Each species is labelled
-/// edible or poisonous (the latter combining the definitely poisonous, the unknown
-/// edibility, and the not-recommended). The classification task is to predict
-/// edibility from 22 categorical attributes. There is no simple rule for determining
-/// the edibility of a mushroom, which is what makes the dataset interesting.
+/// The Mushroom dataset describes hypothetical samples that correspond to 23
+/// species of gilled mushrooms in the Agaricus and Lepiota family. The records
+/// come from *The Audubon Society Field Guide to North American Mushrooms*
+/// (1981). Each species is labeled edible or poisonous. The poisonous label
+/// also covers species of unknown edibility and species not recommended for
+/// eating. The classification task is to predict edibility from 22 categorical
+/// attributes. No simple rule determines the edibility of a mushroom, and this
+/// makes the dataset a difficult classification problem.
 ///
 /// # Feature columns
 ///
@@ -134,12 +136,12 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Labels
 ///
-/// - `class` (shape `(8124,)`): the `Array1<String>` is kept verbatim, each entry
-///   being either `e` (edible) or `p` (poisonous).
+/// - `class` (shape `(8124,)`): the `Array1<String>` is kept verbatim. Each
+///   entry is either `e` (edible) or `p` (poisonous).
 ///
 /// Missing values:
-/// - The source marks missing values with `?` (only in `stalk-root`, 2,480 samples);
-///   these are mapped to empty strings `""`.
+/// - The source marks missing values with `?` (only in `stalk-root`, 2,480
+///   samples). The loader maps these to empty strings `""`.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/73/mushroom>.
 ///
@@ -150,14 +152,15 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Thread Safety
 ///
-/// This struct automatically implements `Send` and `Sync` (All fields implement them), making it safe to share across threads.
-/// The internal [`Dataset`] ensures thread-safe lazy initialization.
+/// Every field implements `Send` and `Sync`, so this struct implements them too. It is safe
+/// to share across threads.
+/// The internal [`Dataset`] makes initialization thread-safe and lazy.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::mushroom::Mushroom;
 ///
-/// let download_dir = "./mushroom"; // the code will create the directory if it doesn't exist
+/// let download_dir = "./mushroom"; // creates the directory if it is missing
 ///
 /// let mut dataset = Mushroom::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -167,9 +170,10 @@ const MISSING_TOKEN: &str = "?";
 /// assert_eq!(features.shape(), &[8124, 22]);
 /// assert_eq!(labels.len(), 8124);
 ///
-/// // `get_data()` borrows the cached arrays without reloading; `get_data_mut()`
-/// // edits them in place — no clone, no reload, the change stays cached. Prefer
-/// // this over cloning with `.to_owned()` when you only need to tweak values.
+/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // edits them in place. It needs no clone and no reload, and the change
+/// // stays cached. Prefer this method over cloning with `.to_owned()` when
+/// // you only need to change values.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = "x".to_string();
 ///     labels[0] = "e".to_string();
@@ -177,7 +181,7 @@ const MISSING_TOKEN: &str = "?";
 /// assert!(dataset.get_data().is_some());
 ///
 /// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable — the next access reloads from the cached file.
+/// // the instance reusable. The next access reloads from the cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[8124, 22]);
 /// assert_eq!(owned_labels.len(), 8124);
@@ -196,12 +200,13 @@ pub struct Mushroom {
 impl Mushroom {
     /// Create a new Mushroom instance without loading data.
     ///
-    /// The dataset will be loaded lazily when you first call any data accessor method.
-    /// This is a lightweight operation that only stores the storage directory.
+    /// This does not load the dataset. The dataset loads on the first call to a
+    /// data accessor method. This is a lightweight operation: it only stores the
+    /// storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - Directory used to store the dataset.
     ///
     /// # Returns
     ///
@@ -212,10 +217,10 @@ impl Mushroom {
         }
     }
 
-    /// Acquire and parse the Mushroom dataset.
+    /// Get and parse the Mushroom dataset.
     fn load_data(dir: &str) -> Result<MushroomData, DatasetError> {
-        // Prepare the dataset file. The source file is `agaricus-lepiota.data`;
-        // cache it under `mushroom.csv`.
+        // Prepare the dataset file. The source file is `agaricus-lepiota.data`.
+        // The code caches it as `mushroom.csv`.
         let file_path = acquire_dataset(
             dir,
             MUSHROOM_FILENAME,
@@ -296,8 +301,8 @@ impl Mushroom {
 
     /// Get a reference to the categorical feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -311,19 +316,20 @@ impl Mushroom {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (8,124 samples)
+    /// - Dataset size does not match the expected dimensions (8,124 samples)
     pub fn features(&self) -> Result<&Array2<String>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(8124,)` containing `class` values (`e` = edible or `p` = poisonous)
+    /// - `&Array1<String>` - Reference to label vector with shape `(8124,)`
+    ///   containing `class` values (`e` = edible or `p` = poisonous)
     ///
     /// # Errors
     ///
@@ -331,15 +337,15 @@ impl Mushroom {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (8,124 samples)
+    /// - Dataset size does not match the expected dimensions (8,124 samples)
     pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on first call. Later calls return the
+    /// cached data instantly.
     ///
     /// # Returns
     ///
@@ -352,18 +358,19 @@ impl Mushroom {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size doesn't match expected dimensions (8,124 samples)
+    /// - Dataset size does not match the expected dimensions (8,124 samples)
     pub fn data(&self) -> Result<&MushroomData, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get features and labels as references **without** triggering loading.
+    /// Get features and labels as references, without triggering loading.
     ///
     /// Unlike [`Mushroom::data`], which loads the dataset on first call, this never
-    /// runs the loader: if the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. Use it when you only want the data if
-    /// it is already cached and want to avoid paying the download/parse cost
-    /// otherwise.
+    /// runs the loader. If the data has not been loaded yet, it returns `None`
+    /// instead of downloading and parsing.
+    ///
+    /// Use this method when you want the data only if it is already cached. This
+    /// avoids the download and parse cost when the data is not cached.
     ///
     /// # Returns
     ///
@@ -376,14 +383,14 @@ impl Mushroom {
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you modify the cached arrays directly (e.g. encode categorical
-    /// features) with no `to_owned()` clone and without removing them from the
-    /// cache: the changes persist, so later [`Mushroom::features`],
-    /// [`Mushroom::data`], or [`Mushroom::get_data`] calls observe them.
+    /// This lets you change the cached arrays directly (e.g. encode categorical
+    /// features). It needs no `to_owned()` clone, and the arrays stay in the
+    /// cache. The changes persist, so later calls to [`Mushroom::features`],
+    /// [`Mushroom::data`], or [`Mushroom::get_data`] see them.
     ///
-    /// Like [`Mushroom::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. Call a loading accessor (e.g.
-    /// [`Mushroom::data`]) first if you need to ensure the data is present.
+    /// Like [`Mushroom::get_data`], this does **not** trigger loading. It returns
+    /// `None` if the dataset has not been loaded. If you need to make sure the
+    /// data is present, call a loading accessor first (e.g. [`Mushroom::data`]).
     ///
     /// # Returns
     ///
@@ -397,13 +404,13 @@ impl Mushroom {
     /// Consume the dataset and return **owned** features and labels.
     ///
     /// Unlike [`Mushroom::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly — no `to_owned()` clone needed. The dataset
-    /// is loaded on first access if it has not been loaded yet.
+    /// and returns owned arrays directly. It needs no `to_owned()` clone. The
+    /// dataset is loaded on first access if it has not been loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
-    /// [`Mushroom::take_data`] instead — it takes `&mut self` and leaves the instance
-    /// reusable.
+    /// [`Mushroom::take_data`] instead. It takes `&mut self` and leaves the
+    /// instance reusable.
     ///
     /// # Returns
     ///
@@ -422,15 +429,16 @@ impl Mushroom {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. The instance stays
+    /// reusable.
     ///
     /// Like [`Mushroom::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out, resetting the instance to its unloaded state: the next
-    /// accessor call (e.g. [`Mushroom::features`] or [`Mushroom::data`]) loads the
-    /// dataset again.
+    /// the cached data out. This resets the instance to its unloaded state. The
+    /// next accessor call (e.g. [`Mushroom::features`] or [`Mushroom::data`])
+    /// loads the dataset again.
     ///
-    /// Use [`Mushroom::into_data`] instead if you are done with the instance.
+    /// If you are done with the instance, use [`Mushroom::into_data`] instead.
     ///
     /// # Returns
     ///

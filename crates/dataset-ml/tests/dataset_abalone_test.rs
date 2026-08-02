@@ -63,7 +63,7 @@ fn assert_abalone_semantics(
 // Verifies that the Abalone dataset loads with the correct shapes, sex categories,
 // numeric feature domain, and integer regression target.
 fn test_load_abalone() {
-    let download_dir = "./test_load_abalone"; // the code will create the directory if it doesn't exist
+    let download_dir = "./test_load_abalone"; // the loader creates this directory if it is missing
 
     let dataset = Abalone::new(download_dir);
     let (string_features, numeric_features) = dataset.features().unwrap();
@@ -71,70 +71,65 @@ fn test_load_abalone() {
 
     assert_abalone_semantics(string_features, numeric_features, targets);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that Abalone loading uses a pre-downloaded cached file without re-downloading.
+// Verifies that Abalone reuses a cached file instead of a new download.
 fn test_abalone_no_need_download() {
     let download_dir = "./test_abalone_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download Abalone dataset in advance, under the filename the loader expects
+    // This downloads the Abalone dataset in advance, using the filename the loader expects.
     download_to(ABALONE_URL, download_dir_path, Some("abalone.csv")).unwrap();
 
-    // should use cached Abalone dataset
+    // This reuses the cached Abalone dataset.
     let dataset = Abalone::new(download_dir);
     let (_s, _n, _t) = dataset.data().unwrap();
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that a corrupt or fake Abalone data file is detected and overwritten with the real dataset.
+// Verifies that the loader detects a corrupt or fake Abalone data file and
+// overwrites it with the real dataset.
 fn test_abalone_overwrite() {
     let download_dir = "./test_abalone_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Abalone dataset in advance
     {
         let path = download_dir_path.join("abalone.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Abalone dataset
+    // The loader overwrites the fake file with the real dataset.
     let dataset = Abalone::new(download_dir);
     let (_s, _n, _t) = dataset.data().unwrap();
 
-    // check the fake file is overwritten
     assert!(file_sha256_matches(&download_dir_path.join("abalone.csv"), ABALONE_SHA256).unwrap());
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_abalone_into_data() {
     let download_dir = "./test_abalone_into_data";
 
     let dataset = Abalone::new(download_dir);
     let (string_features, mut numeric_features, targets) = dataset.into_data().unwrap();
-    // `dataset` has been consumed; the arrays are fully owned.
+    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(string_features.shape(), &[N_SAMPLES, 1]);
     assert_eq!(numeric_features.shape(), &[N_SAMPLES, 7]);
     assert_eq!(targets.len(), N_SAMPLES);
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     numeric_features[[0, 0]] = 0.5;
     assert_eq!(numeric_features[[0, 0]], 0.5);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -150,14 +145,13 @@ fn test_abalone_take_data() {
     assert_eq!(numeric_features.shape(), &[N_SAMPLES, 7]);
     assert_eq!(targets.len(), N_SAMPLES);
 
-    // After take_data the instance is reset to unloaded but still usable: the next
-    // access reloads it (from the cached file) and yields the same shapes.
+    // take_data() resets the instance to unloaded, but it stays usable. The next
+    // access reloads it from the cached file and yields the same shapes.
     let (rs, rn, rt) = dataset.data().unwrap();
     assert_eq!(rs.shape(), &[N_SAMPLES, 1]);
     assert_eq!(rn.shape(), &[N_SAMPLES, 7]);
     assert_eq!(rt.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -170,14 +164,13 @@ fn test_abalone_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (string_features, numeric_features, targets) = dataset.get_data().unwrap();
     assert_eq!(string_features.shape(), &[N_SAMPLES, 1]);
     assert_eq!(numeric_features.shape(), &[N_SAMPLES, 7]);
     assert_eq!(targets.len(), N_SAMPLES);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
 
@@ -190,7 +183,8 @@ fn test_abalone_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load, then mutate the cached target in place (no clone, no reload).
+    // This loads the dataset. It then mutates the cached target in place, with no
+    // clone and no reload.
     dataset.data().unwrap();
     if let Some((_s, _n, targets)) = dataset.get_data_mut() {
         targets[0] = 11.0;
@@ -200,6 +194,5 @@ fn test_abalone_get_data_mut() {
     let (_s, _n, targets) = dataset.data().unwrap();
     assert_eq!(targets[0], 11.0);
 
-    // clean up: remove the downloaded files
     remove_dir_all(download_dir).unwrap();
 }
