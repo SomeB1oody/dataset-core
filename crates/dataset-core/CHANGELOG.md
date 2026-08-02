@@ -8,7 +8,7 @@ See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for mo
 
 This changelog groups entries by release and lists only each version's notable changes. It omits routine dependency bumps, doc-only tweaks, and minor internal refactors.
 
-## [Unreleased]
+## [0.5.0] - 2026-08-02
 ### Added
 - `Dataset::load_mut(&mut self) -> Result<&mut T, E>`: the loading counterpart of `get_mut`. It loads the dataset if needed. It then returns a mutable reference to the cached value.
 - `sha256_file` and `verify_sha256` (feature `utils`, re-exported at the crate root): `sha256_file` computes a file's SHA-256 digest as 64 lowercase hex characters, useful for pinning a new dataset's hash. `verify_sha256` checks a file against an expected digest, and the check ignores case.

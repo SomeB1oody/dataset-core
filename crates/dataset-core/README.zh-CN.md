@@ -26,14 +26,14 @@
 
 ```toml
 [dependencies]
-dataset-core = "0.4"
+dataset-core = "0.5"
 ```
 
 **包含工具函数**：
 
 ```toml
 [dependencies]
-dataset-core = { version = "0.4", features = ["utils"] }
+dataset-core = { version = "0.5", features = ["utils"] }
 ```
 
 ## 特性标志

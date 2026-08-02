@@ -28,7 +28,7 @@ Two modules apply to every dataset rather than to one of them:
 
 ```toml
 [dependencies]
-dataset-ml = "0.3"
+dataset-ml = "0.4"
 ```
 
 ## Datasets
@@ -173,7 +173,7 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 
 ```diff
 - dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.3"
++ dataset-ml = "0.4"
 ```
 
 | Old path                                                                     | New path                                                         |

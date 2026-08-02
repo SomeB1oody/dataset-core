@@ -32,15 +32,15 @@ dataset-core (workspace root)
 ``` toml
 # Minimal: just Dataset<T, E>
 [dependencies]
-dataset-core = "0.4"
+dataset-core = "0.5"
 
 # Need download / unzip / gunzip / untar / SHA-256 helpers too
 [dependencies]
-dataset-core = { version = "0.4", features = ["utils"] }
+dataset-core = { version = "0.5", features = ["utils"] }
 
 # Built-in ML datasets (Iris, Titanic, ...)
 [dependencies]
-dataset-ml = "0.3"
+dataset-ml = "0.4"
 ```
 
 ## Development
