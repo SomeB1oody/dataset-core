@@ -31,6 +31,24 @@
 dataset-ml = "0.4"
 ```
 
+## 特性开关
+
+| 特性            | 默认 | 启用内容 |
+|-----------------|------|----------|
+| `dataset`       | 是   | `dataset` 模块及其 29 个加载器、所有加载器结构体在 crate 根部的重新导出，以及 `DOWNLOAD_RETRIES`。会引入 `csv`、`serde`、`tempfile` 依赖。 |
+| `preprocessing` | 是   | `preprocessing` 模块：带随机种子的划分、特征缩放、独热编码与标签编码。不引入任何依赖。 |
+
+无论选择哪些特性，`traits` 模块始终可用。它提供 `MlDataset` 和 `NumSamples`，因此即使两个特性都关闭，你也可以按同一套接口编写自己的加载器。
+
+只取所需时，请关闭默认特性：
+
+```toml
+[dependencies]
+dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
+```
+
+关闭 `dataset` 后，直接依赖只剩 `dataset-core` 和 `ndarray`。
+
 ## 数据集
 
 | 结构体                                       | 模块路径                                                | 样本数  | 特征数 | 任务类型 | 来源              |

@@ -1,3 +1,5 @@
+#![cfg(feature = "dataset")]
+
 //! Integration tests for the `MlDataset` trait.
 //!
 //! Most assertions here need no network access. The trait's inspection methods

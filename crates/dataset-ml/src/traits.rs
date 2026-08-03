@@ -24,7 +24,12 @@
 //! shadows the trait method either. Both sets are always available and always
 //! agree. Use whichever reads better where you are.
 //!
+//! This module is always available. The `dataset` feature only decides whether the
+//! built-in loaders that implement the trait compile with it.
+//!
 //! # Example
+//!
+//! This example needs the `dataset` feature, because it uses two built-in loaders.
 //!
 //! ```no_run
 //! use dataset_ml::traits::MlDataset;
@@ -227,6 +232,7 @@ pub trait MlDataset: Sized {
 /// entirely mechanical. This macro writes the three needed methods and leaves
 /// the rest to the trait's defaults. It is crate-internal. Downstream loaders
 /// implement the trait directly (see [`MlDataset`]'s own example).
+#[cfg(feature = "dataset")]
 macro_rules! impl_ml_dataset {
     ($struct_name:ident, $data_type:ty, $name:literal) => {
         impl $crate::traits::MlDataset for $struct_name {
@@ -254,4 +260,5 @@ macro_rules! impl_ml_dataset {
     };
 }
 
+#[cfg(feature = "dataset")]
 pub(crate) use impl_ml_dataset;

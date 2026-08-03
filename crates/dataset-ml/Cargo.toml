@@ -12,12 +12,17 @@ documentation = "https://docs.rs/dataset-ml"
 keywords = ["dataset", "machine-learning", "iris", "titanic", "ndarray"]
 categories = ["science"]
 
+[features]
+default = ["dataset", "preprocessing"]
+dataset = ["dep:csv", "dep:serde", "dep:tempfile"]
+preprocessing = []
+
 [dependencies]
 dataset-core = { workspace = true, features = ["utils"] }
 ndarray = { workspace = true }
-csv = { workspace = true }
-serde = { workspace = true }
-tempfile = { workspace = true }
+csv = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
 
 [package.metadata.docs.rs]
 all-features = true

@@ -1,7 +1,7 @@
 //! Built-in dataset implementations for machine learning.
 //!
 //! `dataset-ml` provides ready-to-use loaders for classic ML datasets, built on top
-//! of [`dataset_core::Dataset`]. Every loader lives in a module under [`dataset`],
+//! of [`dataset_core::Dataset`]. Every loader lives in a module under `dataset`,
 //! and each one is a worked example that shows how to wrap `Dataset<T, E>` for one
 //! data source. The steps are the same each time:
 //!
@@ -10,41 +10,25 @@
 //! 3. Parse CSV records, or extract raw documents from an archive.
 //! 4. Expose typed accessors backed by [`ndarray`].
 //!
-//! # Datasets
+//! # Feature flags
 //!
-//! | Module                                                | Samples | Features | Task Type      |
-//! |-------------------------------------------------------|---------|----------|----------------|
-//! | [`abalone`](dataset::abalone)                         | 4,177   | 8        | Regression     |
-//! | [`adult`](dataset::adult)                             | 32,561  | 14       | Classification |
-//! | [`bank_marketing`](dataset::bank_marketing)           | 45,211  | 16       | Classification |
-//! | [`banknote_authentication`](dataset::banknote_authentication) | 1,372 | 4 | Classification |
-//! | [`iris`](dataset::iris)                               | 150     | 4        | Classification |
-//! | [`breast_cancer`](dataset::breast_cancer)             | 569     | 30       | Classification |
-//! | [`boston_housing`](dataset::boston_housing)           | 506     | 13       | Regression     |
-//! | [`california_housing`](dataset::california_housing)   | 20,640  | 8        | Regression     |
-//! | [`car_evaluation`](dataset::car_evaluation)           | 1,728   | 6        | Classification |
-//! | [`covtype`](dataset::covtype)                         | 581,012 | 54       | Classification |
-//! | [`diabetes`](dataset::diabetes)                       | 442     | 10       | Regression     |
-//! | [`digits`](dataset::digits)                           | 1,797   | 64       | Classification |
-//! | [`heart_disease`](dataset::heart_disease)             | 303     | 13       | Classification |
-//! | [`ionosphere`](dataset::ionosphere)                   | 351     | 34       | Classification |
-//! | [`kddcup99`](dataset::kddcup99)                       | 494,021 / 4,898,431 | 41 | Classification |
-//! | [`letter_recognition`](dataset::letter_recognition)   | 20,000  | 16       | Classification (26 classes) |
-//! | [`linnerud`](dataset::linnerud)                       | 20      | 3        | Regression (multi-output) |
-//! | [`mushroom`](dataset::mushroom)                       | 8,124   | 22       | Classification |
-//! | [`spambase`](dataset::spambase)                       | 4,601   | 57       | Classification |
-//! | [`titanic`](dataset::titanic)                         | 891     | 11       | Classification |
-//! | [`palmer_penguins`](dataset::palmer_penguins)         | 344     | 7        | Classification |
-//! | [`sms_spam`](dataset::sms_spam)                       | 5,574   | text     | Classification |
-//! | [`wine_recognition`](dataset::wine_recognition)       | 178     | 13       | Classification |
-//! | [`wine_quality::red_wine_quality`](dataset::wine_quality::red_wine_quality) | 1,599 | 11 | Regression |
-//! | [`wine_quality::white_wine_quality`](dataset::wine_quality::white_wine_quality) | 4,898 | 11 | Regression |
-//! | [`youtube_spam`](dataset::youtube_spam)               | 1,956   | text     | Classification |
-//! | [`sentiment_sentences`](dataset::sentiment_sentences) | 3,000   | text     | Classification |
-//! | [`newsgroups20`](dataset::newsgroups20)               | 11,314 / 18,846 | text | Classification |
-//! | [`movie_review_polarity`](dataset::movie_review_polarity) | 2,000 | text   | Classification |
+//! Both features are on by default. Turn one off to leave out what you do not use.
+//!
+//! | Feature         | What it enables |
+//! |-----------------|-----------------|
+//! | `dataset`       | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
+//! | `preprocessing` | The `preprocessing` module: seeded train/test and k-fold splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
+//!
+//! The `traits` module is always available, whichever features you pick. It holds
+//! [`MlDataset`] and [`NumSamples`], so you can write a loader of your own against
+//! the same interface with both features off.
+//!
+//! The `dataset` module lists every built-in dataset with its sample count,
+//! feature count, and task type.
 //!
 //! # Example
+//!
+//! This example needs the `dataset` feature.
 //!
 //! ```no_run
 //! use dataset_ml::Iris;
@@ -66,13 +50,15 @@
 //!
 //! Two modules apply to every dataset here rather than to one of them:
 //!
-//! - [`preprocessing`]: seeded train/test and k-fold splits (plain or
+//! - `preprocessing`: seeded train/test and k-fold splits (plain or
 //!   class-stratified), feature scaling, one-hot encoding, and label encoding. You
 //!   can feed the arrays a loader returns straight to a model, without writing
 //!   that glue code by hand.
 //! - [`traits`]: the [`MlDataset`] trait every loader implements. It lets you
 //!   write code generically over "some dataset": cache inspection and
 //!   invalidation, plus a uniform `n_samples()`.
+//!
+//! This example needs the `dataset` and `preprocessing` features.
 //!
 //! ```no_run
 //! use dataset_ml::preprocessing::{stratified_split, standardize};
@@ -103,6 +89,7 @@
 ///
 /// The loader returns errors that retrying cannot fix right away, and a
 /// genuinely unreachable host costs at most 1.5 s of waiting before it fails.
+#[cfg(feature = "dataset")]
 pub const DOWNLOAD_RETRIES: u32 = 2;
 
 /// Every built-in dataset loader, one module per data source.
@@ -113,6 +100,9 @@ pub const DOWNLOAD_RETRIES: u32 = 2;
 ///
 /// The crate root re-exports every loader struct, so `dataset_ml::Iris` is a
 /// shorter name for `dataset_ml::dataset::iris::Iris`.
+///
+/// Needs the `dataset` feature, which is on by default.
+#[cfg(feature = "dataset")]
 pub mod dataset;
 
 /// Preprocessing helpers.
@@ -121,6 +111,9 @@ pub mod dataset;
 /// train/test and k-fold splits (plain or class-stratified), feature scaling,
 /// one-hot encoding of the categorical matrices, and label encoding. Everything
 /// is deterministic given a seed and depends on no extra crates.
+///
+/// Needs the `preprocessing` feature, which is on by default.
+#[cfg(feature = "preprocessing")]
 pub mod preprocessing;
 
 /// The [`traits::MlDataset`] trait implemented by every loader in this crate.
@@ -131,34 +124,18 @@ pub mod preprocessing;
 /// one concrete struct.
 pub mod traits;
 
-pub use dataset::abalone::Abalone;
-pub use dataset::adult::Adult;
-pub use dataset::bank_marketing::BankMarketing;
-pub use dataset::banknote_authentication::BanknoteAuthentication;
-pub use dataset::boston_housing::BostonHousing;
-pub use dataset::breast_cancer::BreastCancer;
-pub use dataset::california_housing::CaliforniaHousing;
-pub use dataset::car_evaluation::CarEvaluation;
-pub use dataset::covtype::Covtype;
-pub use dataset::diabetes::Diabetes;
-pub use dataset::digits::Digits;
-pub use dataset::heart_disease::HeartDisease;
-pub use dataset::ionosphere::Ionosphere;
-pub use dataset::iris::Iris;
-pub use dataset::kddcup99::Kddcup99;
-pub use dataset::letter_recognition::LetterRecognition;
-pub use dataset::linnerud::Linnerud;
-pub use dataset::movie_review_polarity::MovieReviewPolarity;
-pub use dataset::mushroom::Mushroom;
-pub use dataset::newsgroups20::Newsgroups20;
-pub use dataset::palmer_penguins::PalmerPenguins;
-pub use dataset::sentiment_sentences::SentimentSentences;
-pub use dataset::sms_spam::SmsSpam;
-pub use dataset::spambase::Spambase;
-pub use dataset::titanic::Titanic;
-pub use dataset::wine_quality::{
-    red_wine_quality::RedWineQuality, white_wine_quality::WhiteWineQuality,
+#[cfg(feature = "dataset")]
+pub use dataset::{
+    abalone::Abalone, adult::Adult, bank_marketing::BankMarketing,
+    banknote_authentication::BanknoteAuthentication, boston_housing::BostonHousing,
+    breast_cancer::BreastCancer, california_housing::CaliforniaHousing,
+    car_evaluation::CarEvaluation, covtype::Covtype, diabetes::Diabetes, digits::Digits,
+    heart_disease::HeartDisease, ionosphere::Ionosphere, iris::Iris, kddcup99::Kddcup99,
+    letter_recognition::LetterRecognition, linnerud::Linnerud,
+    movie_review_polarity::MovieReviewPolarity, mushroom::Mushroom, newsgroups20::Newsgroups20,
+    palmer_penguins::PalmerPenguins, sentiment_sentences::SentimentSentences, sms_spam::SmsSpam,
+    spambase::Spambase, titanic::Titanic, wine_quality::red_wine_quality::RedWineQuality,
+    wine_quality::white_wine_quality::WhiteWineQuality, wine_recognition::WineRecognition,
+    youtube_spam::YoutubeSpam,
 };
-pub use dataset::wine_recognition::WineRecognition;
-pub use dataset::youtube_spam::YoutubeSpam;
 pub use traits::{MlDataset, NumSamples};

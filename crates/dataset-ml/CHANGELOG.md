@@ -9,9 +9,20 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 Entries are grouped by release and list only each version's notable changes. Routine dependency bumps, doc-only tweaks, and minor internal refactors are omitted. New loaders are summarized to their essentials. The crate also re-exports every loader struct at the crate root (for example, `dataset_ml::Iris`).
 
 ## [Unreleased]
+### Added
+- Two feature flags, both on by default, so a user can compile only the half they need:
+  - `dataset`: the `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which are now optional.
+  - `preprocessing`: the `preprocessing` module. It adds no dependencies.
+
+  With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The `traits` module stays available under every feature combination, so a downstream loader can implement `MlDataset` with both features off.
+
 ### Changed
 - **Breaking:** every dataset loader module moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`, and the same one-level shift applies to all 28 loader modules. The crate root now holds three modules: `dataset`, `preprocessing`, and `traits`.
 - The crate root still re-exports every loader struct, so `dataset_ml::Iris` and the other struct names are unchanged. Code that imports a struct from the crate root needs no edit.
+- The dataset overview table moved from the crate root docs to the `dataset` module docs, which is where the modules it lists now live.
+
+### Testing
+- Each integration test file starts with the feature gate it needs: `#![cfg(feature = "dataset")]` for the loader tests and `traits_test.rs`, `#![cfg(feature = "preprocessing")]` for `preprocessing_test.rs`. A test binary compiles to zero tests when its feature is off.
 
 ## [0.4.0] - 2026-08-02
 ### Added

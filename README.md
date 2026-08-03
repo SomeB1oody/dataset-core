@@ -38,9 +38,13 @@ dataset-core = "0.5"
 [dependencies]
 dataset-core = { version = "0.5", features = ["utils"] }
 
-# Built-in ML datasets (Iris, Titanic, ...)
+# Built-in ML datasets (Iris, Titanic, ...) plus the preprocessing helpers
 [dependencies]
 dataset-ml = "0.4"
+
+# Only the loaders, without the preprocessing helpers
+[dependencies]
+dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
 ```
 
 ## Development

@@ -13,8 +13,43 @@
 //! [`dataset_ml::dataset::iris::Iris`](crate::dataset::iris::Iris) name the same
 //! type. Use whichever path reads better.
 //!
-//! The crate root documents the samples, the features, and the task type of
-//! every dataset. Each module documents its own source and column layout.
+//! This module needs the `dataset` feature, which is on by default.
+//!
+//! # Datasets
+//!
+//! | Module | Samples | Features | Task Type |
+//! |--------|---------|----------|-----------|
+//! | [`abalone`](crate::dataset::abalone) | 4,177 | 8 | Regression |
+//! | [`adult`](crate::dataset::adult) | 32,561 | 14 | Classification |
+//! | [`bank_marketing`](crate::dataset::bank_marketing) | 45,211 | 16 | Classification |
+//! | [`banknote_authentication`](crate::dataset::banknote_authentication) | 1,372 | 4 | Classification |
+//! | [`iris`](crate::dataset::iris) | 150 | 4 | Classification |
+//! | [`breast_cancer`](crate::dataset::breast_cancer) | 569 | 30 | Classification |
+//! | [`boston_housing`](crate::dataset::boston_housing) | 506 | 13 | Regression |
+//! | [`california_housing`](crate::dataset::california_housing) | 20,640 | 8 | Regression |
+//! | [`car_evaluation`](crate::dataset::car_evaluation) | 1,728 | 6 | Classification |
+//! | [`covtype`](crate::dataset::covtype) | 581,012 | 54 | Classification |
+//! | [`diabetes`](crate::dataset::diabetes) | 442 | 10 | Regression |
+//! | [`digits`](crate::dataset::digits) | 1,797 | 64 | Classification |
+//! | [`heart_disease`](crate::dataset::heart_disease) | 303 | 13 | Classification |
+//! | [`ionosphere`](crate::dataset::ionosphere) | 351 | 34 | Classification |
+//! | [`kddcup99`](crate::dataset::kddcup99) | 494,021 / 4,898,431 | 41 | Classification |
+//! | [`letter_recognition`](crate::dataset::letter_recognition) | 20,000 | 16 | Classification (26 classes) |
+//! | [`linnerud`](crate::dataset::linnerud) | 20 | 3 | Regression (multi-output) |
+//! | [`mushroom`](crate::dataset::mushroom) | 8,124 | 22 | Classification |
+//! | [`spambase`](crate::dataset::spambase) | 4,601 | 57 | Classification |
+//! | [`titanic`](crate::dataset::titanic) | 891 | 11 | Classification |
+//! | [`palmer_penguins`](crate::dataset::palmer_penguins) | 344 | 7 | Classification |
+//! | [`sms_spam`](crate::dataset::sms_spam) | 5,574 | text | Classification |
+//! | [`wine_recognition`](crate::dataset::wine_recognition) | 178 | 13 | Classification |
+//! | [`red_wine_quality`](crate::dataset::wine_quality::red_wine_quality) | 1,599 | 11 | Regression |
+//! | [`white_wine_quality`](crate::dataset::wine_quality::white_wine_quality) | 4,898 | 11 | Regression |
+//! | [`youtube_spam`](crate::dataset::youtube_spam) | 1,956 | text | Classification |
+//! | [`sentiment_sentences`](crate::dataset::sentiment_sentences) | 3,000 | text | Classification |
+//! | [`newsgroups20`](crate::dataset::newsgroups20) | 11,314 / 18,846 | text | Classification |
+//! | [`movie_review_polarity`](crate::dataset::movie_review_polarity) | 2,000 | text | Classification |
+//!
+//! Each module documents its own source and column layout.
 
 /// Abalone dataset module.
 ///

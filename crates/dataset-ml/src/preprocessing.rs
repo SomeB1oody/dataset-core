@@ -16,7 +16,7 @@
 //! That is deliberate. A sample spans two or three parallel arrays (`features` +
 //! `labels`, or `categorical` + `numeric` + `labels`, or `texts` + `sources` +
 //! `labels`). One index list keeps them aligned. Convert indices to arrays with
-//! ndarray's own `select`:
+//! ndarray's own `select`. The example below also needs the `dataset` feature:
 //!
 //! ```no_run
 //! use dataset_ml::Iris;

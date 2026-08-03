@@ -1,3 +1,5 @@
+#![cfg(feature = "dataset")]
+
 mod common;
 
 use common::file_sha256_matches;

@@ -1,3 +1,5 @@
+#![cfg(feature = "preprocessing")]
+
 //! Integration tests for the `preprocessing` module.
 //!
 //! The module operates on arrays the caller supplies, so these tests need no

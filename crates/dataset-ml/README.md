@@ -31,6 +31,24 @@ Two modules apply to every dataset rather than to one of them:
 dataset-ml = "0.4"
 ```
 
+## Feature flags
+
+| Feature         | Default | What it enables |
+|-----------------|---------|-----------------|
+| `dataset`       | yes     | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
+| `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
+
+The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`, so you can write a loader of your own against the same interface with both features off.
+
+To take only what you need, turn the default off:
+
+```toml
+[dependencies]
+dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
+```
+
+With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`.
+
 ## Datasets
 
 | Struct                                       | Module path                                             | Samples | Features | Task Type      | Source            |

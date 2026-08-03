@@ -38,9 +38,13 @@ dataset-core = "0.5"
 [dependencies]
 dataset-core = { version = "0.5", features = ["utils"] }
 
-# 内置机器学习数据集（Iris、Titanic 等）
+# 内置机器学习数据集（Iris、Titanic 等）以及预处理辅助函数
 [dependencies]
 dataset-ml = "0.4"
+
+# 只要加载器，不要预处理辅助函数
+[dependencies]
+dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
 ```
 
 ## 开发
