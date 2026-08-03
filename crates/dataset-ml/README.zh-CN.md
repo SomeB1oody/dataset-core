@@ -33,44 +33,44 @@ dataset-ml = "0.4"
 
 ## 数据集
 
-| 结构体                                     | 模块路径                                            | 样本数  | 特征数 | 任务类型 | 来源              |
-|--------------------------------------------|-----------------------------------------------------|---------|--------|----------|-------------------|
-| `Abalone`                                  | `dataset_ml::abalone`                               | 4,177   | 8      | 回归     | UCI ML Repository |
-| `Adult`                                    | `dataset_ml::adult`                                 | 32,561  | 14     | 分类     | UCI ML Repository |
-| `BankMarketing`                            | `dataset_ml::bank_marketing`                        | 45,211  | 16     | 分类     | UCI ML Repository |
-| `BanknoteAuthentication`                   | `dataset_ml::banknote_authentication`               | 1,372   | 4      | 分类     | UCI ML Repository |
-| `Iris`                                     | `dataset_ml::iris`                                  | 150     | 4      | 分类     | UCI ML Repository |
-| `BreastCancer`                             | `dataset_ml::breast_cancer`                         | 569     | 30     | 分类     | UCI ML Repository |
-| `BostonHousing`                            | `dataset_ml::boston_housing`                        | 506     | 13     | 回归     | UCI ML Repository |
-| `CaliforniaHousing`                        | `dataset_ml::california_housing`                    | 20,640  | 8      | 回归     | StatLib（1990 普查） |
-| `CarEvaluation`                            | `dataset_ml::car_evaluation`                        | 1,728   | 6      | 分类     | UCI ML Repository |
-| `Covtype`                                  | `dataset_ml::covtype`                               | 581,012 | 54     | 分类     | UCI ML Repository |
-| `Diabetes`                                 | `dataset_ml::diabetes`                              | 442     | 10     | 回归     | Efron et al.（2004） |
-| `Digits`                                   | `dataset_ml::digits`                                | 1,797   | 64     | 分类     | UCI ML Repository |
-| `HeartDisease`                             | `dataset_ml::heart_disease`                         | 303     | 13     | 分类     | UCI ML Repository |
-| `Ionosphere`                               | `dataset_ml::ionosphere`                            | 351     | 34     | 分类     | UCI ML Repository |
-| `Kddcup99`                                 | `dataset_ml::kddcup99`                              | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
-| `LetterRecognition`                        | `dataset_ml::letter_recognition`                    | 20,000  | 16     | 分类（26 类） | UCI ML Repository |
-| `Linnerud`                                 | `dataset_ml::linnerud`                              | 20      | 3      | 回归（多输出） | scikit-learn |
-| `Mushroom`                                 | `dataset_ml::mushroom`                              | 8,124   | 22     | 分类     | UCI ML Repository |
-| `Spambase`                                 | `dataset_ml::spambase`                              | 4,601   | 57     | 分类     | UCI ML Repository |
-| `Titanic`                                  | `dataset_ml::titanic`                               | 891     | 11     | 分类     | Kaggle            |
-| `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                       | 344     | 7      | 分类     | palmerpenguins    |
-| `SmsSpam`                                  | `dataset_ml::sms_spam`                              | 5,574   | 文本   | 分类     | UCI ML Repository |
-| `WineRecognition`                          | `dataset_ml::wine_recognition`                      | 178     | 13     | 分类     | UCI ML Repository |
-| `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`        | 1,599   | 11     | 回归     | UCI ML Repository |
-| `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`      | 4,898   | 11     | 回归     | UCI ML Repository |
-| `YoutubeSpam`                              | `dataset_ml::youtube_spam`                          | 1,956   | 文本   | 分类     | UCI ML Repository |
-| `SentimentSentences`                       | `dataset_ml::sentiment_sentences`                   | 3,000   | 文本   | 分类     | UCI ML Repository |
-| `Newsgroups20`                             | `dataset_ml::newsgroups20`                          | 11,314 / 18,846 | 文本 | 分类  | Jason Rennie / 20 Newsgroups |
-| `MovieReviewPolarity`                      | `dataset_ml::movie_review_polarity`                 | 2,000   | 文本   | 分类     | Cornell (Pang & Lee) |
+| 结构体                                       | 模块路径                                                | 样本数  | 特征数 | 任务类型 | 来源              |
+|----------------------------------------------|---------------------------------------------------------|---------|--------|----------|-------------------|
+| `Abalone`                                    | `dataset_ml::dataset::abalone`                          | 4,177   | 8      | 回归     | UCI ML Repository |
+| `Adult`                                      | `dataset_ml::dataset::adult`                            | 32,561  | 14     | 分类     | UCI ML Repository |
+| `BankMarketing`                              | `dataset_ml::dataset::bank_marketing`                   | 45,211  | 16     | 分类     | UCI ML Repository |
+| `BanknoteAuthentication`                     | `dataset_ml::dataset::banknote_authentication`          | 1,372   | 4      | 分类     | UCI ML Repository |
+| `Iris`                                       | `dataset_ml::dataset::iris`                             | 150     | 4      | 分类     | UCI ML Repository |
+| `BreastCancer`                               | `dataset_ml::dataset::breast_cancer`                    | 569     | 30     | 分类     | UCI ML Repository |
+| `BostonHousing`                              | `dataset_ml::dataset::boston_housing`                   | 506     | 13     | 回归     | UCI ML Repository |
+| `CaliforniaHousing`                          | `dataset_ml::dataset::california_housing`               | 20,640  | 8      | 回归     | StatLib（1990 普查） |
+| `CarEvaluation`                              | `dataset_ml::dataset::car_evaluation`                   | 1,728   | 6      | 分类     | UCI ML Repository |
+| `Covtype`                                    | `dataset_ml::dataset::covtype`                          | 581,012 | 54     | 分类     | UCI ML Repository |
+| `Diabetes`                                   | `dataset_ml::dataset::diabetes`                         | 442     | 10     | 回归     | Efron et al.（2004） |
+| `Digits`                                     | `dataset_ml::dataset::digits`                           | 1,797   | 64     | 分类     | UCI ML Repository |
+| `HeartDisease`                               | `dataset_ml::dataset::heart_disease`                    | 303     | 13     | 分类     | UCI ML Repository |
+| `Ionosphere`                                 | `dataset_ml::dataset::ionosphere`                       | 351     | 34     | 分类     | UCI ML Repository |
+| `Kddcup99`                                   | `dataset_ml::dataset::kddcup99`                         | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
+| `LetterRecognition`                          | `dataset_ml::dataset::letter_recognition`               | 20,000  | 16     | 分类（26 类） | UCI ML Repository |
+| `Linnerud`                                   | `dataset_ml::dataset::linnerud`                         | 20      | 3      | 回归（多输出） | scikit-learn |
+| `Mushroom`                                   | `dataset_ml::dataset::mushroom`                         | 8,124   | 22     | 分类     | UCI ML Repository |
+| `Spambase`                                   | `dataset_ml::dataset::spambase`                         | 4,601   | 57     | 分类     | UCI ML Repository |
+| `Titanic`                                    | `dataset_ml::dataset::titanic`                          | 891     | 11     | 分类     | Kaggle            |
+| `PalmerPenguins`                             | `dataset_ml::dataset::palmer_penguins`                  | 344     | 7      | 分类     | palmerpenguins    |
+| `SmsSpam`                                    | `dataset_ml::dataset::sms_spam`                         | 5,574   | 文本   | 分类     | UCI ML Repository |
+| `WineRecognition`                            | `dataset_ml::dataset::wine_recognition`                 | 178     | 13     | 分类     | UCI ML Repository |
+| `RedWineQuality`                             | `dataset_ml::dataset::wine_quality::red_wine_quality`   | 1,599   | 11     | 回归     | UCI ML Repository |
+| `WhiteWineQuality`                           | `dataset_ml::dataset::wine_quality::white_wine_quality` | 4,898   | 11     | 回归     | UCI ML Repository |
+| `YoutubeSpam`                                | `dataset_ml::dataset::youtube_spam`                     | 1,956   | 文本   | 分类     | UCI ML Repository |
+| `SentimentSentences`                         | `dataset_ml::dataset::sentiment_sentences`              | 3,000   | 文本   | 分类     | UCI ML Repository |
+| `Newsgroups20`                               | `dataset_ml::dataset::newsgroups20`                     | 11,314 / 18,846 | 文本 | 分类  | Jason Rennie / 20 Newsgroups |
+| `MovieReviewPolarity`                        | `dataset_ml::dataset::movie_review_polarity`            | 2,000   | 文本   | 分类     | Cornell (Pang & Lee) |
 
 所有结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris`、`dataset_ml::RedWineQuality` 等也可以使用。
 
 ## 用法
 
 ```rust
-use dataset_ml::iris::Iris;
+use dataset_ml::Iris;
 
 fn main() {
     let iris = Iris::new("./data");
@@ -176,14 +176,16 @@ fn main() {
 + dataset-ml = "0.4"
 ```
 
-| 旧路径                                                                         | 新路径                                                         |
-|--------------------------------------------------------------------------------|----------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                                           | `dataset_ml::iris::Iris`                                       |
-| `dataset_core::datasets::boston_housing::BostonHousing`                        | `dataset_ml::boston_housing::BostonHousing`                    |
-| `dataset_core::datasets::diabetes::Diabetes`                                   | `dataset_ml::diabetes::Diabetes`                               |
-| `dataset_core::datasets::titanic::Titanic`                                     | `dataset_ml::titanic::Titanic`                                 |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`       | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`   |
-| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality`   | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
+| 旧路径                                                                         | 新路径                                                                    |
+|--------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `dataset_core::datasets::iris::Iris`                                           | `dataset_ml::dataset::iris::Iris`                                         |
+| `dataset_core::datasets::boston_housing::BostonHousing`                        | `dataset_ml::dataset::boston_housing::BostonHousing`                      |
+| `dataset_core::datasets::diabetes::Diabetes`                                   | `dataset_ml::dataset::diabetes::Diabetes`                                 |
+| `dataset_core::datasets::titanic::Titanic`                                     | `dataset_ml::dataset::titanic::Titanic`                                   |
+| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`       | `dataset_ml::dataset::wine_quality::red_wine_quality::RedWineQuality`     |
+| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality`   | `dataset_ml::dataset::wine_quality::white_wine_quality::WhiteWineQuality` |
+
+每个结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris` 是 `dataset_ml::dataset::iris::Iris` 的简写。
 
 `dataset_core::utils::*` 和 `dataset_core::DatasetError` 保持不变。它们仍位于 [`dataset-core`](https://crates.io/crates/dataset-core) 的 `utils` 特性之下。
 

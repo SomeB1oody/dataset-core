@@ -133,7 +133,7 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::abalone::Abalone;
+/// use dataset_ml::Abalone;
 ///
 /// let download_dir = "./abalone"; // creates the directory if it does not exist
 ///

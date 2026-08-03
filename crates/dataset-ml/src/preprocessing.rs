@@ -19,7 +19,7 @@
 //! ndarray's own `select`:
 //!
 //! ```no_run
-//! use dataset_ml::iris::Iris;
+//! use dataset_ml::Iris;
 //! use dataset_ml::preprocessing::train_test_split;
 //! use ndarray::Axis;
 //!

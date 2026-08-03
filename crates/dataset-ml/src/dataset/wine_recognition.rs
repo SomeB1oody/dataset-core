@@ -7,7 +7,7 @@
 //!
 //! This is the **Wine recognition** dataset (the same one bundled with
 //! scikit-learn as `load_wine`). It is distinct from the **Wine Quality**
-//! datasets in [`crate::wine_quality`], which are a regression task on red/white
+//! datasets in [`crate::dataset::wine_quality`], which are a regression task on red/white
 //! wine quality scores.
 //!
 //! **Features (13):**
@@ -104,7 +104,7 @@ struct WineRecognitionRecord {
 ///
 /// This is the **Wine recognition** dataset (scikit-learn's `load_wine`), a
 /// multi-class classification task. It is **not** the same as the
-/// [`crate::wine_quality`] datasets, which predict a quality score (regression).
+/// [`crate::dataset::wine_quality`] datasets, which predict a quality score (regression).
 ///
 /// # Feature columns
 ///
@@ -146,7 +146,7 @@ struct WineRecognitionRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::wine_recognition::WineRecognition;
+/// use dataset_ml::WineRecognition;
 ///
 /// let download_dir = "./wine_recognition"; // creates the directory if it does not exist
 ///

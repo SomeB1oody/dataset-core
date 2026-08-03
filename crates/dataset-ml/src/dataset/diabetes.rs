@@ -142,7 +142,7 @@ struct DiabetesRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::diabetes::Diabetes;
+/// use dataset_ml::Diabetes;
 ///
 /// let download_dir = "./diabetes"; // the code creates the directory if it does not exist
 ///

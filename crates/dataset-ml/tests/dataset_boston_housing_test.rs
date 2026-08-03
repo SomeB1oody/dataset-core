@@ -2,7 +2,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
-use dataset_ml::boston_housing::*;
+use dataset_ml::dataset::boston_housing::*;
 use std::fs::File;
 use std::fs::{create_dir_all, remove_dir_all};
 use std::io::Write;

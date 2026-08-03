@@ -6,10 +6,10 @@
 //! connection as `normal.` traffic or as one of 22 attack types.
 //!
 //! Like scikit-learn, this loader has two partitions:
-//! - [`Kddcup99::new`]: the **10% subset** (494,021 samples), scikit-learn's
-//!   default (`fetch_kddcup99(percent10=True)`).
-//! - [`Kddcup99::new_full`]: the **full set** (4,898,431 samples),
-//!   `fetch_kddcup99(percent10=False)`.
+//! - [`Kddcup99::new`](crate::Kddcup99::new): the **10% subset** (494,021
+//!   samples), scikit-learn's default (`fetch_kddcup99(percent10=True)`).
+//! - [`Kddcup99::new_full`](crate::Kddcup99::new_full): the **full set**
+//!   (4,898,431 samples), `fetch_kddcup99(percent10=False)`.
 //!
 //! Both partitions share the same 41-feature schema and the same 23 connection
 //! classes. They differ only in sample count and in the upstream source file.
@@ -37,7 +37,7 @@
 //! **Note on size:** the full set is large. Its decompressed source file is about
 //! 743 MB. The parsed in-memory representation is several gigabytes: the
 //! `(4898431, 38)` numeric matrix alone is about 1.5 GB. Loading it with
-//! [`Kddcup99::new_full`] takes noticeable time and memory. The default 10%
+//! [`Kddcup99::new_full`](crate::Kddcup99::new_full) takes noticeable time and memory. The default 10%
 //! subset is about 10 times smaller.
 
 use crate::DOWNLOAD_RETRIES;
@@ -251,7 +251,7 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::kddcup99::Kddcup99;
+/// use dataset_ml::Kddcup99;
 ///
 /// let download_dir = "./kddcup99"; // the code will create the directory if it does not exist
 ///

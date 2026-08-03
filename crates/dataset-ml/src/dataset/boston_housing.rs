@@ -125,7 +125,7 @@ struct BostonHousingRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::boston_housing::BostonHousing;
+/// use dataset_ml::BostonHousing;
 ///
 /// let download_dir = "./boston_housing"; // the code creates the directory if it does not exist
 ///

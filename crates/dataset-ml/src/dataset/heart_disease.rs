@@ -132,8 +132,8 @@ const MISSING_TOKEN: &str = "?";
 /// Missing values:
 /// - The source marks missing values with `?`: 4 in `ca` (column `11`) and 2 in
 ///   `thal` (column `12`), for 6 affected patients. The loader maps these to
-///   `NaN` (like the missing numeric values in [`crate::titanic`] and
-///   [`crate::palmer_penguins`]).
+///   `NaN` (like the missing numeric values in [`crate::dataset::titanic`] and
+///   [`crate::dataset::palmer_penguins`]).
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/45/heart+disease>.
 ///
@@ -150,7 +150,7 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::heart_disease::HeartDisease;
+/// use dataset_ml::HeartDisease;
 ///
 /// let download_dir = "./heart_disease"; // creates the directory if it is missing
 ///

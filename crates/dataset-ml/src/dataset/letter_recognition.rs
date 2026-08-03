@@ -142,7 +142,7 @@ type LetterRecognitionData = (Array2<f64>, Array1<char>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::letter_recognition::LetterRecognition;
+/// use dataset_ml::LetterRecognition;
 ///
 /// let download_dir = "./letter_recognition"; // the code creates the directory if missing
 ///

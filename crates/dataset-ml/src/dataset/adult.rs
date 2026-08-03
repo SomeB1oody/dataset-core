@@ -150,7 +150,7 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::adult::Adult;
+/// use dataset_ml::Adult;
 ///
 /// // the loader creates this directory if it does not exist yet
 /// let download_dir = "./adult";

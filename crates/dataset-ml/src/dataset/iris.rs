@@ -101,7 +101,7 @@ struct IrisRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::iris::Iris;
+/// use dataset_ml::Iris;
 ///
 /// let download_dir = "./iris"; // the code creates the directory if it does not exist
 ///

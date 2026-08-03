@@ -2,7 +2,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
-use dataset_ml::abalone::*;
+use dataset_ml::dataset::abalone::*;
 use std::collections::HashSet;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;

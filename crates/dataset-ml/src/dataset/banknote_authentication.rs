@@ -124,7 +124,7 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::banknote_authentication::BanknoteAuthentication;
+/// use dataset_ml::BanknoteAuthentication;
 ///
 /// let download_dir = "./banknote_authentication"; // creates the directory if it is missing
 ///

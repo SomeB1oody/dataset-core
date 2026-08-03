@@ -163,7 +163,7 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::linnerud::Linnerud;
+/// use dataset_ml::Linnerud;
 ///
 /// let download_dir = "./linnerud"; // the code creates the directory if it does not exist
 ///

@@ -8,6 +8,11 @@ Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core
 
 Entries are grouped by release and list only each version's notable changes. Routine dependency bumps, doc-only tweaks, and minor internal refactors are omitted. New loaders are summarized to their essentials. The crate also re-exports every loader struct at the crate root (for example, `dataset_ml::Iris`).
 
+## [Unreleased]
+### Changed
+- **Breaking:** every dataset loader module moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`, and the same one-level shift applies to all 28 loader modules. The crate root now holds three modules: `dataset`, `preprocessing`, and `traits`.
+- The crate root still re-exports every loader struct, so `dataset_ml::Iris` and the other struct names are unchanged. Code that imports a struct from the crate root needs no edit.
+
 ## [0.4.0] - 2026-08-02
 ### Added
 - `traits::MlDataset` (re-exported as `dataset_ml::MlDataset`): every loader now implements this trait, the first uniform surface over "some dataset". It adds container operations (`invalidate`, `is_loaded`, `storage_dir`, `n_samples`) and the data accessors `load`, `load_mut`, `peek`, and `unload`. These accessor names deliberately avoid shadowing a loader's inherent `data` / `get_data` / … methods. A companion `NumSamples` trait (blanket-implemented for the loaders' array pairs and triples) backs `n_samples`.

@@ -127,7 +127,7 @@ struct TitanicRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::titanic::Titanic;
+/// use dataset_ml::Titanic;
 ///
 /// let download_dir = "./titanic"; // creates the directory if it is missing
 ///

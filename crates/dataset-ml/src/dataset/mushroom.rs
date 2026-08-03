@@ -158,7 +158,7 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::mushroom::Mushroom;
+/// use dataset_ml::Mushroom;
 ///
 /// let download_dir = "./mushroom"; // creates the directory if it is missing
 ///

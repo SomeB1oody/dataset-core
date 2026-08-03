@@ -1,6 +1,6 @@
 //! Red wine subset of the Wine Quality dataset.
 //!
-//! See [`crate::wine_quality`] for the full dataset description,
+//! See [`crate::dataset::wine_quality`] for the full dataset description,
 //! including features, target, application scenarios, and source.
 //!
 //! **Samples:** 1599
@@ -8,8 +8,8 @@
 //! **Target shape:** `(1599,)`
 
 use crate::DOWNLOAD_RETRIES;
+use crate::dataset::wine_quality::{WineData, parse_wine_data_to_array};
 use crate::traits::impl_ml_dataset;
-use crate::wine_quality::{WineData, parse_wine_data_to_array};
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
 use ndarray::{Array1, Array2};
 use std::fs::File;

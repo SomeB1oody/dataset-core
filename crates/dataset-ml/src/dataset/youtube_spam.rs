@@ -2,12 +2,12 @@
 //!
 //! This is a set of YouTube comments, tagged as legitimate (`ham`) or spam. The
 //! comments come from the comment sections of five popular music videos,
-//! collected for spam research. Like [`SmsSpam`](crate::sms_spam::SmsSpam), this
-//! is a **text** dataset: the "features" are the raw comment strings. There is
-//! no numeric or categorical feature matrix, so you vectorize the text yourself,
+//! collected for spam research. Like [`SmsSpam`](crate::SmsSpam), this is a
+//! **text** dataset: the "features" are the raw comment strings. There is no
+//! numeric or categorical feature matrix, so you vectorize the text yourself,
 //! for example with bag-of-words, TF-IDF, or embeddings. The document accessor
-//! is [`YoutubeSpam::texts`], which returns an `Array1<String>` of raw comments,
-//! not `features()`.
+//! is [`YoutubeSpam::texts`](crate::YoutubeSpam::texts), which returns an
+//! `Array1<String>` of raw comments, not `features()`.
 //!
 //! **Documents:** `Array1<String>` of 1,956 raw YouTube comment bodies
 //!
@@ -113,7 +113,7 @@ const CLASS_COLUMN: usize = 4;
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::youtube_spam::YoutubeSpam;
+/// use dataset_ml::YoutubeSpam;
 ///
 /// let download_dir = "./youtube_spam"; // the code creates the directory if it does not exist
 ///

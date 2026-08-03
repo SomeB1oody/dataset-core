@@ -5,8 +5,8 @@
 //! **text** dataset. The "features" are the raw message strings. There is no
 //! numeric or categorical feature matrix. Vectorize the text yourself
 //! (bag-of-words, TF-IDF, embeddings, and so on). The document accessor is
-//! [`SmsSpam::texts`] (it returns an `Array1<String>` of raw messages), not
-//! `features()`.
+//! [`SmsSpam::texts`](crate::SmsSpam::texts) (it returns an `Array1<String>` of
+//! raw messages), not `features()`.
 //!
 //! **Documents:** `Array1<String>` of 5,574 raw SMS message bodies
 //!
@@ -100,7 +100,7 @@ const TEXT_COLUMN: usize = 1;
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::sms_spam::SmsSpam;
+/// use dataset_ml::SmsSpam;
 ///
 /// let download_dir = "./sms_spam"; // the code creates the directory if it does not exist
 ///

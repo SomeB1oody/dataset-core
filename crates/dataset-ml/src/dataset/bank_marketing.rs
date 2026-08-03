@@ -161,7 +161,7 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::bank_marketing::BankMarketing;
+/// use dataset_ml::BankMarketing;
 ///
 /// // the loader creates this directory if it does not exist yet
 /// let download_dir = "./bank_marketing";

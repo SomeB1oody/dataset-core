@@ -158,7 +158,7 @@ struct HousingRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::california_housing::CaliforniaHousing;
+/// use dataset_ml::CaliforniaHousing;
 ///
 /// let download_dir = "./california_housing"; // the code creates the directory if missing
 ///

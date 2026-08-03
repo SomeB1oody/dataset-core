@@ -3,7 +3,7 @@
 //! A simple hierarchical decision model produced this dataset. It evaluates cars
 //! using six categorical attributes that describe price and technical
 //! characteristics. The task is to predict a car's overall acceptability. Like
-//! [`crate::mushroom`], it is **all-categorical**: every feature is a string
+//! [`crate::dataset::mushroom`], it is **all-categorical**: every feature is a string
 //! code, so there is no numeric feature matrix.
 //!
 //! **Features (6, all categorical):**
@@ -120,7 +120,7 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::car_evaluation::CarEvaluation;
+/// use dataset_ml::CarEvaluation;
 ///
 /// let download_dir = "./car_evaluation"; // the code creates the directory if it does not exist
 ///

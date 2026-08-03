@@ -2,7 +2,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_core::utils::{download_to, unzip};
-use dataset_ml::banknote_authentication::*;
+use dataset_ml::dataset::banknote_authentication::*;
 use std::fs::{File, copy, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;

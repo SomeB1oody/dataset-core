@@ -146,7 +146,7 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::covtype::Covtype;
+/// use dataset_ml::Covtype;
 ///
 /// let download_dir = "./covtype"; // the code creates the directory if it does not exist
 ///

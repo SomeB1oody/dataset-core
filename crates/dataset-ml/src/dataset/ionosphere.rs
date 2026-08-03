@@ -118,7 +118,7 @@ type IonosphereData = (Array2<f64>, Array1<&'static str>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::ionosphere::Ionosphere;
+/// use dataset_ml::Ionosphere;
 ///
 /// let download_dir = "./ionosphere"; // the code creates the directory if it does not exist
 ///

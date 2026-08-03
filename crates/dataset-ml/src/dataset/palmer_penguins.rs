@@ -165,7 +165,7 @@ fn clean_categorical(value: String) -> String {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::palmer_penguins::PalmerPenguins;
+/// use dataset_ml::PalmerPenguins;
 ///
 /// // the loader creates this directory if it does not exist yet
 /// let download_dir = "./palmer_penguins";

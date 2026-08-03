@@ -33,44 +33,44 @@ dataset-ml = "0.4"
 
 ## Datasets
 
-| Struct                                     | Module path                                        | Samples | Features | Task Type      | Source            |
-|--------------------------------------------|----------------------------------------------------|---------|----------|----------------|-------------------|
-| `Abalone`                                  | `dataset_ml::abalone`                              | 4,177   | 8        | Regression     | UCI ML Repository |
-| `Adult`                                    | `dataset_ml::adult`                                | 32,561  | 14       | Classification | UCI ML Repository |
-| `BankMarketing`                            | `dataset_ml::bank_marketing`                       | 45,211  | 16       | Classification | UCI ML Repository |
-| `BanknoteAuthentication`                   | `dataset_ml::banknote_authentication`              | 1,372   | 4        | Classification | UCI ML Repository |
-| `Iris`                                     | `dataset_ml::iris`                                 | 150     | 4        | Classification | UCI ML Repository |
-| `BreastCancer`                             | `dataset_ml::breast_cancer`                        | 569     | 30       | Classification | UCI ML Repository |
-| `BostonHousing`                            | `dataset_ml::boston_housing`                       | 506     | 13       | Regression     | UCI ML Repository |
-| `CaliforniaHousing`                        | `dataset_ml::california_housing`                   | 20,640  | 8        | Regression     | StatLib (1990 census) |
-| `CarEvaluation`                            | `dataset_ml::car_evaluation`                       | 1,728   | 6        | Classification | UCI ML Repository |
-| `Covtype`                                  | `dataset_ml::covtype`                              | 581,012 | 54       | Classification | UCI ML Repository |
-| `Diabetes`                                 | `dataset_ml::diabetes`                             | 442     | 10       | Regression     | Efron et al. (2004) |
-| `Digits`                                   | `dataset_ml::digits`                               | 1,797   | 64       | Classification | UCI ML Repository |
-| `HeartDisease`                             | `dataset_ml::heart_disease`                        | 303     | 13       | Classification | UCI ML Repository |
-| `Ionosphere`                               | `dataset_ml::ionosphere`                           | 351     | 34       | Classification | UCI ML Repository |
-| `Kddcup99`                                 | `dataset_ml::kddcup99`                             | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
-| `LetterRecognition`                        | `dataset_ml::letter_recognition`                   | 20,000  | 16       | Classification (26 classes) | UCI ML Repository |
-| `Linnerud`                                 | `dataset_ml::linnerud`                             | 20      | 3        | Regression (multi-output) | scikit-learn |
-| `Mushroom`                                 | `dataset_ml::mushroom`                             | 8,124   | 22       | Classification | UCI ML Repository |
-| `Spambase`                                 | `dataset_ml::spambase`                             | 4,601   | 57       | Classification | UCI ML Repository |
-| `Titanic`                                  | `dataset_ml::titanic`                              | 891     | 11       | Classification | Kaggle            |
-| `PalmerPenguins`                           | `dataset_ml::palmer_penguins`                      | 344     | 7        | Classification | palmerpenguins    |
-| `SmsSpam`                                  | `dataset_ml::sms_spam`                             | 5,574   | text     | Classification | UCI ML Repository |
-| `WineRecognition`                          | `dataset_ml::wine_recognition`                     | 178     | 13       | Classification | UCI ML Repository |
-| `RedWineQuality`                           | `dataset_ml::wine_quality::red_wine_quality`       | 1,599   | 11       | Regression     | UCI ML Repository |
-| `WhiteWineQuality`                         | `dataset_ml::wine_quality::white_wine_quality`     | 4,898   | 11       | Regression     | UCI ML Repository |
-| `YoutubeSpam`                              | `dataset_ml::youtube_spam`                         | 1,956   | text     | Classification | UCI ML Repository |
-| `SentimentSentences`                       | `dataset_ml::sentiment_sentences`                  | 3,000   | text     | Classification | UCI ML Repository |
-| `Newsgroups20`                             | `dataset_ml::newsgroups20`                         | 11,314 / 18,846 | text | Classification | Jason Rennie / 20 Newsgroups |
-| `MovieReviewPolarity`                      | `dataset_ml::movie_review_polarity`                | 2,000   | text     | Classification | Cornell (Pang & Lee) |
+| Struct                                       | Module path                                             | Samples | Features | Task Type      | Source            |
+|----------------------------------------------|---------------------------------------------------------|---------|----------|----------------|-------------------|
+| `Abalone`                                    | `dataset_ml::dataset::abalone`                          | 4,177   | 8        | Regression     | UCI ML Repository |
+| `Adult`                                      | `dataset_ml::dataset::adult`                            | 32,561  | 14       | Classification | UCI ML Repository |
+| `BankMarketing`                              | `dataset_ml::dataset::bank_marketing`                   | 45,211  | 16       | Classification | UCI ML Repository |
+| `BanknoteAuthentication`                     | `dataset_ml::dataset::banknote_authentication`          | 1,372   | 4        | Classification | UCI ML Repository |
+| `Iris`                                       | `dataset_ml::dataset::iris`                             | 150     | 4        | Classification | UCI ML Repository |
+| `BreastCancer`                               | `dataset_ml::dataset::breast_cancer`                    | 569     | 30       | Classification | UCI ML Repository |
+| `BostonHousing`                              | `dataset_ml::dataset::boston_housing`                   | 506     | 13       | Regression     | UCI ML Repository |
+| `CaliforniaHousing`                          | `dataset_ml::dataset::california_housing`               | 20,640  | 8        | Regression     | StatLib (1990 census) |
+| `CarEvaluation`                              | `dataset_ml::dataset::car_evaluation`                   | 1,728   | 6        | Classification | UCI ML Repository |
+| `Covtype`                                    | `dataset_ml::dataset::covtype`                          | 581,012 | 54       | Classification | UCI ML Repository |
+| `Diabetes`                                   | `dataset_ml::dataset::diabetes`                         | 442     | 10       | Regression     | Efron et al. (2004) |
+| `Digits`                                     | `dataset_ml::dataset::digits`                           | 1,797   | 64       | Classification | UCI ML Repository |
+| `HeartDisease`                               | `dataset_ml::dataset::heart_disease`                    | 303     | 13       | Classification | UCI ML Repository |
+| `Ionosphere`                                 | `dataset_ml::dataset::ionosphere`                       | 351     | 34       | Classification | UCI ML Repository |
+| `Kddcup99`                                   | `dataset_ml::dataset::kddcup99`                         | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
+| `LetterRecognition`                          | `dataset_ml::dataset::letter_recognition`               | 20,000  | 16       | Classification (26 classes) | UCI ML Repository |
+| `Linnerud`                                   | `dataset_ml::dataset::linnerud`                         | 20      | 3        | Regression (multi-output) | scikit-learn |
+| `Mushroom`                                   | `dataset_ml::dataset::mushroom`                         | 8,124   | 22       | Classification | UCI ML Repository |
+| `Spambase`                                   | `dataset_ml::dataset::spambase`                         | 4,601   | 57       | Classification | UCI ML Repository |
+| `Titanic`                                    | `dataset_ml::dataset::titanic`                          | 891     | 11       | Classification | Kaggle            |
+| `PalmerPenguins`                             | `dataset_ml::dataset::palmer_penguins`                  | 344     | 7        | Classification | palmerpenguins    |
+| `SmsSpam`                                    | `dataset_ml::dataset::sms_spam`                         | 5,574   | text     | Classification | UCI ML Repository |
+| `WineRecognition`                            | `dataset_ml::dataset::wine_recognition`                 | 178     | 13       | Classification | UCI ML Repository |
+| `RedWineQuality`                             | `dataset_ml::dataset::wine_quality::red_wine_quality`   | 1,599   | 11       | Regression     | UCI ML Repository |
+| `WhiteWineQuality`                           | `dataset_ml::dataset::wine_quality::white_wine_quality` | 4,898   | 11       | Regression     | UCI ML Repository |
+| `YoutubeSpam`                                | `dataset_ml::dataset::youtube_spam`                     | 1,956   | text     | Classification | UCI ML Repository |
+| `SentimentSentences`                         | `dataset_ml::dataset::sentiment_sentences`              | 3,000   | text     | Classification | UCI ML Repository |
+| `Newsgroups20`                               | `dataset_ml::dataset::newsgroups20`                     | 11,314 / 18,846 | text | Classification | Jason Rennie / 20 Newsgroups |
+| `MovieReviewPolarity`                        | `dataset_ml::dataset::movie_review_polarity`            | 2,000   | text     | Classification | Cornell (Pang & Lee) |
 
 The crate also re-exports all structs at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
 
 ## Usage
 
 ```rust
-use dataset_ml::iris::Iris;
+use dataset_ml::Iris;
 
 fn main() {
     let iris = Iris::new("./data");
@@ -176,14 +176,16 @@ If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate
 + dataset-ml = "0.4"
 ```
 
-| Old path                                                                     | New path                                                         |
-|------------------------------------------------------------------------------|------------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                                         | `dataset_ml::iris::Iris`                                         |
-| `dataset_core::datasets::boston_housing::BostonHousing`                      | `dataset_ml::boston_housing::BostonHousing`                      |
-| `dataset_core::datasets::diabetes::Diabetes`                                 | `dataset_ml::diabetes::Diabetes`                                 |
-| `dataset_core::datasets::titanic::Titanic`                                   | `dataset_ml::titanic::Titanic`                                   |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality`     |
-| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
+| Old path                                                                     | New path                                                                  |
+|------------------------------------------------------------------------------|---------------------------------------------------------------------------|
+| `dataset_core::datasets::iris::Iris`                                         | `dataset_ml::dataset::iris::Iris`                                         |
+| `dataset_core::datasets::boston_housing::BostonHousing`                      | `dataset_ml::dataset::boston_housing::BostonHousing`                      |
+| `dataset_core::datasets::diabetes::Diabetes`                                 | `dataset_ml::dataset::diabetes::Diabetes`                                 |
+| `dataset_core::datasets::titanic::Titanic`                                   | `dataset_ml::dataset::titanic::Titanic`                                   |
+| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::dataset::wine_quality::red_wine_quality::RedWineQuality`     |
+| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::dataset::wine_quality::white_wine_quality::WhiteWineQuality` |
+
+Each struct is also re-exported at the crate root, so `dataset_ml::Iris` is a shorter name for `dataset_ml::dataset::iris::Iris`.
 
 `dataset_core::utils::*` and `dataset_core::DatasetError` are unchanged. They remain in [`dataset-core`](https://crates.io/crates/dataset-core) under the `utils` feature.
 

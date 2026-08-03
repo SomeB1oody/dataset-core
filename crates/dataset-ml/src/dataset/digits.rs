@@ -119,7 +119,7 @@ type DigitsData = (Array2<f64>, Array1<u8>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::digits::Digits;
+/// use dataset_ml::Digits;
 ///
 /// let download_dir = "./digits"; // the code creates the directory if it does not exist
 ///

@@ -177,7 +177,7 @@ struct BreastCancerRecord {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::breast_cancer::BreastCancer;
+/// use dataset_ml::BreastCancer;
 ///
 /// let download_dir = "./breast_cancer"; // the code will create the directory if it does not exist
 ///

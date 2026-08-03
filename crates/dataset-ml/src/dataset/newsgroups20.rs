@@ -2,15 +2,14 @@
 //!
 //! The classic **20 Newsgroups** text-classification benchmark: about 18,846
 //! Usenet posts, split almost evenly across 20 newsgroups. It is the multi-class
-//! counterpart to the binary text loaders
-//! ([`SmsSpam`](crate::sms_spam::SmsSpam),
-//! [`YoutubeSpam`](crate::youtube_spam::YoutubeSpam),
-//! [`SentimentSentences`](crate::sentiment_sentences::SentimentSentences),
-//! [`MovieReviewPolarity`](crate::movie_review_polarity::MovieReviewPolarity)). It
-//! is also the framework-agnostic analogue of scikit-learn's
-//! `fetch_20newsgroups`. Like those loaders, it is a **text** dataset. The
-//! document accessor is [`Newsgroups20::texts`] (an `Array1<String>` of raw
-//! posts), not `features()`.
+//! counterpart to the binary text loaders ([`SmsSpam`](crate::SmsSpam),
+//! [`YoutubeSpam`](crate::YoutubeSpam),
+//! [`SentimentSentences`](crate::SentimentSentences),
+//! [`MovieReviewPolarity`](crate::MovieReviewPolarity)). It is also the
+//! framework-agnostic analogue of scikit-learn's `fetch_20newsgroups`. Like
+//! those loaders, it is a **text** dataset. The document accessor is
+//! [`Newsgroups20::texts`](crate::Newsgroups20::texts) (an `Array1<String>` of
+//! raw posts), not `features()`.
 //!
 //! **Documents:** `Array1<String>` of raw newsgroup posts. This is the full text,
 //! including the email-style headers. Nothing is stripped.
@@ -149,7 +148,7 @@ fn category_label(name: &str) -> Option<&'static str> {
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::newsgroups20::Newsgroups20;
+/// use dataset_ml::Newsgroups20;
 ///
 /// let download_dir = "./newsgroups20"; // creates the directory if it does not exist
 ///

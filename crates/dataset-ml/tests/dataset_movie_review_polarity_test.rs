@@ -1,7 +1,7 @@
 mod common;
 
 use common::file_sha256_matches;
-use dataset_ml::movie_review_polarity::*;
+use dataset_ml::dataset::movie_review_polarity::*;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;

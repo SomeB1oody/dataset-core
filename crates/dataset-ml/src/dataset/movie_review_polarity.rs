@@ -2,12 +2,13 @@
 //!
 //! Pang and Lee's classic sentiment-polarity benchmark holds 2,000 full movie
 //! reviews from IMDb, split evenly into 1,000 `positive` and 1,000 `negative`
-//! reviews. Like the other text loaders ([`SmsSpam`](crate::sms_spam::SmsSpam),
-//! [`Newsgroups20`](crate::newsgroups20::Newsgroups20)) it is a **text** dataset.
-//! So the document accessor is [`MovieReviewPolarity::texts`] (an
+//! reviews. Like the other text loaders ([`SmsSpam`](crate::SmsSpam),
+//! [`Newsgroups20`](crate::Newsgroups20)) it is a **text** dataset. So the
+//! document accessor is
+//! [`MovieReviewPolarity::texts`](crate::MovieReviewPolarity::texts) (an
 //! `Array1<String>` of raw reviews), not `features()`. It complements the
-//! sentence-level [`SentimentSentences`](crate::sentiment_sentences::SentimentSentences)
-//! with full-document reviews.
+//! sentence-level [`SentimentSentences`](crate::SentimentSentences) with
+//! full-document reviews.
 //!
 //! **Documents:** `Array1<String>` of 2,000 movie reviews (already tokenized and
 //! lowercased, one review per document)
@@ -98,7 +99,7 @@ const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")]
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::movie_review_polarity::MovieReviewPolarity;
+/// use dataset_ml::MovieReviewPolarity;
 ///
 /// let download_dir = "./movie_review_polarity"; // the code creates the directory if it does not exist
 ///

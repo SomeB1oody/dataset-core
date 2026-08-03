@@ -3,12 +3,13 @@
 //! This dataset is a set of 3,000 short sentences from three product and
 //! service review sites (Amazon, IMDb, Yelp). Human annotators hand-labeled
 //! each sentence with a binary sentiment (`positive` or `negative`). Like
-//! [`SmsSpam`](crate::sms_spam::SmsSpam) and
-//! [`YoutubeSpam`](crate::youtube_spam::YoutubeSpam), this is a **text**
-//! dataset. Its document accessor is [`SentimentSentences::texts`] (an
+//! [`SmsSpam`](crate::SmsSpam) and [`YoutubeSpam`](crate::YoutubeSpam), this is
+//! a **text** dataset. Its document accessor is
+//! [`SentimentSentences::texts`](crate::SentimentSentences::texts) (an
 //! `Array1<String>` of raw sentences), not `features()`. Unlike those two
 //! datasets, it also carries a piece of per-sample **metadata**: the site the
-//! sentence came from, exposed through [`SentimentSentences::sources`].
+//! sentence came from, exposed through
+//! [`SentimentSentences::sources`](crate::SentimentSentences::sources).
 //!
 //! **Documents:** `Array1<String>` of 3,000 raw review sentences
 //!
@@ -132,7 +133,7 @@ const LABEL_COLUMN: usize = 2;
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::sentiment_sentences::SentimentSentences;
+/// use dataset_ml::SentimentSentences;
 ///
 /// // the code will create this directory if it does not exist
 /// let download_dir = "./sentiment_sentences";

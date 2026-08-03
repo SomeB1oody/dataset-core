@@ -1,7 +1,7 @@
 mod common;
 
 use common::file_sha256_matches;
-use dataset_ml::spambase::*;
+use dataset_ml::dataset::spambase::*;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;

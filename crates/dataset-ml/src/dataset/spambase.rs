@@ -141,7 +141,7 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::spambase::Spambase;
+/// use dataset_ml::Spambase;
 ///
 /// let download_dir = "./spambase"; // the code creates the directory if it does not exist
 ///
