@@ -33,10 +33,10 @@ dataset-ml = "0.4"
 
 ## Feature flags
 
-| Feature         | Default | What it enables |
-|-----------------|---------|-----------------|
+| Feature         | Default | What it enables                                                                                                                                                            |
+|-----------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `dataset`       | yes     | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
-| `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
+| `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies.                                                 |
 
 The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`, so you can write a loader of your own against the same interface with both features off.
 
@@ -51,39 +51,7 @@ With `dataset` off, the only direct dependencies left are `dataset-core` and `nd
 
 ## Datasets
 
-| Struct                                       | Module path                                             | Samples | Features | Task Type      | Source            |
-|----------------------------------------------|---------------------------------------------------------|---------|----------|----------------|-------------------|
-| `Abalone`                                    | `dataset_ml::dataset::abalone`                          | 4,177   | 8        | Regression     | UCI ML Repository |
-| `Adult`                                      | `dataset_ml::dataset::adult`                            | 32,561  | 14       | Classification | UCI ML Repository |
-| `BankMarketing`                              | `dataset_ml::dataset::bank_marketing`                   | 45,211  | 16       | Classification | UCI ML Repository |
-| `BanknoteAuthentication`                     | `dataset_ml::dataset::banknote_authentication`          | 1,372   | 4        | Classification | UCI ML Repository |
-| `Iris`                                       | `dataset_ml::dataset::iris`                             | 150     | 4        | Classification | UCI ML Repository |
-| `BreastCancer`                               | `dataset_ml::dataset::breast_cancer`                    | 569     | 30       | Classification | UCI ML Repository |
-| `BostonHousing`                              | `dataset_ml::dataset::boston_housing`                   | 506     | 13       | Regression     | UCI ML Repository |
-| `CaliforniaHousing`                          | `dataset_ml::dataset::california_housing`               | 20,640  | 8        | Regression     | StatLib (1990 census) |
-| `CarEvaluation`                              | `dataset_ml::dataset::car_evaluation`                   | 1,728   | 6        | Classification | UCI ML Repository |
-| `Covtype`                                    | `dataset_ml::dataset::covtype`                          | 581,012 | 54       | Classification | UCI ML Repository |
-| `Diabetes`                                   | `dataset_ml::dataset::diabetes`                         | 442     | 10       | Regression     | Efron et al. (2004) |
-| `Digits`                                     | `dataset_ml::dataset::digits`                           | 1,797   | 64       | Classification | UCI ML Repository |
-| `HeartDisease`                               | `dataset_ml::dataset::heart_disease`                    | 303     | 13       | Classification | UCI ML Repository |
-| `Ionosphere`                                 | `dataset_ml::dataset::ionosphere`                       | 351     | 34       | Classification | UCI ML Repository |
-| `Kddcup99`                                   | `dataset_ml::dataset::kddcup99`                         | 494,021 / 4,898,431 | 41 | Classification | UCI KDD Archive   |
-| `LetterRecognition`                          | `dataset_ml::dataset::letter_recognition`               | 20,000  | 16       | Classification (26 classes) | UCI ML Repository |
-| `Linnerud`                                   | `dataset_ml::dataset::linnerud`                         | 20      | 3        | Regression (multi-output) | scikit-learn |
-| `Mushroom`                                   | `dataset_ml::dataset::mushroom`                         | 8,124   | 22       | Classification | UCI ML Repository |
-| `Spambase`                                   | `dataset_ml::dataset::spambase`                         | 4,601   | 57       | Classification | UCI ML Repository |
-| `Titanic`                                    | `dataset_ml::dataset::titanic`                          | 891     | 11       | Classification | Kaggle            |
-| `PalmerPenguins`                             | `dataset_ml::dataset::palmer_penguins`                  | 344     | 7        | Classification | palmerpenguins    |
-| `SmsSpam`                                    | `dataset_ml::dataset::sms_spam`                         | 5,574   | text     | Classification | UCI ML Repository |
-| `WineRecognition`                            | `dataset_ml::dataset::wine_recognition`                 | 178     | 13       | Classification | UCI ML Repository |
-| `RedWineQuality`                             | `dataset_ml::dataset::wine_quality::red_wine_quality`   | 1,599   | 11       | Regression     | UCI ML Repository |
-| `WhiteWineQuality`                           | `dataset_ml::dataset::wine_quality::white_wine_quality` | 4,898   | 11       | Regression     | UCI ML Repository |
-| `YoutubeSpam`                                | `dataset_ml::dataset::youtube_spam`                     | 1,956   | text     | Classification | UCI ML Repository |
-| `SentimentSentences`                         | `dataset_ml::dataset::sentiment_sentences`              | 3,000   | text     | Classification | UCI ML Repository |
-| `Newsgroups20`                               | `dataset_ml::dataset::newsgroups20`                     | 11,314 / 18,846 | text | Classification | Jason Rennie / 20 Newsgroups |
-| `MovieReviewPolarity`                        | `dataset_ml::dataset::movie_review_polarity`            | 2,000   | text     | Classification | Cornell (Pang & Lee) |
-
-The crate also re-exports all structs at the crate root, so `dataset_ml::Iris`, `dataset_ml::RedWineQuality`, etc. work too.
+For the full list, with the sample count, feature count, and task type of every dataset, see the [dataset overview on docs.rs](https://docs.rs/dataset-ml/latest/dataset_ml/dataset/index.html#datasets).
 
 ## Usage
 
@@ -184,28 +152,6 @@ fn main() {
 | `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes and count samples per class                 |
 
 The splitting functions return **row indices**, not arrays, because a sample spans two or three parallel arrays. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. So the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing, instead of skewing the column's statistics.
-
-## Migration from `dataset-core` 0.1.x
-
-If you used the `datasets` feature of `dataset-core` 0.1.x, switch to this crate:
-
-```diff
-- dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.4"
-```
-
-| Old path                                                                     | New path                                                                  |
-|------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                                         | `dataset_ml::dataset::iris::Iris`                                         |
-| `dataset_core::datasets::boston_housing::BostonHousing`                      | `dataset_ml::dataset::boston_housing::BostonHousing`                      |
-| `dataset_core::datasets::diabetes::Diabetes`                                 | `dataset_ml::dataset::diabetes::Diabetes`                                 |
-| `dataset_core::datasets::titanic::Titanic`                                   | `dataset_ml::dataset::titanic::Titanic`                                   |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`     | `dataset_ml::dataset::wine_quality::red_wine_quality::RedWineQuality`     |
-| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::dataset::wine_quality::white_wine_quality::WhiteWineQuality` |
-
-Each struct is also re-exported at the crate root, so `dataset_ml::Iris` is a shorter name for `dataset_ml::dataset::iris::Iris`.
-
-`dataset_core::utils::*` and `dataset_core::DatasetError` are unchanged. They remain in [`dataset-core`](https://crates.io/crates/dataset-core) under the `utils` feature.
 
 ## Performance Considerations
 

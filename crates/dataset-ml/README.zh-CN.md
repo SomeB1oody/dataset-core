@@ -33,10 +33,10 @@ dataset-ml = "0.4"
 
 ## 特性开关
 
-| 特性            | 默认 | 启用内容 |
-|-----------------|------|----------|
+| 特性            | 默认 | 启用内容                                                                                                                                   |
+|-----------------|------|--------------------------------------------------------------------------------------------------------------------------------------------|
 | `dataset`       | 是   | `dataset` 模块及其 29 个加载器、所有加载器结构体在 crate 根部的重新导出，以及 `DOWNLOAD_RETRIES`。会引入 `csv`、`serde`、`tempfile` 依赖。 |
-| `preprocessing` | 是   | `preprocessing` 模块：带随机种子的划分、特征缩放、独热编码与标签编码。不引入任何依赖。 |
+| `preprocessing` | 是   | `preprocessing` 模块：带随机种子的划分、特征缩放、独热编码与标签编码。不引入任何依赖。                                                     |
 
 无论选择哪些特性，`traits` 模块始终可用。它提供 `MlDataset` 和 `NumSamples`，因此即使两个特性都关闭，你也可以按同一套接口编写自己的加载器。
 
@@ -51,39 +51,7 @@ dataset-ml = { version = "0.4", default-features = false, features = ["dataset"]
 
 ## 数据集
 
-| 结构体                                       | 模块路径                                                | 样本数  | 特征数 | 任务类型 | 来源              |
-|----------------------------------------------|---------------------------------------------------------|---------|--------|----------|-------------------|
-| `Abalone`                                    | `dataset_ml::dataset::abalone`                          | 4,177   | 8      | 回归     | UCI ML Repository |
-| `Adult`                                      | `dataset_ml::dataset::adult`                            | 32,561  | 14     | 分类     | UCI ML Repository |
-| `BankMarketing`                              | `dataset_ml::dataset::bank_marketing`                   | 45,211  | 16     | 分类     | UCI ML Repository |
-| `BanknoteAuthentication`                     | `dataset_ml::dataset::banknote_authentication`          | 1,372   | 4      | 分类     | UCI ML Repository |
-| `Iris`                                       | `dataset_ml::dataset::iris`                             | 150     | 4      | 分类     | UCI ML Repository |
-| `BreastCancer`                               | `dataset_ml::dataset::breast_cancer`                    | 569     | 30     | 分类     | UCI ML Repository |
-| `BostonHousing`                              | `dataset_ml::dataset::boston_housing`                   | 506     | 13     | 回归     | UCI ML Repository |
-| `CaliforniaHousing`                          | `dataset_ml::dataset::california_housing`               | 20,640  | 8      | 回归     | StatLib（1990 普查） |
-| `CarEvaluation`                              | `dataset_ml::dataset::car_evaluation`                   | 1,728   | 6      | 分类     | UCI ML Repository |
-| `Covtype`                                    | `dataset_ml::dataset::covtype`                          | 581,012 | 54     | 分类     | UCI ML Repository |
-| `Diabetes`                                   | `dataset_ml::dataset::diabetes`                         | 442     | 10     | 回归     | Efron et al.（2004） |
-| `Digits`                                     | `dataset_ml::dataset::digits`                           | 1,797   | 64     | 分类     | UCI ML Repository |
-| `HeartDisease`                               | `dataset_ml::dataset::heart_disease`                    | 303     | 13     | 分类     | UCI ML Repository |
-| `Ionosphere`                                 | `dataset_ml::dataset::ionosphere`                       | 351     | 34     | 分类     | UCI ML Repository |
-| `Kddcup99`                                   | `dataset_ml::dataset::kddcup99`                         | 494,021 / 4,898,431 | 41 | 分类  | UCI KDD Archive   |
-| `LetterRecognition`                          | `dataset_ml::dataset::letter_recognition`               | 20,000  | 16     | 分类（26 类） | UCI ML Repository |
-| `Linnerud`                                   | `dataset_ml::dataset::linnerud`                         | 20      | 3      | 回归（多输出） | scikit-learn |
-| `Mushroom`                                   | `dataset_ml::dataset::mushroom`                         | 8,124   | 22     | 分类     | UCI ML Repository |
-| `Spambase`                                   | `dataset_ml::dataset::spambase`                         | 4,601   | 57     | 分类     | UCI ML Repository |
-| `Titanic`                                    | `dataset_ml::dataset::titanic`                          | 891     | 11     | 分类     | Kaggle            |
-| `PalmerPenguins`                             | `dataset_ml::dataset::palmer_penguins`                  | 344     | 7      | 分类     | palmerpenguins    |
-| `SmsSpam`                                    | `dataset_ml::dataset::sms_spam`                         | 5,574   | 文本   | 分类     | UCI ML Repository |
-| `WineRecognition`                            | `dataset_ml::dataset::wine_recognition`                 | 178     | 13     | 分类     | UCI ML Repository |
-| `RedWineQuality`                             | `dataset_ml::dataset::wine_quality::red_wine_quality`   | 1,599   | 11     | 回归     | UCI ML Repository |
-| `WhiteWineQuality`                           | `dataset_ml::dataset::wine_quality::white_wine_quality` | 4,898   | 11     | 回归     | UCI ML Repository |
-| `YoutubeSpam`                                | `dataset_ml::dataset::youtube_spam`                     | 1,956   | 文本   | 分类     | UCI ML Repository |
-| `SentimentSentences`                         | `dataset_ml::dataset::sentiment_sentences`              | 3,000   | 文本   | 分类     | UCI ML Repository |
-| `Newsgroups20`                               | `dataset_ml::dataset::newsgroups20`                     | 11,314 / 18,846 | 文本 | 分类  | Jason Rennie / 20 Newsgroups |
-| `MovieReviewPolarity`                        | `dataset_ml::dataset::movie_review_polarity`            | 2,000   | 文本   | 分类     | Cornell (Pang & Lee) |
-
-所有结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris`、`dataset_ml::RedWineQuality` 等也可以使用。
+完整列表见 [docs.rs 上的数据集总览](https://docs.rs/dataset-ml/latest/dataset_ml/dataset/index.html#datasets)，其中列出了每个数据集的样本数、特征数与任务类型。
 
 ## 用法
 
@@ -172,40 +140,18 @@ fn main() {
 }
 ```
 
-| 函数                                        | 用途                                                          |
-|---------------------------------------------|-----------------------------------------------------------------|
-| `train_test_split(n, ratio, seed)`          | 打乱后的训练/测试行索引                                       |
-| `stratified_split(labels, ratio, seed)`     | 同上，但保持各类别占比——适用于类别不平衡的数据集             |
-| `k_fold_indices(n, k, seed)`                | `k` 组 `(训练, 验证)` 索引；每个样本恰好被验证一次            |
-| `shuffled_indices(n, seed)`                 | `0..n` 的确定性随机排列                                       |
-| `standardize` / `min_max_scale`             | 按列缩放，并返回拟合好的 `Scaler`                             |
-| `apply_scaler(features, &scaler)`           | 用已拟合的缩放器处理新数据，不重新拟合                        |
-| `one_hot_encode(categorical, names)`        | 把类别型 `Array2<String>` 展开为指示列                        |
-| `label_encode(labels)` / `class_counts`     | 把标签映射为 `0..n_classes` 编码；统计每个类别的样本数        |
+| 函数                                    | 用途                                                   |
+|-----------------------------------------|--------------------------------------------------------|
+| `train_test_split(n, ratio, seed)`      | 打乱后的训练/测试行索引                                |
+| `stratified_split(labels, ratio, seed)` | 同上，但保持各类别占比——适用于类别不平衡的数据集       |
+| `k_fold_indices(n, k, seed)`            | `k` 组 `(训练, 验证)` 索引；每个样本恰好被验证一次     |
+| `shuffled_indices(n, seed)`             | `0..n` 的确定性随机排列                                |
+| `standardize` / `min_max_scale`         | 按列缩放，并返回拟合好的 `Scaler`                      |
+| `apply_scaler(features, &scaler)`       | 用已拟合的缩放器处理新数据，不重新拟合                 |
+| `one_hot_encode(categorical, names)`    | 把类别型 `Array2<String>` 展开为指示列                 |
+| `label_encode(labels)` / `class_counts` | 把标签映射为 `0..n_classes` 编码；统计每个类别的样本数 |
 
 划分函数返回的是**行索引**，而不是数组，因为一条样本的数据分散在两到三个平行数组中。用同一份索引列表，就能让这些数组中的样本保持对齐。如需得到数组，可以使用 ndarray 的 `select(Axis(0), &indices)`。缩放器只在每列的**有限值**上计算统计量。因此，`Titanic`、`PalmerPenguins`、`HeartDisease` 中标记缺失值的 `NaN` 会继续保持缺失，不会影响该列的统计结果。
-
-## 从 `dataset-core` 0.1.x 迁移
-
-如果你之前使用 `dataset-core` 0.1.x 的 `datasets` 特性，请切换到本 crate：
-
-```diff
-- dataset-core = { version = "0.1", features = ["datasets"] }
-+ dataset-ml = "0.4"
-```
-
-| 旧路径                                                                         | 新路径                                                                    |
-|--------------------------------------------------------------------------------|---------------------------------------------------------------------------|
-| `dataset_core::datasets::iris::Iris`                                           | `dataset_ml::dataset::iris::Iris`                                         |
-| `dataset_core::datasets::boston_housing::BostonHousing`                        | `dataset_ml::dataset::boston_housing::BostonHousing`                      |
-| `dataset_core::datasets::diabetes::Diabetes`                                   | `dataset_ml::dataset::diabetes::Diabetes`                                 |
-| `dataset_core::datasets::titanic::Titanic`                                     | `dataset_ml::dataset::titanic::Titanic`                                   |
-| `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality`       | `dataset_ml::dataset::wine_quality::red_wine_quality::RedWineQuality`     |
-| `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality`   | `dataset_ml::dataset::wine_quality::white_wine_quality::WhiteWineQuality` |
-
-每个结构体也在 crate 根部重新导出，所以 `dataset_ml::Iris` 是 `dataset_ml::dataset::iris::Iris` 的简写。
-
-`dataset_core::utils::*` 和 `dataset_core::DatasetError` 保持不变。它们仍位于 [`dataset-core`](https://crates.io/crates/dataset-core) 的 `utils` 特性之下。
 
 ## 性能考量
 
