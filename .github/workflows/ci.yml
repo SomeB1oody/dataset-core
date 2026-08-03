@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# A new push to the same branch cancels the run that is still running
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  clippy:
+    # Every feature combination must build clean
+    # `--workspace --all-features`
+    name: clippy (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: workspace, all features
+            args: --workspace --all-features
+          - name: dataset-core, no features
+            args: -p dataset-core
+          - name: dataset-ml, no features
+            args: -p dataset-ml --no-default-features
+          - name: dataset-ml, dataset
+            args: -p dataset-ml --no-default-features --features dataset
+          - name: dataset-ml, preprocessing
+            args: -p dataset-ml --no-default-features --features preprocessing
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: cargo clippy
+        run: cargo clippy --locked ${{ matrix.args }} --all-targets -- -D warnings
+
+  doc:
+    name: doc
+    runs-on: ubuntu-latest
+    env:
+      # Mirror docs.rs (all-features + --cfg docsrs) and fail on any rustdoc warning
+      RUSTDOCFLAGS: "--cfg docsrs -D warnings"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: cargo doc
+        run: cargo doc --locked --workspace --all-features --no-deps
+
+  test:
+    # Every test here runs offline
+    # They must pass. It is a required status check
+    name: test (offline)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: Unit and integration tests that need no network
+        run: |
+          cargo test --locked -p dataset-core --features utils --test dataset_test
+          cargo test --locked -p dataset-ml --all-features --test preprocessing_test --test traits_test
+      - name: Doc tests
+        # Every doc example that downloads is marked `no_run`
+        run: cargo test --locked --workspace --all-features --doc
+
+  test-network:
+    # The loader tests download from Internet
+    # A failure here is often an upstream outage rather than a bug
+    name: test (network)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Cache cargo build
+        uses: Swatinem/rust-cache@v2
+      - name: cargo test
+        run: cargo test --locked --workspace --all-features

@@ -17,7 +17,7 @@ Entries are grouped by release and list only each version's notable changes. Rou
   With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The `traits` module stays available under every feature combination, so a downstream loader can implement `MlDataset` with both features off.
 
 ### Changed
-- **Breaking:** every dataset loader module moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`, and the same one-level shift applies to all 28 loader modules. The crate root now holds three modules: `dataset`, `preprocessing`, and `traits`.
+- Dataset loaders moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`, and the same one-level shift applies to all 28 loader modules. The crate root now holds three modules: `dataset`, `preprocessing`, and `traits`.
 - The crate root still re-exports every loader struct, so `dataset_ml::Iris` and the other struct names are unchanged. Code that imports a struct from the crate root needs no edit.
 - The dataset overview table moved from the crate root docs to the `dataset` module docs, which is where the modules it lists now live.
 
