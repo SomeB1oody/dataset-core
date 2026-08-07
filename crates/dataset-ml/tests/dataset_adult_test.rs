@@ -131,7 +131,6 @@ fn test_adult_overwrite() {
         fake_adult.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = Adult::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
@@ -147,7 +146,6 @@ fn test_adult_into_data() {
 
     let dataset = Adult::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(strings.shape(), &[N_SAMPLES, 8]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 6]);
@@ -169,7 +167,6 @@ fn test_adult_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[N_SAMPLES, 8]);

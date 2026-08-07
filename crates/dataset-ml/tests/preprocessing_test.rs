@@ -40,8 +40,6 @@ fn shuffled_indices_does_not_return_sorted_order() {
 }
 
 #[test]
-// Verifies the train and test sizes, confirms the two sets do not overlap, and
-// confirms the split is deterministic.
 fn train_test_split_partitions_by_ratio() {
     let (train, test) = train_test_split(150, 0.2, 42).unwrap();
 
@@ -72,7 +70,6 @@ fn train_test_split_keeps_both_sides_non_empty() {
 }
 
 #[test]
-// Verifies that train_test_split rejects an empty dataset and out-of-range ratios.
 fn train_test_split_rejects_invalid_arguments() {
     assert!(matches!(
         train_test_split(0, 0.2, 1),
@@ -134,7 +131,6 @@ fn stratified_split_sends_singleton_classes_to_train() {
 }
 
 #[test]
-// Verifies that stratified_split rejects empty labels and out-of-range ratios.
 fn stratified_split_rejects_invalid_arguments() {
     let empty: [&str; 0] = [];
     assert!(matches!(
@@ -174,7 +170,6 @@ fn k_fold_indices_covers_every_sample_once() {
 }
 
 #[test]
-// Verifies that uneven fold sizes differ by at most one and still cover everything.
 fn k_fold_indices_balances_uneven_folds() {
     let folds = k_fold_indices(10, 3, 42).unwrap();
 
@@ -201,7 +196,6 @@ fn k_fold_indices_rejects_invalid_k() {
         Err(DatasetError::DataFormatError(_))
     ));
 
-    // k_fold_indices accepts the boundary values k = 2 and k = 10.
     assert!(k_fold_indices(10, 2, 1).is_ok());
     assert!(k_fold_indices(10, 10, 1).is_ok());
 }
@@ -215,15 +209,13 @@ fn label_encode_numbers_classes_in_sorted_order() {
     assert_eq!(classes, vec!["setosa", "versicolor", "virginica"]);
     assert_eq!(codes, array![2, 0, 0, 1]);
 
-    // Every code indexes back to the label it came from.
     for (code, label) in codes.iter().zip(labels.iter()) {
         assert_eq!(classes[*code], *label);
     }
 }
 
 #[test]
-// Verifies that label_encode works with the non-string label types that dataset
-// loaders produce, such as u8 and char.
+// Dataset loaders can produce non-string label types, such as u8 and char.
 fn label_encode_handles_numeric_and_char_labels() {
     let (codes, classes) = label_encode(&array![3u8, 1, 1, 7]).unwrap();
     assert_eq!(classes, vec![1, 3, 7]);
@@ -245,7 +237,6 @@ fn label_encode_rejects_empty_labels() {
 }
 
 #[test]
-// Verifies that class_counts totals each class in sorted order.
 fn class_counts_totals_each_class() {
     let labels = array!["spam", "ham", "ham", "ham"];
 
@@ -275,19 +266,18 @@ fn standardize_centres_and_scales_each_column() {
 }
 
 #[test]
-// Verifies that a constant column maps to zeros and avoids a division by zero.
 fn standardize_maps_a_constant_column_to_zeros() {
     let features = array![[5.0], [5.0], [5.0]];
 
     let (scaled, scaler) = standardize(&features).unwrap();
 
+    // A zero standard deviation would cause division by zero. standardize
+    // uses a scale of 1.0 instead.
     assert_eq!(scaler.scale, array![1.0]);
     assert_eq!(scaled, array![[0.0], [0.0], [0.0]]);
 }
 
 #[test]
-// Verifies that standardize excludes missing values from its statistics and
-// leaves them in place.
 fn standardize_ignores_nan_and_preserves_it() {
     let features = array![[1.0], [f64::NAN], [3.0]];
 
@@ -351,8 +341,8 @@ fn apply_scaler_replays_training_statistics() {
     assert_eq!(scaled_test[[0, 0]], 0.0);
     assert!(scaled_test[[1, 0]] > 0.0);
 
-    // This test applies the scaler again to the training data. It reproduces
-    // the fitted output.
+    // Applying the scaler to the original training data reproduces the
+    // fitted output.
     assert_eq!(apply_scaler(&train, &scaler).unwrap(), _scaled_train);
 }
 
@@ -367,8 +357,6 @@ fn apply_scaler_rejects_a_column_count_mismatch() {
 }
 
 #[test]
-// Verifies the layout, the column names, and the one-hot property of the
-// encoded matrix.
 fn one_hot_encode_expands_each_column_into_indicators() {
     let categorical = array![
         ["male".to_string(), "S".to_string()],
@@ -401,7 +389,6 @@ fn one_hot_encode_generates_names_when_none_are_given() {
 }
 
 #[test]
-// Verifies that one_hot_encode rejects empty input and a mismatched name list.
 fn one_hot_encode_rejects_invalid_input() {
     let categorical = array![["x".to_string(), "y".to_string()]];
     assert!(matches!(

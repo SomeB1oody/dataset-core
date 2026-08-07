@@ -16,7 +16,6 @@ const WINE_RECOGNITION_SHA256: &str =
     "6be6b1203f3d51df0b553a70e57b8a723cd405683958204f96d23d7cd6aea659";
 
 #[test]
-// Verifies that the Wine Recognition dataset loads with the correct feature shape and label count.
 fn test_load_wine_recognition() {
     let download_dir = "./test_load_wine_recognition"; // the loader creates the directory if it does not exist
 
@@ -27,10 +26,8 @@ fn test_load_wine_recognition() {
     assert_eq!(features.shape(), &[178, 13]);
     assert_eq!(labels.len(), 178);
 
-    let (features, labels) = dataset.data().unwrap(); // data() also returns the features and labels
+    let (features, labels) = dataset.data().unwrap();
 
-    // Semantic assertions: labels must be one of the three known classes, and
-    // all three classes must be present.
     let mut has_class_1 = false;
     let mut has_class_2 = false;
     let mut has_class_3 = false;
@@ -52,8 +49,7 @@ fn test_load_wine_recognition() {
     assert!(has_class_2, "labels must contain at least one class_2");
     assert!(has_class_3, "labels must contain at least one class_3");
 
-    // Semantic assertions: all feature values must be finite and positive (every
-    // constituent is a physical quantity, so none can be zero or negative).
+    // Every constituent is a physical quantity, so none can be zero or negative.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -71,13 +67,12 @@ fn test_load_wine_recognition() {
 }
 
 #[test]
-// Verifies that Wine Recognition loading uses a pre-downloaded cached file without re-downloading.
 fn test_wine_recognition_no_need_download() {
     let download_dir = "./test_wine_recognition_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the Wine Recognition dataset in advance, under the filename the loader expects
+    // The loader expects the cached file to have this exact filename.
     download_to(
         WINE_RECOGNITION_URL,
         download_dir_path,
@@ -85,7 +80,6 @@ fn test_wine_recognition_no_need_download() {
     )
     .unwrap();
 
-    // should use the cached Wine Recognition dataset
     let dataset = WineRecognition::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -93,24 +87,19 @@ fn test_wine_recognition_no_need_download() {
 }
 
 #[test]
-// Verifies that the loader detects a corrupt or fake Wine Recognition data file and
-// overwrites it with the real dataset.
 fn test_wine_recognition_overwrite() {
     let download_dir = "./test_wine_recognition_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Wine Recognition dataset in advance
     {
         let path = download_dir_path.join("wine_recognition.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Wine Recognition dataset
     let dataset = WineRecognition::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("wine_recognition.csv"),
@@ -123,7 +112,6 @@ fn test_wine_recognition_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_wine_recognition_into_data() {
     let download_dir = "./test_wine_recognition_into_data";
 
@@ -134,7 +122,6 @@ fn test_wine_recognition_into_data() {
     assert_eq!(features.shape(), &[178, 13]);
     assert_eq!(labels.len(), 178);
 
-    // Owned labels are correct: one of the three known classes.
     for (i, &label) in labels.iter().enumerate() {
         assert!(
             label == "class_1" || label == "class_2" || label == "class_3",
@@ -152,7 +139,6 @@ fn test_wine_recognition_into_data() {
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_wine_recognition_take_data() {
     let download_dir = "./test_wine_recognition_take_data";
 
@@ -172,7 +158,6 @@ fn test_wine_recognition_take_data() {
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_wine_recognition_get_data() {
     let download_dir = "./test_wine_recognition_get_data";
 
@@ -180,7 +165,7 @@ fn test_wine_recognition_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[178, 13]);
@@ -190,7 +175,6 @@ fn test_wine_recognition_get_data() {
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_wine_recognition_get_data_mut() {
     let download_dir = "./test_wine_recognition_get_data_mut";
 
@@ -198,7 +182,7 @@ fn test_wine_recognition_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
+    // get_data_mut() mutates the cached features in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;

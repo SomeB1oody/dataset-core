@@ -68,7 +68,6 @@ fn assert_heart_disease_semantics(features: &ndarray::Array2<f64>, labels: &ndar
         );
     }
 
-    // The exact missing-value counts: 4 in `ca`, 2 in `thal`.
     let ca_missing = (0..features.nrows())
         .filter(|&row| features[[row, 11]].is_nan())
         .count();
@@ -124,7 +123,7 @@ fn test_heart_disease_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // this call replaces the fake file with the real dataset
+    // this call overwrites the fake file with the real dataset
     let dataset = HeartDisease::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -150,7 +149,6 @@ fn test_heart_disease_into_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 13]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned labels are correct: within the 0..=4 diagnosis range.
     for (i, &y) in labels.iter().enumerate() {
         assert!(
             y <= 4,
@@ -158,7 +156,7 @@ fn test_heart_disease_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 60.0;
     assert_eq!(features[[0, 0]], 60.0);
 
@@ -209,8 +207,7 @@ fn test_heart_disease_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset, then mutates the cached features in place. No clone
-    // or reload occurs.
+    // get_data_mut() mutates the cached features in place. It needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 42.0;

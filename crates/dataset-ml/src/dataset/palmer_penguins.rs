@@ -68,9 +68,10 @@ type PenguinsData = (Array2<String>, Array2<f64>, Array1<&'static str>);
 /// parses the numeric columns and handles `NA` manually, instead of using
 /// `Option<f64>`.
 ///
-/// This struct declares its fields in CSV column order, and the code deserializes
-/// them **positionally**. The loader disables the `csv` crate's header handling,
-/// so this struct does not depend on the exact header spelling.
+/// This struct declares its fields in CSV column order, and the loader
+/// deserializes them **positionally**. The loader disables the `csv` crate's
+/// header handling, so this struct does not depend on the exact header
+/// spelling.
 #[derive(Deserialize)]
 struct PenguinRecord {
     species: String,
@@ -102,10 +103,10 @@ fn clean_categorical(value: String) -> String {
     if value == "NA" { String::new() } else { value }
 }
 
-/// A struct representing the Palmer Penguins dataset with lazy loading.
+/// A struct that represents the Palmer Penguins dataset with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the dataset caches the data for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the
+/// first load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -159,15 +160,15 @@ fn clean_categorical(value: String) -> String {
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because all its fields
-/// implement them. This makes it safe to share across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::PalmerPenguins;
 ///
-/// // the loader creates this directory if it does not exist yet
+/// // the loader creates the directory if it does not exist
 /// let download_dir = "./palmer_penguins";
 ///
 /// let mut dataset = PalmerPenguins::new(download_dir);
@@ -181,16 +182,16 @@ fn clean_categorical(value: String) -> String {
 /// assert_eq!(labels.len(), 344);
 ///
 /// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits them in place. This needs no clone and no reload, and the change
-/// // stays in the cache. Prefer this method over `.to_owned()` when you only
-/// // need to change values.
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 40.0;
 ///     labels[0] = "Gentoo";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out, with no `to_owned()` clone, and
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
 /// // leaves the instance reusable. The next access reloads the data from the
 /// // cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
@@ -198,8 +199,8 @@ fn clean_categorical(value: String) -> String {
 /// assert_eq!(owned_numerics.shape(), &[344, 5]);
 /// assert_eq!(owned_labels.len(), 344);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[344, 2]);
 /// assert_eq!(owned_numerics.shape(), &[344, 5]);
@@ -213,16 +214,16 @@ pub struct PalmerPenguins {
 impl PalmerPenguins {
     /// Create a new PalmerPenguins instance without loading data.
     ///
-    /// The dataset loads lazily, on the first call to a data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `PalmerPenguins` instance ready for lazy loading.
+    /// - `Self` - a `PalmerPenguins` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         PalmerPenguins {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -243,7 +244,7 @@ impl PalmerPenguins {
         )?;
 
         // The `csv` crate deserializes each row into the struct. The file has a
-        // header row, so the code skips it explicitly.
+        // header row, so the loader skips it explicitly.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -319,8 +320,8 @@ impl PalmerPenguins {
 
     /// Get a reference to both string and numeric feature matrices.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -345,16 +346,16 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (344 samples)
+    /// - Dataset size does not match the expected dimensions (344 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -366,23 +367,23 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (344 samples)
+    /// - Dataset size does not match the expected dimensions (344 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
     /// - `&PenguinsData` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple: string feature matrix `(344, 2)` (island,
-    ///   sex), numeric feature matrix `(344, 5)` (bill_length_mm, bill_depth_mm,
-    ///   flipper_length_mm, body_mass_g, year), and label vector `(344,)`
-    ///   (species).
+    ///   features, labels)` tuple. The string feature matrix has shape
+    ///   `(344, 2)` (island, sex). The numeric feature matrix has shape
+    ///   `(344, 5)` (bill_length_mm, bill_depth_mm, flipper_length_mm,
+    ///   body_mass_g, year). The label vector has shape `(344,)` (species).
     ///
     /// # Errors
     ///
@@ -390,7 +391,7 @@ impl PalmerPenguins {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (344 samples)
+    /// - Dataset size does not match the expected dimensions (344 samples)
     pub fn data(&self) -> Result<&PenguinsData, DatasetError> {
         self.dataset.load()
     }
@@ -399,7 +400,7 @@ impl PalmerPenguins {
     /// **without** triggering loading.
     ///
     /// Unlike [`PalmerPenguins::data`], this method never runs the loader. If the
-    /// data is not loaded yet, it returns `None` instead of downloading and
+    /// data has not loaded yet, it returns `None` instead of downloading and
     /// parsing it. Use this method when you want the data only if it is already
     /// cached. This skips the cost of a download and a parse.
     ///
@@ -407,7 +408,7 @@ impl PalmerPenguins {
     ///
     /// - `Some(&PenguinsData)` - reference to the cached `(string features, numeric
     ///   features, labels)` tuple (`(344, 2)`, `(344, 5)`, `(344,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&PenguinsData> {
         self.dataset.get()
     }
@@ -422,7 +423,7 @@ impl PalmerPenguins {
     /// [`PalmerPenguins::data`], or [`PalmerPenguins::get_data`] see the changes.
     ///
     /// Like [`PalmerPenguins::get_data`], this does **not** trigger loading. It
-    /// returns `None` if the dataset has not been loaded yet. If you need the data
+    /// returns `None` if the dataset has not loaded yet. If you need the data
     /// to be present, call a loading accessor first, for example
     /// [`PalmerPenguins::data`].
     ///
@@ -431,7 +432,7 @@ impl PalmerPenguins {
     /// - `Some(&mut PenguinsData)` - mutable reference to the cached `(string
     ///   features, numeric features, labels)` tuple (`(344, 2)`, `(344, 5)`,
     ///   `(344,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut PenguinsData> {
         self.dataset.get_mut()
     }
@@ -467,7 +468,7 @@ impl PalmerPenguins {
     }
 
     /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset, leaving it reusable.
+    /// dataset. This leaves the instance reusable.
     ///
     /// Like [`PalmerPenguins::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

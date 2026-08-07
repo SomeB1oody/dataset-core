@@ -21,16 +21,15 @@ fn test_load_iris() {
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
-    // Accessor consistency: data() returns the same arrays as features() and labels()
+    // This checks accessor consistency: data() returns the same arrays as
+    // features() and labels() do.
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
     let (features, labels) = dataset.data().unwrap(); // data() also returns the features and labels
-    // `.to_owned()` returns owned copies of the data
     let mut features_owned = features.to_owned();
     let mut labels_owned = labels.to_owned();
 
-    // Semantic assertions: the labels must be valid Iris species
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels.len(),
@@ -50,7 +49,6 @@ fn test_load_iris() {
         "labels must contain 'virginica'"
     );
 
-    // Semantic assertions: all feature values must be finite (no NaN or Inf)
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -64,7 +62,6 @@ fn test_load_iris() {
         }
     }
 
-    // Example: Modify feature values
     features_owned[[0, 0]] = 5.5;
     labels_owned[0] = "setosa-modified";
 
@@ -78,7 +75,6 @@ fn test_iris_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the Iris dataset in advance
     download_to(
         "https://gist.githubusercontent.com/curran/a08a1080b88344b0c8a7/raw/0e7a9b0a5d22642a06d3d5b9bcbad9890c8ee534/iris.csv",
         download_dir_path,
@@ -86,7 +82,6 @@ fn test_iris_no_need_download() {
     )
     .unwrap();
 
-    // should use the cached Iris dataset
     let dataset = Iris::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -100,18 +95,15 @@ fn test_iris_overwrite() {
     let download_dir = "./test_load_iris_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Iris dataset in advance
     {
         let iris_path = download_dir_path.join("iris.csv");
         let mut fake_iris = File::create(iris_path).unwrap();
         fake_iris.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Iris dataset
     let dataset = Iris::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("iris.csv"),
@@ -130,12 +122,10 @@ fn test_iris_into_data() {
 
     let dataset = Iris::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[150, 4]);
     assert_eq!(labels.len(), 150);
 
-    // Owned labels are correct: exactly the three Iris species.
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels.len(),
@@ -179,7 +169,7 @@ fn test_iris_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[150, 4]);
@@ -197,7 +187,7 @@ fn test_iris_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
+    // get_data_mut() mutates the cached features in place. It needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;

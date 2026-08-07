@@ -26,8 +26,7 @@ fn test_load_boston_housing() {
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
 
-    let (features, targets) = dataset.data().unwrap(); // data() also returns the features and targets
-    // `.to_owned()` returns owned copies of the data
+    let (features, targets) = dataset.data().unwrap();
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
 
@@ -61,7 +60,6 @@ fn test_load_boston_housing() {
         );
     }
 
-    // Example: Modify feature values
     features_owned[[0, 0]] = 0.1;
     targets_owned[0] = 25.5;
 
@@ -75,7 +73,6 @@ fn test_boston_housing_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the Boston Housing dataset in advance
     {
         download_to(
             "https://github.com/selva86/datasets/raw/master/BostonHousing.csv",
@@ -85,7 +82,6 @@ fn test_boston_housing_no_need_download() {
         .unwrap();
     }
 
-    // should use the cached Boston Housing dataset
     let dataset = BostonHousing::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
@@ -99,18 +95,15 @@ fn test_boston_housing_overwrite() {
     let download_dir = "./test_boston_housing_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Boston Housing dataset in advance
     {
         let boston_housing_path = download_dir_path.join("BostonHousing.csv");
         let mut fake_boston_housing = File::create(boston_housing_path).unwrap();
         fake_boston_housing.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Boston Housing dataset
     let dataset = BostonHousing::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("BostonHousing.csv"),
@@ -129,7 +122,6 @@ fn test_boston_housing_into_data() {
 
     let dataset = BostonHousing::new(download_dir);
     let (mut features, targets) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned `features` and `targets` are fully owned.
 
     assert_eq!(features.shape(), &[506, 13]);
     assert_eq!(targets.len(), 506);
@@ -175,7 +167,6 @@ fn test_boston_housing_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, targets) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[506, 13]);
@@ -193,7 +184,7 @@ fn test_boston_housing_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
+    // Mutating the cached features needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _targets)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;

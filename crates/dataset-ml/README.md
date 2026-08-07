@@ -2,7 +2,7 @@
 
 # dataset-ml
 
-Ready-to-use loaders for classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core).
+`dataset-ml` provides ready-to-use loaders for classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core).
 
 [![rustc](https://img.shields.io/badge/rustc-1.88%2B-brown)](https://www.rust-lang.org/) [![edition](https://img.shields.io/badge/edition-2024-orange)](https://doc.rust-lang.org/edition-guide/) [![License](https://img.shields.io/badge/License-MIT-green)](https://github.com/SomeB1oody/dataset-core/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/dataset-ml.svg)](https://crates.io/crates/dataset-ml)
 
@@ -38,7 +38,7 @@ dataset-ml = "0.4"
 | `dataset`       | yes     | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
 | `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies.                                                 |
 
-The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`, so you can write a loader of your own against the same interface with both features off.
+The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`. You can write a loader of your own against the same interface with both features off.
 
 To take only what you need, turn the default off:
 
@@ -51,7 +51,7 @@ With `dataset` off, the only direct dependencies left are `dataset-core` and `nd
 
 ## Datasets
 
-For the full list, with the sample count, feature count, and task type of every dataset, see the [dataset overview on docs.rs](https://docs.rs/dataset-ml/latest/dataset_ml/dataset/index.html#datasets).
+See the [dataset overview on docs.rs](https://docs.rs/dataset-ml/latest/dataset_ml/dataset/index.html#datasets) for the full list. It shows the sample count, feature count, and task type of every dataset.
 
 ## Usage
 
@@ -84,7 +84,7 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()`: reference to label/target vector
 - `data()`: all references at once
 
-> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception. A text corpus has no fixed feature matrix, so instead of `features()` they expose `texts()` (an `Array1<String>` of raw documents). **SentimentSentences** also exposes `sources()` (the review site each sentence came from). **Newsgroups20** is the only **multi-class** text loader (20 classes) and offers `new`/`new_test`/`new_all` subset constructors.
+> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception. A text corpus has no fixed feature matrix. Instead of `features()`, these loaders expose `texts()`, an `Array1<String>` of raw documents. **SentimentSentences** also exposes `sources()` (the review site each sentence came from). **Newsgroups20** is the only **multi-class** text loader, with 20 classes. It offers `new`/`new_test`/`new_all` subset constructors.
 
 ## The `MlDataset` trait
 
@@ -113,7 +113,7 @@ fn main() {
 | `is_loaded()` / `storage_dir()` | Inspect the loader without touching the data                                    |
 | `invalidate()`                  | Drop the in-memory cache to free the memory a large dataset holds               |
 
-The trait's names deliberately differ from the inherent `data()` / `get_data()` / `take_data()`, so neither set ever shadows the other. Both are always available and always agree.
+The trait's names deliberately differ from the inherent `data()` / `get_data()` / `take_data()`. This way, neither set ever shadows the other. Both are always available and always agree.
 
 ## Preprocessing
 
@@ -151,7 +151,7 @@ fn main() {
 | `one_hot_encode(categorical, names)`        | Expand the categorical `Array2<String>` into indicator columns                 |
 | `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes and count samples per class                 |
 
-The splitting functions return **row indices**, not arrays, because a sample spans two or three parallel arrays. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. So the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing, instead of skewing the column's statistics.
+The splitting functions return **row indices**, not arrays, because a sample spans two or three parallel arrays. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. As a result, the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing. It does not skew the column's statistics.
 
 ## Performance Considerations
 
@@ -162,7 +162,7 @@ The splitting functions return **row indices**, not arrays, because a sample spa
 
 ## License
 
-This project is licensed under the MIT License. See [LICENSE](../../LICENSE) for details.
+This project uses the MIT License. See [LICENSE](../../LICENSE) for details.
 
 ## Author
 

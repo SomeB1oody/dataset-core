@@ -104,7 +104,6 @@ fn test_palmer_penguins_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the dataset before the test
     download_to(PENGUINS_URL, download_dir_path, None).unwrap();
 
     // this call uses the cached dataset instead of downloading it again
@@ -156,7 +155,7 @@ fn test_palmer_penguins_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     numerics[[0, 0]] = 40.0;
     assert_eq!(numerics[[0, 0]], 40.0);
 
@@ -210,8 +209,7 @@ fn test_palmer_penguins_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset, then mutates the cached numeric features in place. No
-    // clone or reload occurs.
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
         numerics[[0, 0]] = 99.0;

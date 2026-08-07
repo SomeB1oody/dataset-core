@@ -27,7 +27,7 @@ fn test_load_breast_cancer() {
     assert_eq!(features.shape(), &[569, 30]);
     assert_eq!(labels.len(), 569);
 
-    let (features, labels) = dataset.data().unwrap(); // data() also returns the features and labels
+    let (features, labels) = dataset.data().unwrap();
 
     // Semantic assertions: labels must be one of the two known diagnoses, and
     // both classes must be present.
@@ -83,7 +83,6 @@ fn test_breast_cancer_no_need_download() {
     )
     .unwrap();
 
-    // should use the cached Breast Cancer dataset
     let dataset = BreastCancer::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -97,18 +96,15 @@ fn test_breast_cancer_overwrite() {
     let download_dir = "./test_breast_cancer_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Breast Cancer dataset in advance
     {
         let path = download_dir_path.join("breast_cancer.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Breast Cancer dataset
     let dataset = BreastCancer::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("breast_cancer.csv"),
@@ -127,7 +123,6 @@ fn test_breast_cancer_into_data() {
 
     let dataset = BreastCancer::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[569, 30]);
     assert_eq!(labels.len(), 569);
@@ -178,7 +173,6 @@ fn test_breast_cancer_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[569, 30]);
@@ -196,7 +190,7 @@ fn test_breast_cancer_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached features in place (no clone, no reload).
+    // Mutating the cached features needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;

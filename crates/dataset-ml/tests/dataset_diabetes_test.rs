@@ -21,7 +21,6 @@ const DIABETES_SHA256: &str = "4733febee697862c22139cdac87478a300ce0d101593deb07
 fn assert_features_standardized(features: &ndarray::Array2<f64>) {
     assert_eq!(features.shape(), &[442, 10]);
 
-    // All feature values must be finite (no NaN or Inf).
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -35,8 +34,6 @@ fn assert_features_standardized(features: &ndarray::Array2<f64>) {
         }
     }
 
-    // This matches sklearn's definition of scaling: for each column, the mean is
-    // about 0 and the sum of squares totals 1.
     let n = features.nrows() as f64;
     for j in 0..features.ncols() {
         let col = features.column(j);
@@ -117,7 +114,6 @@ fn test_load_diabetes() {
         distinct.len()
     );
 
-    // `.to_owned()` returns an owned, mutable copy of the data.
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
     features_owned[[0, 0]] = 0.05;
@@ -138,7 +134,6 @@ fn test_diabetes_no_need_download() {
         download_to(DIABETES_URL, download_dir_path, Some(DIABETES_FILENAME)).unwrap();
     }
 
-    // should use the cached Diabetes dataset
     let dataset = Diabetes::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
@@ -152,18 +147,15 @@ fn test_diabetes_overwrite() {
     let download_dir = "./test_diabetes_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake Diabetes dataset in advance
     {
         let diabetes_path = download_dir_path.join(DIABETES_FILENAME);
         let mut fake_diabetes = File::create(diabetes_path).unwrap();
         fake_diabetes.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Diabetes dataset
     let dataset = Diabetes::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(&download_dir_path.join(DIABETES_FILENAME), DIABETES_SHA256).unwrap()
     );
@@ -178,8 +170,6 @@ fn test_diabetes_into_data() {
 
     let dataset = Diabetes::new(download_dir);
     let (mut features, targets) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned `features` and `targets` are
-    // fully owned.
 
     assert_features_standardized(&features);
     assert_targets_in_range(&targets);
@@ -220,7 +210,7 @@ fn test_diabetes_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, targets) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[442, 10]);

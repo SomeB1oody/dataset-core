@@ -28,7 +28,6 @@ fn assert_letter_recognition_semantics(
     assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Labels are capital letters, and all 26 classes are present.
     let mut unique_labels: HashSet<char> = HashSet::new();
     for (i, &label) in labels.iter().enumerate() {
         assert!(
@@ -52,7 +51,6 @@ fn assert_letter_recognition_semantics(
         );
     }
 
-    // Every feature value is a finite integer-valued attribute in 0..=15.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -93,8 +91,8 @@ fn test_letter_recognition_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Load the dataset once to fill the cache. This downloads and extracts the ZIP
-    // file. A second instance then reuses the extracted file.
+    // The loader downloads and extracts a ZIP archive. A second instance reuses
+    // the extracted file without downloading it again.
     LetterRecognition::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -156,7 +154,7 @@ fn test_letter_recognition_into_data() {
         "Letter Recognition should have exactly 26 unique classes"
     );
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 5.0;
     assert_eq!(features[[0, 0]], 5.0);
 
@@ -207,8 +205,7 @@ fn test_letter_recognition_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset, then mutates the cached features in place. No clone
-    // or reload occurs.
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 9.0;

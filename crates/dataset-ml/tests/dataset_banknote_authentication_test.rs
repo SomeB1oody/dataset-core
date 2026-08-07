@@ -41,7 +41,6 @@ fn assert_banknote_authentication_semantics(
     assert_eq!(zeros, 762, "expected 762 samples of class 0");
     assert_eq!(ones, 610, "expected 610 samples of class 1");
 
-    // Every feature value is finite.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -58,7 +57,7 @@ fn assert_banknote_authentication_semantics(
 
 #[test]
 fn test_load_banknote_authentication() {
-    let download_dir = "./test_load_banknote_authentication"; // the code creates the directory if it does not exist
+    let download_dir = "./test_load_banknote_authentication"; // the loader creates the directory if it does not exist
 
     let dataset = BanknoteAuthentication::new(download_dir);
     let features = dataset.features().unwrap();
@@ -75,8 +74,8 @@ fn test_banknote_authentication_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Download the ZIP file before the test. Extract it and place the single data
-    // file under the file name the loader expects.
+    // This downloads the ZIP file, extracts it, and copies the single data file to
+    // the name the loader expects.
     {
         let temp_dir_path = download_dir_path.join("temp");
         create_dir_all(&temp_dir_path).unwrap();
@@ -153,7 +152,7 @@ fn test_banknote_authentication_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 0.5;
     assert_eq!(features[[0, 0]], 0.5);
 

@@ -1,9 +1,10 @@
 //! Wine Recognition dataset.
 //!
-//! Results of a chemical analysis of wines grown in the same region in Italy but
-//! derived from three different cultivars. The analysis determined the
-//! quantities of 13 constituents found in each of the three types of wine. The
-//! task is to predict the cultivar (one of three classes) from the constituents.
+//! The dataset holds results from a chemical analysis of wines grown in the
+//! same region in Italy but derived from three different cultivars. The
+//! analysis determined the quantities of 13 constituents found in each of the
+//! three types of wine. The task is to predict the cultivar (one of three
+//! classes) from the constituents.
 //!
 //! This is the **Wine recognition** dataset (the same one bundled with
 //! scikit-learn as `load_wine`). It is distinct from the **Wine Quality**
@@ -90,10 +91,10 @@ struct WineRecognitionRecord {
     proline: f64,
 }
 
-/// A struct representing the Wine Recognition dataset with lazy loading.
+/// A struct that represents the Wine Recognition dataset with lazy loading.
 ///
-/// The dataset does not load until you call a data accessor method. After the
-/// first load, it caches the data for later calls.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -140,42 +141,43 @@ struct WineRecognitionRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because every field does. You can
-/// share it across threads safely. The internal [`Dataset`] makes initialization
-/// thread-safe and lazy.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::WineRecognition;
 ///
-/// let download_dir = "./wine_recognition"; // creates the directory if it does not exist
+/// let download_dir = "./wine_recognition"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = WineRecognition::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // also returns features and labels
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[178, 13]);
 /// assert_eq!(labels.len(), 178);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays in the
-/// // cache. Prefer this method over `.to_owned()` when you only need to change
-/// // values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 13.5;
 ///     labels[0] = "class_2";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone). The instance
-/// // stays reusable. The next access reloads it from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[178, 13]);
 /// assert_eq!(owned_labels.len(), 178);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but it consumes the
-/// // instance. Use it when you are done with the dataset.
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[178, 13]);
 /// assert_eq!(owned_labels.len(), 178);
@@ -188,16 +190,16 @@ pub struct WineRecognition {
 impl WineRecognition {
     /// Create a new WineRecognition instance without loading data.
     ///
-    /// The dataset loads lazily on your first call to a data accessor method. This
-    /// is a lightweight operation. It only stores the storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the loader stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `WineRecognition` instance ready for lazy loading.
+    /// - `Self` - a `WineRecognition` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         WineRecognition {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -206,7 +208,6 @@ impl WineRecognition {
 
     /// Get and parse the Wine Recognition dataset.
     fn load_data(dir: &str) -> Result<WineRecognitionData, DatasetError> {
-        // Prepares the dataset file.
         let file_path = acquire_dataset(
             dir,
             WINE_RECOGNITION_FILENAME,
@@ -223,8 +224,8 @@ impl WineRecognition {
             },
         )?;
 
-        // csv deserializes into the struct. `wine.data` has no header row, so every
-        // line is a record. Do not skip the first one.
+        // `wine.data` has no header row, so every line is a record. Do not skip
+        // the first one.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -299,8 +300,8 @@ impl WineRecognition {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -312,53 +313,53 @@ impl WineRecognition {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (178 samples, 13 features)
+    /// - Dataset size does not match the expected dimensions (178 samples, 13 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(178,)`
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(178,)`
     ///   containing cultivar classes (`"class_1"`, `"class_2"`, `"class_3"`).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (178 samples)
+    /// - Dataset size does not match the expected dimensions (178 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
     /// - `&WineRecognitionData` - reference to the cached `(features, labels)`
-    ///   tuple: the feature matrix has shape `(178, 13)` and the label vector has
-    ///   shape `(178,)` containing cultivar classes (`"class_1"`, `"class_2"`,
+    ///   tuple. The feature matrix has shape `(178, 13)`. The label vector has
+    ///   shape `(178,)` and contains cultivar classes (`"class_1"`, `"class_2"`,
     ///   `"class_3"`).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (178 samples, 13 features)
+    /// - Dataset size does not match the expected dimensions (178 samples, 13 features)
     pub fn data(&self) -> Result<&WineRecognitionData, DatasetError> {
         self.dataset.load()
     }
@@ -375,7 +376,7 @@ impl WineRecognition {
     ///
     /// - `Some(&WineRecognitionData)` - reference to the cached `(features, labels)`
     ///   tuple (feature matrix `(178, 13)`, label vector `(178,)`), if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&WineRecognitionData> {
         self.dataset.get()
     }
@@ -397,7 +398,7 @@ impl WineRecognition {
     /// - `Some(&mut WineRecognitionData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(178, 13)`, label vector
     ///   `(178,)`), if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut WineRecognitionData> {
         self.dataset.get_mut()
     }
@@ -406,7 +407,7 @@ impl WineRecognition {
     ///
     /// Unlike [`WineRecognition::data`], which borrows the cached data, this moves
     /// it out and returns owned arrays directly. There is no `to_owned()` clone.
-    /// This method loads the dataset on first access if it is not loaded yet.
+    /// This method loads the dataset on first access if it has not loaded yet.
     ///
     /// This **consumes** `self`. You cannot use the instance afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -430,7 +431,8 @@ impl WineRecognition {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`WineRecognition::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

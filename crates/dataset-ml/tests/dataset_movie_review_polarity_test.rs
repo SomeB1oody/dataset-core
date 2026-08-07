@@ -26,7 +26,6 @@ fn assert_movie_review_polarity_semantics(
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Labels are one of the two classes, perfectly balanced (1,000 each).
     let mut positive = 0usize;
     let mut negative = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -39,7 +38,6 @@ fn assert_movie_review_polarity_semantics(
     assert_eq!(positive, 1000, "expected 1,000 positive reviews");
     assert_eq!(negative, 1000, "expected 1,000 negative reviews");
 
-    // Every review is non-empty.
     for (i, text) in texts.iter().enumerate() {
         assert!(!text.is_empty(), "texts[{i}] should not be empty");
     }
@@ -75,8 +73,6 @@ fn test_movie_review_polarity_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Load once to prime the cache (this downloads the archive). Then confirm that
-    // a second instance reuses it.
     MovieReviewPolarity::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -99,18 +95,15 @@ fn test_movie_review_polarity_overwrite() {
     let download_dir = "./test_movie_review_polarity_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake archive in advance
     {
         let path = download_dir_path.join("review_polarity.tar.gz");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake archive
     let dataset = MovieReviewPolarity::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("review_polarity.tar.gz"),
@@ -170,7 +163,7 @@ fn test_movie_review_polarity_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (texts, labels) = dataset.get_data().unwrap();
     assert_eq!(texts.len(), N_SAMPLES);
@@ -188,7 +181,7 @@ fn test_movie_review_polarity_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached texts in place (no clone, no reload).
+    // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
     if let Some((texts, _labels)) = dataset.get_data_mut() {
         texts[0] = "normalized".to_string();

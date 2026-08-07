@@ -72,10 +72,10 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (7, "shell_weight"),
 ];
 
-/// A struct representing the Abalone dataset with lazy loading.
+/// A struct that represents the Abalone dataset with lazy loading.
 ///
-/// The dataset does not load until you call a data accessor method. After the
-/// first load, it caches the data for later calls.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -127,44 +127,45 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because every field does. You can
-/// share it across threads safely. The internal [`Dataset`] makes initialization
-/// thread-safe and lazy.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Abalone;
 ///
-/// let download_dir = "./abalone"; // creates the directory if it does not exist
+/// let download_dir = "./abalone"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Abalone::new(download_dir);
 /// let (string_features, numeric_features) = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (string_features, numeric_features, targets) = dataset.data().unwrap(); // returns all data
+/// let (string_features, numeric_features, targets) = dataset.data().unwrap();
 /// assert_eq!(string_features.shape(), &[4177, 1]);
 /// assert_eq!(numeric_features.shape(), &[4177, 7]);
 /// assert_eq!(targets.len(), 4177);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays in the
-/// // cache. Prefer this method over `.to_owned()` when you only need to change
-/// // values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((_strings, numerics, targets)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 0.5;
 ///     targets[0] = 10.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone). The
-/// // instance stays reusable. The next access reloads it from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_strings, owned_numerics, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[4177, 1]);
 /// assert_eq!(owned_numerics.shape(), &[4177, 7]);
 /// assert_eq!(owned_targets.len(), 4177);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it consumes
-/// // the instance. Use it when you are done with the dataset.
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_strings, owned_numerics, owned_targets) = dataset.into_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[4177, 1]);
 /// assert_eq!(owned_numerics.shape(), &[4177, 7]);
@@ -178,16 +179,16 @@ pub struct Abalone {
 impl Abalone {
     /// Create a new Abalone instance without loading data.
     ///
-    /// The dataset loads lazily on your first call to a data accessor method. This
-    /// is a lightweight operation. It only stores the storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the loader stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Abalone` instance ready for lazy loading.
+    /// - `Self` - an `Abalone` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Abalone {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -196,8 +197,8 @@ impl Abalone {
 
     /// Get and parse the Abalone dataset.
     fn load_data(dir: &str) -> Result<AbaloneData, DatasetError> {
-        // Prepares the dataset file. The source file is `abalone.data`. The loader
-        // caches it under `abalone.csv`.
+        // The source file is `abalone.data`. The loader caches it under
+        // `abalone.csv`.
         let file_path = acquire_dataset(
             dir,
             ABALONE_FILENAME,
@@ -292,8 +293,8 @@ impl Abalone {
 
     /// Get a reference to both string and numeric feature matrices.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -309,7 +310,7 @@ impl Abalone {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (4,177 samples)
+    /// - Dataset size does not match the expected dimensions (4,177 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -317,8 +318,8 @@ impl Abalone {
 
     /// Get a reference to the regression target vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -331,15 +332,15 @@ impl Abalone {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (4,177 samples)
+    /// - Dataset size does not match the expected dimensions (4,177 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and targets as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -353,7 +354,7 @@ impl Abalone {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (4,177 samples)
+    /// - Dataset size does not match the expected dimensions (4,177 samples)
     pub fn data(&self) -> Result<&AbaloneData, DatasetError> {
         self.dataset.load()
     }
@@ -362,7 +363,7 @@ impl Abalone {
     /// **without** triggering loading.
     ///
     /// Unlike [`Abalone::data`], which loads the dataset on first call, this method
-    /// never runs the loader. If the data is not in the cache yet, it returns
+    /// never runs the loader. If the data has not loaded yet, it returns
     /// `None` instead of downloading and parsing it. Use this method to get data
     /// only when it is already cached. This avoids the download and parse cost
     /// otherwise.
@@ -371,7 +372,7 @@ impl Abalone {
     ///
     /// - `Some(&AbaloneData)` - reference to the cached `(string features, numeric
     ///   features, targets)` tuple (`(4177, 1)`, `(4177, 7)`, `(4177,)`), if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&AbaloneData> {
         self.dataset.get()
     }
@@ -393,7 +394,7 @@ impl Abalone {
     /// - `Some(&mut AbaloneData)` - mutable reference to the cached `(string
     ///   features, numeric features, targets)` tuple (`(4177, 1)`, `(4177, 7)`,
     ///   `(4177,)`), if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut AbaloneData> {
         self.dataset.get_mut()
     }
@@ -403,7 +404,7 @@ impl Abalone {
     ///
     /// Unlike [`Abalone::data`], which borrows the cached data, this moves it out
     /// and returns owned arrays directly. There is no `to_owned()` clone. This
-    /// method loads the dataset on first access if it is not loaded yet.
+    /// method loads the dataset on first access if it has not loaded yet.
     ///
     /// This **consumes** `self`. You cannot use the instance afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -429,7 +430,7 @@ impl Abalone {
     }
 
     /// Take **owned** string features, numeric features, and targets out of the
-    /// dataset, leaving it reusable.
+    /// dataset. This leaves the instance reusable.
     ///
     /// Like [`Abalone::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. Instead of consuming the instance, it takes `&mut self` and moves the

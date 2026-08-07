@@ -10,7 +10,6 @@ use std::io::Write;
 use std::path::Path;
 
 #[test]
-// Verifies that the Red Wine Quality dataset loads with the correct feature shape and target count.
 fn test_load_red_wine_quality() {
     let download_dir = "./test_load_red_wine_quality"; // if this directory does not exist, the code creates it
 
@@ -18,16 +17,13 @@ fn test_load_red_wine_quality() {
     let features = dataset.features().unwrap();
     let targets = dataset.targets().unwrap();
 
-    // Accessor consistency: data() returns the same arrays as features() and targets()
     assert_eq!(features.shape(), &[1599, 11]);
     assert_eq!(targets.len(), 1599);
 
-    let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
-    // you can use `.to_owned()` to get owned copies of the data
+    let (features, targets) = dataset.data().unwrap();
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
 
-    // Semantic assertions: all feature and target values must be finite (no NaN or Inf)
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -45,7 +41,6 @@ fn test_load_red_wine_quality() {
         assert!(val.is_finite(), "target[{}] = {} is not finite", i, val);
     }
 
-    // Semantic assertions: quality scores must be integer-valued and within the valid range [0, 10]
     let mut unique_qualities = std::collections::HashSet::new();
     for i in 0..targets.len() {
         let val = targets[i];
@@ -63,13 +58,11 @@ fn test_load_red_wine_quality() {
         );
         unique_qualities.insert(val as i32);
     }
-    // The actual dataset contains multiple quality scores. This assertion confirms more than one is present
     assert!(
         unique_qualities.len() > 1,
         "targets should contain more than one unique quality score"
     );
 
-    // Example: Modify feature values
     features_owned[[0, 0]] = 10.0;
     targets_owned[0] = 7.0;
 
@@ -77,7 +70,6 @@ fn test_load_red_wine_quality() {
 }
 
 #[test]
-// Verifies that Red Wine Quality loading reuses an existing cached file instead of downloading it again.
 fn test_red_wine_quality_no_need_download() {
     let download_dir = "./test_red_wine_quality_no_need_download";
     let download_dir_path = Path::new(download_dir);
@@ -90,7 +82,6 @@ fn test_red_wine_quality_no_need_download() {
     )
     .unwrap();
 
-    // this call uses the cached dataset
     let dataset = RedWineQuality::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
@@ -98,7 +89,6 @@ fn test_red_wine_quality_no_need_download() {
 }
 
 #[test]
-// Verifies that the loader detects a corrupt or fake Red Wine Quality data file and overwrites it with the real dataset.
 fn test_red_wine_quality_overwrite() {
     let download_dir = "./test_red_wine_quality_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -110,7 +100,6 @@ fn test_red_wine_quality_overwrite() {
         fake_red_wine.write_all(b"fake data").unwrap();
     }
 
-    // this call overwrites the fake dataset with the real data
     let dataset = RedWineQuality::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
@@ -126,7 +115,6 @@ fn test_red_wine_quality_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned features and targets and consumes the dataset.
 fn test_red_wine_quality_into_data() {
     let download_dir = "./test_red_wine_quality_into_data";
 
@@ -137,7 +125,6 @@ fn test_red_wine_quality_into_data() {
     assert_eq!(features.shape(), &[1599, 11]);
     assert_eq!(targets.len(), 1599);
 
-    // Owned targets are correct: quality scores within [0, 10].
     for i in 0..targets.len() {
         let val = targets[i];
         assert!(
@@ -156,7 +143,6 @@ fn test_red_wine_quality_into_data() {
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_red_wine_quality_take_data() {
     let download_dir = "./test_red_wine_quality_take_data";
 
@@ -176,7 +162,6 @@ fn test_red_wine_quality_take_data() {
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_red_wine_quality_get_data() {
     let download_dir = "./test_red_wine_quality_get_data";
 
@@ -184,7 +169,7 @@ fn test_red_wine_quality_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, targets) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[1599, 11]);
@@ -194,7 +179,6 @@ fn test_red_wine_quality_get_data() {
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_red_wine_quality_get_data_mut() {
     let download_dir = "./test_red_wine_quality_get_data_mut";
 
@@ -202,7 +186,7 @@ fn test_red_wine_quality_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the data. Then mutate the cached features in place, with no clone or reload.
+    // get_data_mut() mutates the cached features in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _targets)) = dataset.get_data_mut() {
         features[[0, 0]] = 99.0;

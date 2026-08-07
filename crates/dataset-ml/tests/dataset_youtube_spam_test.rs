@@ -24,7 +24,6 @@ fn assert_youtube_spam_semantics(
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Labels are one of the two classes, with the documented per-class counts.
     let mut ham = 0usize;
     let mut spam = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -37,7 +36,6 @@ fn assert_youtube_spam_semantics(
     assert_eq!(ham, 951, "expected 951 ham comments");
     assert_eq!(spam, 1005, "expected 1,005 spam comments");
 
-    // Every comment body is non-empty.
     for (i, text) in texts.iter().enumerate() {
         assert!(!text.is_empty(), "texts[{i}] should not be empty");
     }
@@ -53,8 +51,6 @@ fn assert_youtube_spam_semantics(
 }
 
 #[test]
-// Verifies that the YouTube Spam dataset loads with the correct sample count,
-// label classes, and non-empty comment texts.
 fn test_load_youtube_spam() {
     let download_dir = "./test_load_youtube_spam"; // the loader creates the directory if it does not exist
 
@@ -67,14 +63,13 @@ fn test_load_youtube_spam() {
 }
 
 #[test]
-// Verifies that YouTube Spam loading uses a pre-existing cached file without re-downloading.
 fn test_youtube_spam_no_need_download() {
     let download_dir = "./test_youtube_spam_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Load once to prime the cache (this downloads, extracts, and concatenates the
-    // five CSVs). Then confirm that a second instance reuses the combined file.
+    // The first load downloads, extracts, and concatenates the five per-video
+    // CSVs into the cache. The next instance then reuses the combined file.
     YoutubeSpam::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -92,24 +87,19 @@ fn test_youtube_spam_no_need_download() {
 }
 
 #[test]
-// Verifies that the loader detects a corrupt or fake YouTube Spam data file and
-// overwrites it with the real dataset.
 fn test_youtube_spam_overwrite() {
     let download_dir = "./test_youtube_spam_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake YouTube Spam dataset in advance
     {
         let path = download_dir_path.join("youtube_spam.csv");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake YouTube Spam dataset
     let dataset = YoutubeSpam::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("youtube_spam.csv"),
@@ -122,7 +112,6 @@ fn test_youtube_spam_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_youtube_spam_into_data() {
     let download_dir = "./test_youtube_spam_into_data";
 
@@ -141,7 +130,6 @@ fn test_youtube_spam_into_data() {
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_youtube_spam_take_data() {
     let download_dir = "./test_youtube_spam_take_data";
 
@@ -161,7 +149,6 @@ fn test_youtube_spam_take_data() {
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_youtube_spam_get_data() {
     let download_dir = "./test_youtube_spam_get_data";
 
@@ -169,7 +156,7 @@ fn test_youtube_spam_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. Then get_data() returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (texts, labels) = dataset.get_data().unwrap();
     assert_eq!(texts.len(), N_SAMPLES);
@@ -179,7 +166,6 @@ fn test_youtube_spam_get_data() {
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_youtube_spam_get_data_mut() {
     let download_dir = "./test_youtube_spam_get_data_mut";
 
@@ -187,7 +173,7 @@ fn test_youtube_spam_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the dataset. Then mutate the cached texts in place (no clone, no reload).
+    // get_data_mut() mutates the cached texts in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((texts, _labels)) = dataset.get_data_mut() {
         texts[0] = "normalized".to_string();

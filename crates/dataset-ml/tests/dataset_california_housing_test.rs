@@ -21,7 +21,7 @@ const AVE_BEDRMS_COL: usize = 3;
 
 #[test]
 fn test_load_california_housing() {
-    let download_dir = "./test_load_california_housing"; // the code creates the directory if it does not exist
+    let download_dir = "./test_load_california_housing"; // the loader creates the directory if it does not exist
 
     let dataset = CaliforniaHousing::new(download_dir);
     let features = dataset.features().unwrap();
@@ -30,7 +30,7 @@ fn test_load_california_housing() {
     assert_eq!(features.shape(), &[20640, 8]);
     assert_eq!(targets.len(), 20640);
 
-    let (features, targets) = dataset.data().unwrap(); // data() is another way to get features and targets
+    let (features, targets) = dataset.data().unwrap();
 
     // Semantic assertions: targets are median house values in units of $100,000.
     // Because of this unit, targets fall in about the [0.15, 5.0] range. All
@@ -162,7 +162,7 @@ fn test_california_housing_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate the owned data directly, with no `to_owned()` clone.
     features[[0, 0]] = 5.0;
     assert_eq!(features[[0, 0]], 5.0);
 

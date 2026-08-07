@@ -45,9 +45,9 @@ pub type WineData = (Array2<f64>, Array1<f64>);
 /// One CSV record of a Wine Quality file (red or white): 11 `f64` feature
 /// columns followed by the `quality` target.
 ///
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the parser disables csv's header handling), so this struct is independent
-/// of the header spelling.
+/// This struct declares its fields in CSV column order. The parser
+/// deserializes them **positionally** and disables csv's header handling, so
+/// the struct does not depend on the header spelling.
 #[derive(Deserialize)]
 struct WineRecord {
     fixed_acidity: f64,

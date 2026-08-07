@@ -35,7 +35,6 @@ fn assert_car_evaluation_semantics(
     assert_eq!(features.shape(), &[N_SAMPLES, 6]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Exactly the four acceptability classes, kept verbatim.
     let unique_labels: HashSet<&str> = labels.iter().map(|s| s.as_str()).collect();
     assert_eq!(
         unique_labels,
@@ -43,7 +42,6 @@ fn assert_car_evaluation_semantics(
         "Car Evaluation should have exactly the four classes unacc/acc/good/vgood"
     );
 
-    // Every feature value is non-empty and drawn from its column's known domain.
     for col in 0..features.ncols() {
         let domain: HashSet<&str> = FEATURE_DOMAINS[col]
             .iter()
@@ -86,7 +84,6 @@ fn test_car_evaluation_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Load once to prime the cache. Then confirm that a second instance reuses it.
     CarEvaluation::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -115,7 +112,6 @@ fn test_car_evaluation_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // this call overwrites the fake Car Evaluation dataset with the real data
     let dataset = CarEvaluation::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -137,7 +133,6 @@ fn test_car_evaluation_into_data() {
 
     let dataset = CarEvaluation::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. The arrays are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 6]);
     assert_eq!(labels.len(), N_SAMPLES);
@@ -178,7 +173,7 @@ fn test_car_evaluation_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 6]);
@@ -196,7 +191,7 @@ fn test_car_evaluation_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the data. Then mutate the cached labels in place, with no clone or reload.
+    // get_data_mut() mutates the cached labels in place. It needs no clone or reload.
     dataset.data().unwrap();
     if let Some((_features, labels)) = dataset.get_data_mut() {
         labels[0] = "vgood".to_string();

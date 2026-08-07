@@ -94,7 +94,6 @@ fn test_load_linnerud() {
         );
     }
 
-    // `.to_owned()` returns an owned, mutable copy of the data.
     let mut features_owned = features.to_owned();
     let mut targets_owned = targets.to_owned();
     features_owned[[0, 0]] = 6.0;
@@ -110,7 +109,6 @@ fn test_linnerud_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download both Linnerud files in advance, under the loader's expected filenames
     {
         download_to(
             LINNERUD_EXERCISE_URL,
@@ -126,7 +124,6 @@ fn test_linnerud_no_need_download() {
         .unwrap();
     }
 
-    // should use the cached Linnerud files
     let dataset = Linnerud::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
@@ -140,7 +137,6 @@ fn test_linnerud_overwrite() {
     let download_dir = "./test_linnerud_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create fake Linnerud files in advance
     {
         let mut fake_exercise =
             File::create(download_dir_path.join(LINNERUD_EXERCISE_FILENAME)).unwrap();
@@ -150,11 +146,9 @@ fn test_linnerud_overwrite() {
         fake_physiological.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake Linnerud files
     let dataset = Linnerud::new(download_dir);
     let (_features, _targets) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake files
     assert!(
         file_sha256_matches(
             &download_dir_path.join(LINNERUD_EXERCISE_FILENAME),
@@ -222,7 +216,7 @@ fn test_linnerud_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, targets) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[20, 3]);

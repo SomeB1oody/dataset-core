@@ -30,7 +30,6 @@ fn assert_abalone_semantics(
     assert_eq!(numeric_features.shape(), &[N_SAMPLES, 7]);
     assert_eq!(targets.len(), N_SAMPLES);
 
-    // `sex` is exactly the three recorded categories.
     let unique_sex: HashSet<&str> = string_features.iter().map(|s| s.as_str()).collect();
     assert_eq!(
         unique_sex,
@@ -38,7 +37,6 @@ fn assert_abalone_semantics(
         "Abalone `sex` should be exactly M/F/I"
     );
 
-    // Every numeric measurement is finite and non-negative.
     for row in 0..numeric_features.nrows() {
         for col in 0..numeric_features.ncols() {
             let v = numeric_features[[row, col]];
@@ -52,7 +50,6 @@ fn assert_abalone_semantics(
         }
     }
 
-    // The target is an integer ring count in 1..=29.
     for (i, &y) in targets.iter().enumerate() {
         assert!(
             y.is_finite() && (1.0..=29.0).contains(&y) && y.fract() == 0.0,
@@ -86,7 +83,6 @@ fn test_abalone_no_need_download() {
     // This downloads the Abalone dataset in advance, using the filename the loader expects.
     download_to(ABALONE_URL, download_dir_path, Some("abalone.csv")).unwrap();
 
-    // This reuses the cached Abalone dataset.
     let dataset = Abalone::new(download_dir);
     let (_s, _n, _t) = dataset.data().unwrap();
 
@@ -106,7 +102,6 @@ fn test_abalone_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = Abalone::new(download_dir);
     let (_s, _n, _t) = dataset.data().unwrap();
 
@@ -122,7 +117,6 @@ fn test_abalone_into_data() {
 
     let dataset = Abalone::new(download_dir);
     let (string_features, mut numeric_features, targets) = dataset.into_data().unwrap();
-    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(string_features.shape(), &[N_SAMPLES, 1]);
     assert_eq!(numeric_features.shape(), &[N_SAMPLES, 7]);
@@ -166,7 +160,6 @@ fn test_abalone_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (string_features, numeric_features, targets) = dataset.get_data().unwrap();
     assert_eq!(string_features.shape(), &[N_SAMPLES, 1]);
@@ -185,8 +178,7 @@ fn test_abalone_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset. It then mutates the cached target in place, with no
-    // clone and no reload.
+    // Mutating the cached target needs no clone or reload.
     dataset.data().unwrap();
     if let Some((_s, _n, targets)) = dataset.get_data_mut() {
         targets[0] = 11.0;

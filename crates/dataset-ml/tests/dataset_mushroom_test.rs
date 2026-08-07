@@ -21,7 +21,6 @@ fn assert_mushroom_semantics(features: &ndarray::Array2<String>, labels: &ndarra
     assert_eq!(features.shape(), &[N_SAMPLES, 22]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Exactly two classes, kept verbatim.
     let unique_labels: HashSet<&str> = labels.iter().map(|s| s.as_str()).collect();
     assert_eq!(
         unique_labels,
@@ -97,7 +96,6 @@ fn test_mushroom_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // The first load primes the cache. The second instance then reuses it.
     Mushroom::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("mushroom.csv"), MUSHROOM_SHA256).unwrap(),
@@ -123,7 +121,6 @@ fn test_mushroom_overwrite() {
         fake_mushroom.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = Mushroom::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -160,7 +157,7 @@ fn test_mushroom_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 22]);

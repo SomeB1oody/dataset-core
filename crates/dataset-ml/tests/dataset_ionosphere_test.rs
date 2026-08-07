@@ -46,7 +46,6 @@ fn assert_ionosphere_semantics(
     assert!(has_good, "labels must contain at least one good");
     assert!(has_bad, "labels must contain at least one bad");
 
-    // Every feature value is finite and normalized to the [-1, 1] range.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -95,7 +94,6 @@ fn test_ionosphere_no_need_download() {
     // download the Ionosphere dataset in advance and save it under the filename the loader expects
     download_to(IONOSPHERE_URL, download_dir_path, Some("ionosphere.csv")).unwrap();
 
-    // this call uses the cached Ionosphere dataset
     let dataset = Ionosphere::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -114,7 +112,6 @@ fn test_ionosphere_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // this call overwrites the fake Ionosphere dataset with the real data
     let dataset = Ionosphere::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -132,12 +129,10 @@ fn test_ionosphere_into_data() {
 
     let dataset = Ionosphere::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. `features` and `labels` are now fully owned.
 
     assert_eq!(features.shape(), &[N_SAMPLES, 34]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned labels are correct: one of the two known classes.
     for (i, &label) in labels.iter().enumerate() {
         assert!(
             label == "good" || label == "bad",
@@ -183,7 +178,7 @@ fn test_ionosphere_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 34]);
@@ -201,7 +196,7 @@ fn test_ionosphere_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the data. Then mutate the cached features in place, with no clone or reload.
+    // get_data_mut() mutates the cached features in place. It needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 0.25;

@@ -54,7 +54,6 @@ fn assert_newsgroups20_train_semantics(
 
     let known: HashSet<&str> = CATEGORIES.into_iter().collect();
 
-    // Every label is one of the 20 newsgroups, and all 20 appear.
     let mut seen: HashSet<&str> = HashSet::new();
     let mut alt_atheism = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -70,7 +69,6 @@ fn assert_newsgroups20_train_semantics(
     assert_eq!(seen.len(), 20, "expected all 20 newsgroups to be present");
     assert_eq!(alt_atheism, 480, "expected 480 alt.atheism training posts");
 
-    // Every post is non-empty.
     for (i, text) in texts.iter().enumerate() {
         assert!(!text.is_empty(), "texts[{i}] should not be empty");
     }
@@ -131,8 +129,6 @@ fn test_newsgroups20_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once (downloads the archive), then confirm a
-    // second instance reuses it.
     Newsgroups20::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -156,18 +152,15 @@ fn test_newsgroups20_overwrite() {
     let download_dir = "./test_newsgroups20_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake archive in advance
     {
         let path = download_dir_path.join("20news-bydate.tar.gz");
         let mut fake = File::create(path).unwrap();
         fake.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake archive
     let dataset = Newsgroups20::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("20news-bydate.tar.gz"),
@@ -227,7 +220,7 @@ fn test_newsgroups20_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (texts, labels) = dataset.get_data().unwrap();
     assert_eq!(texts.len(), N_TRAIN);

@@ -36,8 +36,8 @@ const YOUTUBE_SPAM_DATA_URL: &str = "https://archive.ics.uci.edu/ml/machine-lear
 /// The name of the downloaded ZIP archive (inside the temp dir).
 const YOUTUBE_SPAM_ZIP_FILENAME: &str = "YouTube-Spam-Collection-v1.zip";
 
-/// The five per-video CSV files inside the ZIP archive, in the fixed order they
-/// are concatenated into the cached corpus.
+/// The five per-video CSV files inside the ZIP archive, in the fixed order
+/// the loader concatenates them into the cached corpus.
 const YOUTUBE_SPAM_SOURCE_FILENAMES: [&str; 5] = [
     "Youtube01-Psy.csv",
     "Youtube02-KatyPerry.csv",
@@ -70,9 +70,11 @@ const CONTENT_COLUMN: usize = 3;
 /// Source column index of the class label (`CLASS`).
 const CLASS_COLUMN: usize = 4;
 
-/// This struct represents the YouTube Spam Collection dataset. It loads data
-/// lazily: the dataset does not load until you call a data accessor method. Once
-/// loaded, the data stays cached for later accesses.
+/// A struct that represents the YouTube Spam Collection dataset with lazy
+/// loading.
+///
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -107,42 +109,43 @@ const CLASS_COLUMN: usize = 4;
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because all its fields implement them.
-/// This makes it safe to share the struct across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::YoutubeSpam;
 ///
-/// let download_dir = "./youtube_spam"; // the code creates the directory if it does not exist
+/// let download_dir = "./youtube_spam"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = YoutubeSpam::new(download_dir);
 /// let texts = dataset.texts().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (texts, labels) = dataset.data().unwrap(); // this is also a way to get texts and labels
+/// let (texts, labels) = dataset.data().unwrap();
 /// assert_eq!(texts.len(), 1956);
 /// assert_eq!(labels.len(), 1956);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays cached.
-/// // Prefer this method over `.to_owned()` when you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((texts, labels)) = dataset.get_data_mut() {
 ///     texts[0] = "hello world".to_string();
 ///     labels[0] = "spam";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. It
-/// // leaves the instance reusable. The next access reloads data from the cached
-/// // file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_texts, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_texts.len(), 1956);
 /// assert_eq!(owned_labels.len(), 1956);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_texts, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_texts.len(), 1956);
 /// assert_eq!(owned_labels.len(), 1956);
@@ -155,17 +158,16 @@ pub struct YoutubeSpam {
 impl YoutubeSpam {
     /// Create a new YoutubeSpam instance without loading data.
     ///
-    /// The dataset does not load immediately. It loads the first time you call a
-    /// data accessor method. This call is lightweight: it only stores the storage
-    /// directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory that holds the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `YoutubeSpam` instance ready for lazy loading.
+    /// - `Self` - a `YoutubeSpam` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         YoutubeSpam {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -176,7 +178,8 @@ impl YoutubeSpam {
     fn load_data(dir: &str) -> Result<YoutubeSpamData, DatasetError> {
         // Download the ZIP, extract it, and concatenate the five per-video CSVs,
         // in a fixed order, into one corpus file. This lets one pinned SHA-256
-        // cover the whole dataset. The result is cached as `youtube_spam.csv`.
+        // cover the whole dataset. The loader caches the result as
+        // `youtube_spam.csv`.
         let file_path = acquire_dataset(
             dir,
             YOUTUBE_SPAM_FILENAME,
@@ -275,8 +278,8 @@ impl YoutubeSpam {
 
     /// Get a reference to the comment-text vector.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// This method is the YouTube Spam analogue of the tabular loaders' `features()`.
     /// Because the data is text, the "features" are the raw comment strings. This
@@ -298,14 +301,14 @@ impl YoutubeSpam {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(1956,)` containing `"ham"` or `"spam"`
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(1956,)` containing `"ham"` or `"spam"`
     ///
     /// # Errors
     ///
@@ -320,8 +323,8 @@ impl YoutubeSpam {
 
     /// Get both comment texts and labels as references.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -407,8 +410,8 @@ impl YoutubeSpam {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** comment texts and labels out of the dataset. This leaves it
-    /// reusable.
+    /// Take **owned** comment texts and labels out of the dataset. This leaves
+    /// the instance reusable.
     ///
     /// Like [`YoutubeSpam::into_data`], this method returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

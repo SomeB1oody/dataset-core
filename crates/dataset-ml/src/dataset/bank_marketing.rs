@@ -34,7 +34,7 @@ type BankMarketingData = (Array2<String>, Array2<f64>, Array1<String>);
 const BANK_DATA_URL: &str =
     "https://archive.ics.uci.edu/ml/machine-learning-databases/00222/bank.zip";
 
-/// The name the downloaded ZIP archive is saved under inside the temp directory.
+/// The filename used for the downloaded ZIP archive inside the temp directory.
 const BANK_ZIP_FILENAME: &str = "bank.zip";
 
 /// The name of the file inside the archive that this loader uses (the full set).
@@ -88,10 +88,10 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (14, "previous"),
 ];
 
-/// A struct representing the Bank Marketing dataset with lazy loading.
+/// A struct that represents the Bank Marketing dataset with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the dataset caches the data for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the
+/// first load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -155,15 +155,15 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because all its fields
-/// implement them. This makes it safe to share across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::BankMarketing;
 ///
-/// // the loader creates this directory if it does not exist yet
+/// // the loader creates the directory if it does not exist
 /// let download_dir = "./bank_marketing";
 ///
 /// let mut dataset = BankMarketing::new(download_dir);
@@ -177,16 +177,16 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// assert_eq!(labels.len(), 45211);
 ///
 /// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits them in place. This needs no clone and no reload, and the change
-/// // stays in the cache. Prefer this method over `.to_owned()` when you only
-/// // need to change values.
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 99.0;
 ///     labels[0] = "yes".to_string();
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out, with no `to_owned()` clone, and
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
 /// // leaves the instance reusable. The next access reloads the data from the
 /// // cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
@@ -194,8 +194,8 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// assert_eq!(owned_numerics.shape(), &[45211, 7]);
 /// assert_eq!(owned_labels.len(), 45211);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[45211, 9]);
 /// assert_eq!(owned_numerics.shape(), &[45211, 7]);
@@ -207,18 +207,18 @@ pub struct BankMarketing {
 }
 
 impl BankMarketing {
-    /// Create a new Bank Marketing instance without loading data.
+    /// Create a new BankMarketing instance without loading data.
     ///
-    /// The dataset loads lazily, on the first call to a data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `BankMarketing` instance ready for lazy loading.
+    /// - `Self` - a `BankMarketing` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         BankMarketing {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -227,8 +227,8 @@ impl BankMarketing {
 
     /// Get and parse the Bank Marketing dataset.
     fn load_data(dir: &str) -> Result<BankMarketingData, DatasetError> {
-        // Download the ZIP archive and extract it. Use the full `bank-full.csv`
-        // partition, cached as `bank_marketing.csv`.
+        // This loader uses the full `bank-full.csv` partition, cached as
+        // `bank_marketing.csv`.
         let file_path = acquire_dataset(
             dir,
             BANK_FILENAME,
@@ -325,8 +325,8 @@ impl BankMarketing {
 
     /// Get a reference to both string and numeric feature matrices.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -356,9 +356,9 @@ impl BankMarketing {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (45,211 samples)
+    /// - Dataset size does not match the expected dimensions (45,211 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -366,8 +366,8 @@ impl BankMarketing {
 
     /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -377,17 +377,17 @@ impl BankMarketing {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (45,211 samples)
+    /// - Dataset size does not match the expected dimensions (45,211 samples)
     pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -399,9 +399,9 @@ impl BankMarketing {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (45,211 samples)
+    /// - Dataset size does not match the expected dimensions (45,211 samples)
     pub fn data(&self) -> Result<&BankMarketingData, DatasetError> {
         self.dataset.load()
     }
@@ -410,7 +410,7 @@ impl BankMarketing {
     /// **without** triggering loading.
     ///
     /// Unlike [`BankMarketing::data`], this method never runs the loader. If the
-    /// data is not loaded yet, it returns `None` instead of downloading and
+    /// data has not loaded yet, it returns `None` instead of downloading and
     /// parsing it. Use this method when you want the data only if it is already
     /// cached. This skips the cost of a download and a parse.
     ///
@@ -419,7 +419,7 @@ impl BankMarketing {
     /// - `Some(&BankMarketingData)` - reference to the cached `(string features,
     ///   numeric features, labels)` tuple (`(45211, 9)`, `(45211, 7)`, `(45211,)`),
     ///   if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&BankMarketingData> {
         self.dataset.get()
     }
@@ -434,7 +434,7 @@ impl BankMarketing {
     /// [`BankMarketing::data`], or [`BankMarketing::get_data`] see the changes.
     ///
     /// Like [`BankMarketing::get_data`], this does **not** trigger loading. It
-    /// returns `None` if the dataset has not been loaded yet. If you need the data
+    /// returns `None` if the dataset has not loaded yet. If you need the data
     /// to be present, call a loading accessor first, for example
     /// [`BankMarketing::data`].
     ///
@@ -443,7 +443,7 @@ impl BankMarketing {
     /// - `Some(&mut BankMarketingData)` - mutable reference to the cached `(string
     ///   features, numeric features, labels)` tuple (`(45211, 9)`, `(45211, 7)`,
     ///   `(45211,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut BankMarketingData> {
         self.dataset.get_mut()
     }
@@ -479,7 +479,7 @@ impl BankMarketing {
     }
 
     /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset, leaving it reusable.
+    /// dataset. This leaves the instance reusable.
     ///
     /// Like [`BankMarketing::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

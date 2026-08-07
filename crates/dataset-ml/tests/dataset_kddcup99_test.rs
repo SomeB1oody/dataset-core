@@ -69,7 +69,6 @@ fn assert_kddcup99_semantics(
         );
         assert!(!strings[[row, 2]].is_empty(), "row {} flag is empty", row);
 
-        // Every numeric feature is finite, and the byte counters are non-negative.
         for col in 0..numerics.ncols() {
             assert!(
                 numerics[[row, col]].is_finite(),
@@ -139,7 +138,6 @@ fn test_kddcup99_partitions_distinct_files() {
         .unwrap(),
         "cached 10% subset should match the expected SHA256"
     );
-    // The subset load must not create the full-set filename.
     assert!(
         !download_dir_path.join("kddcup99.csv").exists(),
         "loading the 10% subset must not create the full-set file"
@@ -155,7 +153,6 @@ fn test_kddcup99_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Prime the cache by loading once, then confirm a second instance reuses it.
     Kddcup99::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(
@@ -179,18 +176,15 @@ fn test_kddcup99_overwrite() {
     let download_dir = "./test_load_kddcup99_overwrite";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
-    // create a fake KDD Cup 1999 dataset in advance
     {
         let kddcup99_path = download_dir_path.join("kddcup99_10_percent.csv");
         let mut fake_kddcup99 = File::create(kddcup99_path).unwrap();
         fake_kddcup99.write_all(b"fake data").unwrap();
     }
 
-    // should overwrite the fake KDD Cup 1999 dataset
     let dataset = Kddcup99::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
-    // check that the loader overwrote the fake file
     assert!(
         file_sha256_matches(
             &download_dir_path.join("kddcup99_10_percent.csv"),
@@ -231,7 +225,7 @@ fn test_kddcup99_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading, then get_data() hands back the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[N_SAMPLES_10_PERCENT, 3]);

@@ -288,7 +288,7 @@ pub fn stratified_split<T: std::hash::Hash + Eq>(
             order.push(label);
             Vec::new()
         });
-        // The entry was just created if it was missing, so this cannot fail.
+        // The line above creates the entry if it was missing, so this lookup cannot fail.
         groups.get_mut(label).expect("group exists").push(index);
     }
 
@@ -312,7 +312,7 @@ pub fn stratified_split<T: std::hash::Hash + Eq>(
         test.extend(group_test);
     }
 
-    // Re-shuffle so the output is not ordered class by class.
+    // Re-shuffle so the classes do not stay grouped in the result.
     rng.shuffle(&mut train);
     rng.shuffle(&mut test);
 
@@ -375,8 +375,9 @@ pub fn k_fold_indices(
 
     let indices = shuffled_indices(n_samples, seed);
 
-    // Deal into folds of size `n / k`, giving the first `n % k` folds one extra so
-    // every sample is used and no fold is more than one larger than another.
+    // Deal the samples into folds of size `n / k`. The first `n % k` folds get one
+    // extra sample, so every sample is used and no fold is more than one larger
+    // than another.
     let base = n_samples / k;
     let remainder = n_samples % k;
 
@@ -510,7 +511,7 @@ pub fn class_counts<T: Clone + Ord>(labels: &Array1<T>) -> Vec<(T, usize)> {
 /// - [`min_max_scale`] sets `center` to the column minimum and `scale` to its range.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Scaler {
-    /// Per-column value subtracted before scaling (mean, or minimum).
+    /// Per-column value that [`apply_scaler`] subtracts before scaling (mean, or minimum).
     pub center: Array1<f64>,
     /// Per-column divisor (standard deviation, or range). Never 0: a constant
     /// column gets a scale of 1, so it maps to all-zeros instead of `NaN`.
@@ -656,8 +657,8 @@ pub fn min_max_scale(features: &Array2<f64>) -> Result<(Array2<f64>, Scaler), Da
 ///
 /// # Errors
 ///
-/// - `DatasetError::LengthMismatch` - Returns this when the scaler was fitted on a
-///   different number of columns than `features` has.
+/// - `DatasetError::LengthMismatch` - Returns this when `features` has a different
+///   number of columns than the scaler expects.
 ///
 /// # Example
 /// ```rust
@@ -689,7 +690,7 @@ pub fn apply_scaler(features: &Array2<f64>, scaler: &Scaler) -> Result<Array2<f6
 
         for value in column.iter_mut() {
             // A missing or infinite value has no meaningful scaled counterpart, so
-            // it is preserved rather than turned into a different kind of nonsense.
+            // this loop leaves it unchanged instead of turning it into nonsense.
             if value.is_finite() {
                 *value = (*value - center) / scale;
             }
@@ -732,8 +733,8 @@ pub fn apply_scaler(features: &Array2<f64>, scaler: &Scaler) -> Result<Array2<f6
 /// # Errors
 ///
 /// - `DatasetError::ValidationError` - Returns this when `categorical` has no rows or no columns.
-/// - `DatasetError::LengthMismatch` - Returns this when `column_names` is supplied but
-///   does not have one entry per column.
+/// - `DatasetError::LengthMismatch` - Returns this when `column_names` is `Some` but
+///   its length does not match the column count.
 ///
 /// # Example
 /// ```rust

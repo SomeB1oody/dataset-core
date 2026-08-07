@@ -102,34 +102,35 @@ const TEXT_COLUMN: usize = 1;
 /// ```no_run
 /// use dataset_ml::SmsSpam;
 ///
-/// let download_dir = "./sms_spam"; // the code creates the directory if it does not exist
+/// let download_dir = "./sms_spam"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = SmsSpam::new(download_dir);
 /// let texts = dataset.texts().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (texts, labels) = dataset.data().unwrap(); // this also returns texts and labels
+/// let (texts, labels) = dataset.data().unwrap();
 /// assert_eq!(texts.len(), 5574);
 /// assert_eq!(labels.len(), 5574);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
 /// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. Prefer this method over `.to_owned()` when you only need to
-/// // change values.
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((texts, labels)) = dataset.get_data_mut() {
 ///     texts[0] = "hello world".to_string();
 ///     labels[0] = "spam";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone). It leaves
-/// // the instance reusable. The next access reloads the data from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_texts, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_texts.len(), 5574);
 /// assert_eq!(owned_labels.len(), 5574);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_texts, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_texts.len(), 5574);
 /// assert_eq!(owned_labels.len(), 5574);
@@ -147,11 +148,11 @@ impl SmsSpam {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `SmsSpam` instance ready for lazy loading.
+    /// - `Self` - a `SmsSpam` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         SmsSpam {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -160,8 +161,6 @@ impl SmsSpam {
 
     /// Get and parse the SMS Spam dataset.
     fn load_data(dir: &str) -> Result<SmsSpamData, DatasetError> {
-        // Prepare the dataset file. Download the ZIP, extract it, and use the
-        // `SMSSpamCollection` file. The code caches this file under `sms_spam.csv`.
         let file_path = acquire_dataset(
             dir,
             SMS_SPAM_FILENAME,
@@ -181,7 +180,7 @@ impl SmsSpam {
 
         // The source is tab-separated with no header: `label<TAB>message`. The
         // messages are free text and can contain `"`, `,`, and other punctuation.
-        // The code disables quote processing, so it splits each record only on tabs.
+        // The loader disables quote processing, so it splits each record only on tabs.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new()
             .delimiter(b'\t')
@@ -211,7 +210,7 @@ impl SmsSpam {
                 ));
             }
 
-            // Label. The code maps the source token to a readable `&'static str`.
+            // Label. The loader maps the source token to a readable `&'static str`.
             let label = match &record[LABEL_COLUMN] {
                 "ham" => "ham",
                 "spam" => "spam",
@@ -226,7 +225,7 @@ impl SmsSpam {
             };
             labels.push(label);
 
-            // Message text. The code stores it unchanged.
+            // Message text. The loader stores it unchanged.
             texts.push(record[TEXT_COLUMN].to_string());
         }
 
@@ -243,8 +242,8 @@ impl SmsSpam {
 
     /// Get a reference to the message-text vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// This method is the SMS Spam equivalent of the tabular loaders' `features()`.
     /// The data is text, so the "features" are the raw message strings. This
@@ -261,19 +260,19 @@ impl SmsSpam {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, or invalid labels)
-    /// - Dataset size does not match expected dimensions (5,574 samples)
+    /// - Dataset size does not match the expected dimensions (5,574 samples)
     pub fn texts(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(5574,)` containing `"ham"` or `"spam"`
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(5574,)` containing `"ham"` or `"spam"`
     ///
     /// # Errors
     ///
@@ -281,15 +280,15 @@ impl SmsSpam {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, or invalid labels)
-    /// - Dataset size does not match expected dimensions (5,574 samples)
+    /// - Dataset size does not match the expected dimensions (5,574 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both message texts and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -302,7 +301,7 @@ impl SmsSpam {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, or invalid labels)
-    /// - Dataset size does not match expected dimensions (5,574 samples)
+    /// - Dataset size does not match the expected dimensions (5,574 samples)
     pub fn data(&self) -> Result<&SmsSpamData, DatasetError> {
         self.dataset.load()
     }
@@ -319,7 +318,7 @@ impl SmsSpam {
     ///
     /// - `Some(&SmsSpamData)` - reference to the cached `(texts, labels)` tuple
     ///   (`(5574,)`, `(5574,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&SmsSpamData> {
         self.dataset.get()
     }
@@ -339,7 +338,7 @@ impl SmsSpam {
     ///
     /// - `Some(&mut SmsSpamData)` - mutable reference to the cached `(texts,
     ///   labels)` tuple (`(5574,)`, `(5574,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut SmsSpamData> {
         self.dataset.get_mut()
     }

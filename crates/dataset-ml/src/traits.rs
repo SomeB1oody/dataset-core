@@ -1,10 +1,10 @@
 //! The [`MlDataset`] trait shared by every loader in this crate.
 //!
-//! Each loader has its own inherent accessors, named for what it holds:
-//! `features()`/`labels()` for the tabular loaders, `targets()` for the regression
-//! loaders, `texts()` for the text corpora. Those names make each loader pleasant
-//! to use directly. Before this trait existed, though, no code could work with
-//! datasets *generically*.
+//! Each loader has its own inherent accessors, named for what it holds.
+//! Tabular loaders use `features()`/`labels()`, regression loaders use
+//! `targets()`, and text corpora use `texts()`. Those names make each loader
+//! easy to use directly. Before this trait existed, though, no code could work
+//! with datasets *generically*.
 //!
 //! [`MlDataset`] is the common denominator: the container operations that are the
 //! same whatever the loader parses into. It adds three capabilities the inherent
@@ -174,7 +174,7 @@ pub trait MlDataset: Sized {
     /// Borrow the parsed data **without** triggering loading.
     ///
     /// The generic equivalent of each loader's inherent `get_data()`. Returns
-    /// `None`, rather than downloading, when the dataset is not loaded yet.
+    /// `None`, rather than downloading, when the dataset has not loaded yet.
     fn peek(&self) -> Option<&Self::Data> {
         self.dataset().get()
     }
@@ -190,7 +190,7 @@ pub trait MlDataset: Sized {
     /// Whether the cache currently holds the data.
     ///
     /// Never triggers loading, so this is the cheap way to ask whether an accessor
-    /// would return instantly or start a download.
+    /// already has the value or must start a download.
     fn is_loaded(&self) -> bool {
         self.dataset().is_loaded()
     }

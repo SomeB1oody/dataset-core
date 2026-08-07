@@ -8,7 +8,7 @@
 //! 3. Parse CSV records, or extract raw documents from an archive.
 //! 4. Expose typed accessors backed by [`ndarray`].
 //!
-//! Every loader struct is also re-exported at the crate root, so
+//! The crate root also re-exports every loader struct, so
 //! [`dataset_ml::Iris`](crate::Iris) and
 //! [`dataset_ml::dataset::iris::Iris`](crate::dataset::iris::Iris) name the same
 //! type. Use whichever path reads better.
@@ -170,8 +170,8 @@ pub mod iris;
 /// multi-class classification: detecting network intrusions from 41 mixed
 /// (3 categorical + 38 numeric) connection features. `Kddcup99::new` loads the
 /// default 10% subset (494,021 samples) and `Kddcup99::new_full` the full set
-/// (4,898,431 samples). Like `covtype`, it is sourced from a gzip-compressed file
-/// and decompressed with `gunzip`.
+/// (4,898,431 samples). Like `covtype`, the loader downloads a gzip-compressed
+/// file and decompresses it with `gunzip`.
 pub mod kddcup99;
 
 /// Letter Recognition dataset module.

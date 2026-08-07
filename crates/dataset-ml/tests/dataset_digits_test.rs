@@ -23,9 +23,8 @@ fn test_load_digits() {
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
 
-    let (features, labels) = dataset.data().unwrap(); // another way to get the features and labels
+    let (features, labels) = dataset.data().unwrap(); // data() also returns the features and labels
 
-    // Semantic assertions: labels are exactly the ten digit classes 0..=9.
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels.len(),
@@ -40,7 +39,6 @@ fn test_load_digits() {
         );
     }
 
-    // Semantic assertions: every pixel is a finite integer-valued intensity in 0..=16.
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -71,7 +69,6 @@ fn test_digits_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // The first load primes the cache. The second instance then reuses it.
     Digits::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("digits.csv"), DIGITS_SHA256).unwrap(),
@@ -97,7 +94,6 @@ fn test_digits_overwrite() {
         fake_digits.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = Digits::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -113,12 +109,10 @@ fn test_digits_into_data() {
 
     let dataset = Digits::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `into_data()` consumes `dataset`. `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[1797, 64]);
     assert_eq!(labels.len(), 1797);
 
-    // Owned labels are correct: exactly the ten digit classes.
     let unique_labels: std::collections::HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels.len(),
@@ -162,7 +156,7 @@ fn test_digits_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[1797, 64]);
@@ -180,8 +174,7 @@ fn test_digits_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset. It then mutates the cached features in place, with no
-    // clone and no reload.
+    // get_data_mut() mutates the cached features in place. It needs no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 9.0;

@@ -17,20 +17,18 @@ fn test_load_titanic() {
     let (string_features, numeric_features) = dataset.features().unwrap();
     let labels = dataset.labels().unwrap();
 
-    // Accessor consistency: data() returns the same arrays as features() and labels()
     assert_eq!(string_features.shape(), &[891, 5]);
     assert_eq!(numeric_features.shape(), &[891, 6]);
     assert_eq!(labels.len(), 891);
     assert_eq!(string_features.nrows(), numeric_features.nrows());
     assert_eq!(numeric_features.nrows(), labels.len());
 
-    let (string_features, numeric_features, labels) = dataset.data().unwrap(); // data() is another way to get all data
-    // you can use `.to_owned()` to get owned copies of the data
+    let (string_features, numeric_features, labels) = dataset.data().unwrap();
     let mut string_features_owned = string_features.to_owned();
     let mut numeric_features_owned = numeric_features.to_owned();
     let mut labels_owned = labels.to_owned();
 
-    // Semantic assertions: labels must be binary, 0.0 or 1.0. NaN marks a missing value.
+    // NaN marks a missing value.
     for i in 0..labels.len() {
         let val = labels[i];
         if !val.is_nan() {
@@ -43,7 +41,6 @@ fn test_load_titanic() {
         }
     }
 
-    // Semantic assertions: numeric features must be finite or NaN (no Inf)
     for row in 0..numeric_features.nrows() {
         for col in 0..numeric_features.ncols() {
             let val = numeric_features[[row, col]];
@@ -57,8 +54,7 @@ fn test_load_titanic() {
         }
     }
 
-    // Semantic assertions: Titanic is known to have missing values. The checks below
-    // confirm at least one NaN and one empty string exist.
+    // The Titanic dataset is known to have missing values.
     let nan_count: usize = numeric_features
         .iter()
         .map(|&v| if v.is_nan() { 1 } else { 0 })
@@ -77,7 +73,6 @@ fn test_load_titanic() {
         "string features should contain at least one empty string (missing Cabin/Embarked values)"
     );
 
-    // Example: Change feature values
     string_features_owned[[0, 0]] = "test".to_string();
     numeric_features_owned[[0, 0]] = 1.0;
     labels_owned[0] = 1.0;
@@ -96,7 +91,6 @@ fn test_titanic_overwrite() {
         fake_titanic.write_all(b"fake data").unwrap();
     }
 
-    // this call replaces the fake file with the real dataset
     let dataset = Titanic::new(download_dir);
     let (_string_features, _numeric_features, _labels) = dataset.data().unwrap();
 
@@ -117,7 +111,6 @@ fn test_titanic_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // download the dataset before the test
     {
         download_to(
             "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
@@ -127,7 +120,6 @@ fn test_titanic_no_need_download() {
         .unwrap();
     }
 
-    // this call uses the cached dataset instead of downloading it again
     let dataset = Titanic::new(download_dir);
     let (_string_features, _numeric_features, _labels) = dataset.data().unwrap();
 
@@ -146,7 +138,6 @@ fn test_titanic_into_data() {
     assert_eq!(numeric_features.shape(), &[891, 6]);
     assert_eq!(labels.len(), 891);
 
-    // Owned labels are correct: binary 0.0/1.0, or NaN for missing values.
     for i in 0..labels.len() {
         let val = labels[i];
         assert!(
@@ -157,7 +148,7 @@ fn test_titanic_into_data() {
         );
     }
 
-    // Owned data can be mutated directly, with no `to_owned()` clone.
+    // The caller can mutate owned data directly, with no `to_owned()` clone.
     numeric_features[[0, 0]] = 999.0;
     assert_eq!(numeric_features[[0, 0]], 999.0);
 

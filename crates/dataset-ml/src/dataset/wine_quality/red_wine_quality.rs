@@ -73,34 +73,35 @@ const RED_WINE_QUALITY_SHA256: &str =
 /// ```no_run
 /// use dataset_ml::RedWineQuality;
 ///
-/// let download_dir = "./red_wine"; // the code creates the directory if it does not exist
+/// let download_dir = "./red_wine"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = RedWineQuality::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap(); // this also returns features and targets
+/// let (features, targets) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[1599, 11]);
 /// assert_eq!(targets.len(), 1599);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
 /// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. Prefer this method over `.to_owned()` when you only need to
-/// // change values.
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 10.0;
 ///     targets[0] = 7.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone). It leaves the
-/// // instance reusable. The next access reloads the data from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[1599, 11]);
 /// assert_eq!(owned_targets.len(), 1599);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_targets) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[1599, 11]);
 /// assert_eq!(owned_targets.len(), 1599);
@@ -118,11 +119,11 @@ impl RedWineQuality {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `RedWineQuality` instance ready for lazy loading.
+    /// - `Self` - a `RedWineQuality` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         RedWineQuality {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -131,7 +132,6 @@ impl RedWineQuality {
 
     /// Get and parse the Red Wine Quality dataset.
     fn load_data(dir: &str) -> Result<WineData, DatasetError> {
-        // Prepare the dataset file.
         let file_path = acquire_dataset(
             dir,
             RED_WINE_QUALITY_FILENAME,
@@ -143,15 +143,14 @@ impl RedWineQuality {
             },
         )?;
 
-        // Parse the file.
         let file = File::open(&file_path)?;
         parse_wine_data_to_array("red_wine_quality", file)
     }
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -172,17 +171,17 @@ impl RedWineQuality {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (1599 samples, 11 features)
+    /// - Dataset size does not match the expected dimensions (1599 samples, 11 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -192,17 +191,17 @@ impl RedWineQuality {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (1599 samples)
+    /// - Dataset size does not match the expected dimensions (1599 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -214,9 +213,9 @@ impl RedWineQuality {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (1599 samples, 11 features)
+    /// - Dataset size does not match the expected dimensions (1599 samples, 11 features)
     pub fn data(&self) -> Result<&WineData, DatasetError> {
         self.dataset.load()
     }
@@ -226,14 +225,15 @@ impl RedWineQuality {
     /// Unlike [`RedWineQuality::data`], which loads the dataset on first call,
     /// this method never runs the loader. If the data has not loaded yet, this
     /// method returns `None` instead of downloading and parsing it. Use this
-    /// method when you want the data only if it is already cached. This avoids
-    /// the download and parse cost when the data is not yet cached.
+    /// method when you want the data only if the dataset has already cached
+    /// it. This avoids the download and parse cost if the dataset has not
+    /// yet cached the data.
     ///
     /// # Returns
     ///
     /// - `Some(&WineData)` - reference to the cached `(features, targets)` tuple
     ///   (feature matrix `(1599, 11)`, target vector `(1599,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&WineData> {
         self.dataset.get()
     }
@@ -246,9 +246,9 @@ impl RedWineQuality {
     /// [`RedWineQuality::features`], [`RedWineQuality::data`], or
     /// [`RedWineQuality::get_data`] observe them.
     ///
-    /// Like [`RedWineQuality::get_data`], this method does not trigger loading. It
-    /// returns `None` if the dataset has not loaded yet. If you need the data to
-    /// be present, call a loading accessor first, for example
+    /// Like [`RedWineQuality::get_data`], this method does not trigger loading.
+    /// If the dataset has not loaded yet, it returns `None`. If you need the
+    /// data to be present, call a loading accessor first, for example
     /// [`RedWineQuality::data`].
     ///
     /// # Returns
@@ -256,7 +256,7 @@ impl RedWineQuality {
     /// - `Some(&mut WineData)` - mutable reference to the cached `(features,
     ///   targets)` tuple (feature matrix `(1599, 11)`, target vector `(1599,)`),
     ///   if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut WineData> {
         self.dataset.get_mut()
     }

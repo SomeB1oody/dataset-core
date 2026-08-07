@@ -1,8 +1,8 @@
 //! Built-in dataset implementations for machine learning.
 //!
 //! `dataset-ml` provides ready-to-use loaders for classic ML datasets, built on top
-//! of [`dataset_core::Dataset`]. Every loader lives in a module under `dataset`,
-//! and each one is a worked example that shows how to wrap `Dataset<T, E>` for one
+//! of [`dataset_core::Dataset`]. Every loader lives in a module under `dataset`.
+//! Each one is a worked example that shows how to wrap `Dataset<T, E>` for one
 //! data source. The steps are the same each time:
 //!
 //! 1. Download from a URL.
@@ -38,13 +38,13 @@
 //! assert_eq!(features.shape(), &[150, 4]);
 //! ```
 //!
-//! Every loader struct is re-exported at the crate root, so `dataset_ml::Iris` and
+//! The crate root re-exports every loader struct, so `dataset_ml::Iris` and
 //! `dataset_ml::dataset::iris::Iris` name the same type. Use whichever path reads
 //! better.
 //!
-//! All loaders are lazy: the first call downloads and parses the file, every
-//! subsequent call returns a cached reference. See the individual module docs
-//! for features, target, sample count, and source.
+//! All loaders are lazy. The first call downloads and parses the file. Every
+//! later call returns a cached reference. See the individual module docs for
+//! features, target, sample count, and source.
 //!
 //! # Beyond the loaders
 //!
@@ -77,18 +77,18 @@
 //! assert_eq!(iris.n_samples().unwrap(), 150); // from the `MlDataset` trait
 //! ```
 
-/// How many extra download attempts every loader in this crate makes before it
+/// How many extra download tries every loader in this crate makes before it
 /// stops retrying.
 ///
 /// The datasets are hosted on university archives and personal pages that
 /// intermittently time out or reset a connection. A run that fails for that
 /// reason is not a bug in the data. Every loader therefore fetches through
-/// [`download_to_with_retries`](dataset_core::download_to_with_retries) with this
-/// many retries, waiting 500 ms then 1 s between attempts. A single blip does
-/// not surface as a `DownloadError`.
+/// [`download_to_with_retries`](dataset_core::download_to_with_retries) with
+/// this many retries. It waits 500 ms, then 1 s, between tries. A single blip
+/// does not surface as a `DownloadError`.
 ///
-/// The loader returns errors that retrying cannot fix right away, and a
-/// genuinely unreachable host costs at most 1.5 s of waiting before it fails.
+/// The loader returns errors that retrying cannot fix right away. A genuinely
+/// unreachable host costs at most 1.5 s of waiting before it fails.
 #[cfg(feature = "dataset")]
 pub const DOWNLOAD_RETRIES: u32 = 2;
 

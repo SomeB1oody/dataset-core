@@ -42,7 +42,8 @@ use std::fs::File;
 const DIGITS_DATA_URL: &str =
     "https://archive.ics.uci.edu/static/public/80/optical+recognition+of+handwritten+digits.zip";
 
-/// The name the downloaded ZIP archive is saved under inside the temp directory.
+/// The loader saves the downloaded ZIP archive under this name inside the temp
+/// directory.
 const DIGITS_ZIP_FILENAME: &str = "optdigits.zip";
 
 /// The name of the file inside the archive that scikit-learn's `load_digits` uses
@@ -67,16 +68,17 @@ const N_COLUMNS: usize = N_FEATURES + 1;
 /// Type alias for the Digits dataset: (features, labels).
 type DigitsData = (Array2<f64>, Array1<u8>);
 
-/// This struct represents the Digits dataset and loads data lazily.
+/// A struct that represents the Digits dataset with lazy loading.
 ///
-/// You do not load the dataset until you call one of the data accessor
-/// methods. After that, the dataset caches the data for later calls.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
 /// The Optical Recognition of Handwritten Digits dataset contains 8×8 grayscale
-/// images of handwritten digits. Each image is flattened into 64 pixel intensities
-/// in the range `0..=16`, and the target is the digit (`0`–`9`) the image depicts.
+/// images of handwritten digits. The source flattens each image into 64 pixel
+/// intensities in the range `0..=16`. The target is the digit (`0`–`9`) that the
+/// image shows.
 ///
 /// This is the same data scikit-learn exposes through `load_digits`: it uses the
 /// test partition (`optdigits.tes`) of the UCI archive, with 1797 samples.
@@ -113,42 +115,43 @@ type DigitsData = (Array2<f64>, Array1<u8>);
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because every field
-/// does. This makes it safe to share across threads. The internal [`Dataset`]
-/// keeps lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Digits;
 ///
-/// let download_dir = "./digits"; // the code creates the directory if it does not exist
+/// let download_dir = "./digits"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Digits::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[1797, 64]);
 /// assert_eq!(labels.len(), 1797);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place: no clone, no reload, and the change stays cached.
-/// // Prefer this over cloning with `.to_owned()` when you only need to tweak
-/// // values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 5.0;
 ///     labels[0] = 7;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable. The next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[1797, 64]);
 /// assert_eq!(owned_labels.len(), 1797);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[1797, 64]);
 /// assert_eq!(owned_labels.len(), 1797);
@@ -162,15 +165,15 @@ impl Digits {
     /// Create a new Digits instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
-    /// This function only stores the storage directory.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Digits` instance ready for lazy loading.
+    /// - `Self` - a `Digits` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Digits {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -262,8 +265,8 @@ impl Digits {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -277,19 +280,19 @@ impl Digits {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (1797 samples, 64 features)
+    /// - Dataset size does not match the expected dimensions (1797 samples, 64 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<u8>` - Reference to labels vector with shape `(1797,)` containing the digit classes (`0`–`9`).
+    /// - `&Array1<u8>` - Reference to label vector with shape `(1797,)` containing the digit classes (`0`–`9`).
     ///
     /// # Errors
     ///
@@ -297,15 +300,15 @@ impl Digits {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (1797 samples)
+    /// - Dataset size does not match the expected dimensions (1797 samples)
     pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -319,7 +322,7 @@ impl Digits {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (1797 samples, 64 features)
+    /// - Dataset size does not match the expected dimensions (1797 samples, 64 features)
     pub fn data(&self) -> Result<&DigitsData, DatasetError> {
         self.dataset.load()
     }
@@ -327,36 +330,37 @@ impl Digits {
     /// Get both features and labels as references **without** triggering loading.
     ///
     /// Unlike [`Digits::data`], which loads the dataset on first call, this never
-    /// runs the loader. If the data has not been loaded yet, it returns `None`
-    /// instead of downloading and parsing. If the data is already cached and you
-    /// want to avoid the download and parse cost, use this method.
+    /// runs the loader. If the data has not loaded yet, it returns `None` instead
+    /// of downloading and parsing. If the data is already cached and you want to
+    /// avoid the download and parse cost, use this method.
     ///
     /// # Returns
     ///
     /// - `Some(&DigitsData)` - reference to the cached `(features, labels)` tuple
     ///   (feature matrix `(1797, 64)`, label vector `(1797,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&DigitsData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize features,
-    /// replace label values), with no `to_owned()` clone. The cache keeps the
-    /// change: it does not remove the arrays. Later calls to [`Digits::features`],
-    /// [`Digits::data`], or [`Digits::get_data`] observe the change.
+    /// This lets you change the cached arrays directly (for example, normalize
+    /// features, replace label values), with no `to_owned()` clone. The cache
+    /// keeps the change: it does not remove the arrays. Later calls to
+    /// [`Digits::features`], [`Digits::data`], or [`Digits::get_data`] observe the
+    /// change.
     ///
     /// Like [`Digits::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. If you need to make sure the data
-    /// is present, call a loading accessor first (e.g. [`Digits::data`]).
+    /// `None` if the dataset has not loaded. If you need to make sure the data is
+    /// present, call a loading accessor first (for example, [`Digits::data`]).
     ///
     /// # Returns
     ///
     /// - `Some(&mut DigitsData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(1797, 64)`, label vector
     ///   `(1797,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut DigitsData> {
         self.dataset.get_mut()
     }
@@ -365,7 +369,7 @@ impl Digits {
     ///
     /// Unlike [`Digits::data`], which borrows the cached data, this moves it out
     /// and returns owned arrays directly. It needs no `to_owned()` clone. If the
-    /// dataset is not loaded yet, this call loads it.
+    /// dataset has not loaded yet, this call loads it.
     ///
     /// This consumes `self`, so you cannot use the instance afterward. If you want
     /// owned data but need to keep using the instance, use [`Digits::take_data`]
@@ -388,13 +392,14 @@ impl Digits {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`Digits::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. Unlike that method, it takes `&mut self` instead of consuming the
     /// instance. It moves the cached data out and resets the instance to its
-    /// unloaded state. The next accessor call (e.g. [`Digits::features`] or
-    /// [`Digits::data`]) loads the dataset again.
+    /// unloaded state. The next accessor call (for example, [`Digits::features`]
+    /// or [`Digits::data`]) loads the dataset again.
     ///
     /// If you are done with the instance, use [`Digits::into_data`] instead.
     ///

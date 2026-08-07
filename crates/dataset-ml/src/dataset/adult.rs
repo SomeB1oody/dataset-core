@@ -1,10 +1,11 @@
 //! Adult / Census Income dataset.
 //!
-//! Census records from the 1994 US Census database, extracted by Barry Becker.
-//! The task is to predict if a person's income is over $50K a year. This loader
-//! uses the canonical `adult.data` training partition: 32,561 records. The
-//! separate `adult.test` partition is not bundled. It has a non-data header
-//! line and trailing periods on its labels.
+//! Barry Becker extracted these census records from the 1994 US Census
+//! database. The task is to predict if a person's income is over $50K a
+//! year. This loader uses the canonical `adult.data` training partition:
+//! 32,561 records. This loader does not bundle the separate `adult.test`
+//! partition. That partition has a non-data header line and trailing
+//! periods on its labels.
 //!
 //! **Features (14, mixed):**
 //! - String features (8): `workclass`, `education`, `marital-status`,
@@ -83,10 +84,11 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// The token marking a missing categorical value in the source.
 const MISSING_TOKEN: &str = "?";
 
-/// A struct representing the Adult / Census Income dataset with lazy loading.
+/// A struct that represents the Adult / Census Income dataset with lazy
+/// loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the dataset caches the data for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the
+/// first load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -131,8 +133,8 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// Missing values:
 /// - The source marks missing categorical values with `?` (in `workclass`,
-///   `occupation`, and `native-country`). These values are mapped to empty
-///   strings `""`.
+///   `occupation`, and `native-country`). The loader maps these values to
+///   empty strings `""`.
 /// - The numeric features have no missing values.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/2/adult>.
@@ -144,15 +146,15 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because all its fields
-/// implement them. This makes it safe to share across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Adult;
 ///
-/// // the loader creates this directory if it does not exist yet
+/// // the loader creates the directory if it does not exist
 /// let download_dir = "./adult";
 ///
 /// let mut dataset = Adult::new(download_dir);
@@ -166,16 +168,16 @@ const MISSING_TOKEN: &str = "?";
 /// assert_eq!(labels.len(), 32561);
 ///
 /// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits them in place. This needs no clone and no reload, and the change
-/// // stays in the cache. Prefer this method over `.to_owned()` when you only
-/// // need to change values.
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
 ///     numerics[[0, 0]] = 99.0;
 ///     labels[0] = ">50K".to_string();
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out, with no `to_owned()` clone, and
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
 /// // leaves the instance reusable. The next access reloads the data from the
 /// // cached file.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
@@ -183,8 +185,8 @@ const MISSING_TOKEN: &str = "?";
 /// assert_eq!(owned_numerics.shape(), &[32561, 6]);
 /// assert_eq!(owned_labels.len(), 32561);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_strings.shape(), &[32561, 8]);
 /// assert_eq!(owned_numerics.shape(), &[32561, 6]);
@@ -198,16 +200,16 @@ pub struct Adult {
 impl Adult {
     /// Create a new Adult instance without loading data.
     ///
-    /// The dataset loads lazily, on the first call to a data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Adult` instance ready for lazy loading.
+    /// - `Self` - an `Adult` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Adult {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -264,7 +266,7 @@ impl Adult {
                 ));
             }
 
-            // Categorical features, mapping the `?` missing token to an empty string.
+            // Categorical features. Maps the `?` missing token to an empty string.
             for &(col, _name) in STRING_COLUMNS.iter() {
                 let value = &record[col];
                 if value == MISSING_TOKEN {
@@ -317,8 +319,8 @@ impl Adult {
 
     /// Get a reference to both string and numeric feature matrices.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -348,7 +350,7 @@ impl Adult {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (32,561 samples)
+    /// - Dataset size does not match the expected dimensions (32,561 samples)
     pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
         let data = self.dataset.load()?;
         Ok((&data.0, &data.1))
@@ -356,8 +358,8 @@ impl Adult {
 
     /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -369,15 +371,15 @@ impl Adult {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (32,561 samples)
+    /// - Dataset size does not match the expected dimensions (32,561 samples)
     pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.2)
     }
 
     /// Get string features, numeric features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -391,7 +393,7 @@ impl Adult {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (32,561 samples)
+    /// - Dataset size does not match the expected dimensions (32,561 samples)
     pub fn data(&self) -> Result<&AdultData, DatasetError> {
         self.dataset.load()
     }
@@ -408,7 +410,7 @@ impl Adult {
     ///
     /// - `Some(&AdultData)` - reference to the cached `(string features, numeric
     ///   features, labels)` tuple (`(32561, 8)`, `(32561, 6)`, `(32561,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&AdultData> {
         self.dataset.get()
     }
@@ -423,7 +425,7 @@ impl Adult {
     /// [`Adult::data`], or [`Adult::get_data`] see the changes.
     ///
     /// Like [`Adult::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not been loaded yet. If you need the data to be
+    /// `None` if the dataset has not loaded yet. If you need the data to be
     /// present, call a loading accessor first, for example [`Adult::data`].
     ///
     /// # Returns
@@ -431,7 +433,7 @@ impl Adult {
     /// - `Some(&mut AdultData)` - mutable reference to the cached `(string
     ///   features, numeric features, labels)` tuple (`(32561, 8)`, `(32561, 6)`,
     ///   `(32561,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut AdultData> {
         self.dataset.get_mut()
     }
@@ -467,7 +469,7 @@ impl Adult {
     }
 
     /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset, leaving it reusable.
+    /// dataset. This leaves the instance reusable.
     ///
     /// Like [`Adult::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. Instead of consuming the instance, it takes `&mut self` and moves the

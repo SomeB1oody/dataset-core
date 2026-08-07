@@ -27,7 +27,6 @@ fn test_load_covtype() {
     assert_eq!(features.shape(), &[581012, 54]);
     assert_eq!(labels.len(), 581012);
 
-    // Semantic assertions: labels are exactly the seven cover-type classes 1..=7.
     let unique_labels: HashSet<_> = labels.iter().copied().collect();
     assert_eq!(
         unique_labels,
@@ -35,8 +34,6 @@ fn test_load_covtype() {
         "Covtype should have exactly the seven cover-type classes 1..=7"
     );
 
-    // Semantic assertions on a strided sample of rows: every feature is finite, the
-    // 4 Wilderness_Area and 40 Soil_Type columns are binary and one-hot.
     for row in (0..features.nrows()).step_by(ROW_STRIDE) {
         for col in 0..features.ncols() {
             assert!(
@@ -62,7 +59,6 @@ fn test_load_covtype() {
             "row {} Soil_Type block must be one-hot (sum == 1)",
             row
         );
-        // Every one-hot column value is exactly 0 or 1.
         for col in 10..54 {
             let v = features[[row, col]];
             assert!(
@@ -92,7 +88,6 @@ fn test_covtype_no_need_download() {
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // The first load primes the cache. The second instance then reuses it.
     Covtype::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("covtype.csv"), COVTYPE_SHA256).unwrap(),
@@ -118,7 +113,6 @@ fn test_covtype_overwrite() {
         fake_covtype.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = Covtype::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -134,7 +128,6 @@ fn test_covtype_into_data() {
 
     let dataset = Covtype::new(download_dir);
     let (mut features, labels) = dataset.into_data().unwrap();
-    // `into_data()` consumes `dataset`. `features` and `labels` are fully owned.
 
     assert_eq!(features.shape(), &[581012, 54]);
     assert_eq!(labels.len(), 581012);
@@ -159,7 +152,7 @@ fn test_covtype_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[581012, 54]);

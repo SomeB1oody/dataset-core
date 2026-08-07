@@ -77,14 +77,16 @@ pub fn download_to(
 
 /// Download a remote file into the given directory. It retries transient failures.
 ///
-/// This function wraps [`download_to`] for the unreliable hosts where many public datasets live.
-/// If the download fails, it retries up to `retries` more times. Each attempt waits twice as
-/// long as the last (500 ms, then 1 s, 2 s, and so on). When the caller sets `retries` to `0`,
-/// this function behaves exactly like [`download_to`].
+/// This function wraps [`download_to`] for the unreliable hosts where many
+/// public datasets live. If the download fails, it retries up to `retries` more
+/// times. Each try waits twice as long as the last (500 ms, then 1 s, 2 s, and
+/// so on). When the caller sets `retries` to `0`, this function behaves exactly
+/// like [`download_to`].
 ///
-/// A retry cannot fix two kinds of failure: a filename the function cannot derive from the URL,
-/// and a local file the function cannot create. The function returns either failure right away,
-/// without a retry. Once every attempt fails, it returns the last download error.
+/// A retry cannot fix two kinds of failure: a filename the function cannot
+/// derive from the URL, and a local file the function cannot create. The
+/// function returns either failure right away, without a retry. Once every try
+/// fails, it returns the last download error.
 ///
 /// # Parameters
 ///
@@ -92,11 +94,11 @@ pub fn download_to(
 /// - `storage_path` - The directory to store the downloaded file in.
 /// - `filename` - Optional custom filename (with extension). If `None`, the filename comes from
 ///   the last segment of the URL.
-/// - `retries` - How many **additional** attempts to make after the first one fails.
+/// - `retries` - How many **additional** tries to make after the first one fails.
 ///
 /// # Errors
 ///
-/// - `DatasetError` - Returned when every attempt fails (it returns the last error), or right
+/// - `DatasetError` - Returned when every try fails (it returns the last error), or right
 ///   away for an error a retry cannot fix.
 ///
 /// # Example
@@ -267,7 +269,8 @@ pub fn gunzip(file_path: &Path, output_path: &Path) -> Result<(), DatasetError> 
 /// # Errors
 ///
 /// - `DatasetError::IoError` - Returned when opening the archive fails or when
-///   extraction fails (a malformed archive, or an entry that cannot be written).
+///   extraction fails: the archive is malformed, or the function cannot write
+///   an entry.
 ///
 /// # Example
 /// ```no_run
@@ -345,10 +348,10 @@ fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError>
 /// This function streams the file in 8 KiB chunks, so hashing a multi-gigabyte dataset costs
 /// no more memory than hashing a small one.
 ///
-/// This is the helper to reach for when **pinning** a hash. Run it once against a freshly
-/// downloaded file. Paste the result into the `expected_sha256` value that you pass to
-/// [`acquire_dataset`]. To check a file against a hash you already have, use [`verify_sha256`]
-/// instead of comparing strings yourself.
+/// Use this function to **pin** a hash. Run it once against a freshly downloaded
+/// file. Paste the result into the `expected_sha256` value that you pass to
+/// [`acquire_dataset`]. To check a file against a hash you already have, use
+/// [`verify_sha256`] instead of comparing strings yourself.
 ///
 /// # Parameters
 ///
@@ -360,7 +363,7 @@ fn create_temp_dir(tempdir_in: &Path) -> Result<tempfile::TempDir, DatasetError>
 ///
 /// # Errors
 ///
-/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+/// - `DatasetError::IoError` - Returned when the function cannot open or read the file.
 ///
 /// # Example
 /// ```no_run
@@ -412,7 +415,7 @@ pub fn sha256_file(path: &Path) -> Result<String, DatasetError> {
 ///
 /// # Errors
 ///
-/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+/// - `DatasetError::IoError` - Returned when the function cannot open or read the file.
 ///
 /// # Example
 /// ```no_run
@@ -448,7 +451,7 @@ pub fn verify_sha256(path: &Path, expected_hex: &str) -> Result<bool, DatasetErr
 ///
 /// # Errors
 ///
-/// - `DatasetError::IoError` - Returned when the file cannot be opened or read.
+/// - `DatasetError::IoError` - Returned when the function cannot open or read the file.
 ///
 /// # Example
 /// ```no_run
@@ -468,12 +471,12 @@ pub fn read_latin1(path: &Path) -> Result<String, DatasetError> {
 
 /// State of the destination file for the dataset to cache.
 enum CacheState {
-    /// Destination file exists, and its hash matches (if a hash was given). The code reuses
-    /// it without changes.
+    /// Destination file exists, and its hash matches if the caller gave one. The code
+    /// reuses the file without changes.
     Fresh,
-    /// Destination exists, but its hash does not match. The code must replace it.
+    /// Destination file exists, but its hash does not match. The code must replace it.
     Stale,
-    /// Destination does not exist. The code must prepare a new file.
+    /// Destination file does not exist. The code must prepare a new file.
     Missing,
 }
 
@@ -503,7 +506,7 @@ fn inspect_cache(
 ///
 /// This is the single entry point for getting a dataset, and the recommended way to populate a
 /// storage directory. It checks whether it can reuse the destination file, and creates a
-/// temporary directory when a new file is needed. It then delegates file preparation to a
+/// temporary directory when it needs a new file. It then delegates file preparation to a
 /// closure that the caller provides. It optionally validates the prepared file with SHA256, and
 /// atomically moves it to the final destination.
 ///
@@ -612,8 +615,8 @@ where
         return Ok(dst);
     }
 
-    // Prepare the new file inside a temp dir. The temp dir cleans up on drop,
-    // including when the code returns early below.
+    // The temporary directory cleans up on drop, including when the code
+    // returns early below.
     let temp_dir = create_temp_dir(dir_path)?;
     let src = prepare_file(temp_dir.path())?;
 

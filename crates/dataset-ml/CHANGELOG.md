@@ -1,12 +1,12 @@
 # Changelog for `dataset-ml`
 
-All notable changes to the `dataset-ml` crate will be documented in this file.
+This file documents all notable changes to the `dataset-ml` crate.
 
-This crate provides ready-to-use loaders for 29 classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
+This crate provides loaders for 29 classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
 
-Please view [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more information.
+See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more information.
 
-Entries are grouped by release and list only each version's notable changes. Routine dependency bumps, doc-only tweaks, and minor internal refactors are omitted. New loaders are summarized to their essentials. The crate also re-exports every loader struct at the crate root (for example, `dataset_ml::Iris`).
+This changelog groups entries by release and lists only each version's notable changes. It omits routine dependency bumps, doc-only tweaks, and minor internal refactors. It summarizes new loaders to their essentials. The crate also re-exports every loader struct at the crate root (for example, `dataset_ml::Iris`).
 
 ## [Unreleased]
 ### Added
@@ -27,18 +27,18 @@ Entries are grouped by release and list only each version's notable changes. Rou
 ## [0.4.0] - 2026-08-02
 ### Added
 - `traits::MlDataset` (re-exported as `dataset_ml::MlDataset`): every loader now implements this trait, the first uniform surface over "some dataset". It adds container operations (`invalidate`, `is_loaded`, `storage_dir`, `n_samples`) and the data accessors `load`, `load_mut`, `peek`, and `unload`. These accessor names deliberately avoid shadowing a loader's inherent `data` / `get_data` / … methods. A companion `NumSamples` trait (blanket-implemented for the loaders' array pairs and triples) backs `n_samples`.
-- `preprocessing` module: helpers that turn loader output into model input, with **no new dependencies** (shuffling uses a built-in seeded SplitMix64 generator for reproducible splits across platforms): `train_test_split`, `stratified_split`, `k_fold_indices`, `shuffled_indices`, `standardize` / `min_max_scale` / `apply_scaler` (plus the `Scaler` they fit), `one_hot_encode`, `label_encode`, and `class_counts`. Splits return row indices, keeping parallel arrays aligned. Scalers compute statistics over finite values only, so `NaN` missing-value markers stay untouched.
+- `preprocessing` module: helpers that turn loader output into model input, with **no new dependencies**. The shuffle uses a built-in seeded SplitMix64 generator, so splits reproduce across platforms. The module adds `train_test_split`, `stratified_split`, `k_fold_indices`, `shuffled_indices`, `standardize` / `min_max_scale` / `apply_scaler` (plus the `Scaler` they fit), `one_hot_encode`, `label_encode`, and `class_counts`. Splits return row indices. This keeps parallel arrays aligned. Scalers compute statistics over finite values only, so `NaN` missing-value markers stay untouched.
 - **Spambase** (UCI, 1999): 4,601 emails (2,788 ham / 1,813 spam), 57 numeric features, `"ham"`/`"spam"` label. It is the feature-engineered counterpart to the raw-text spam corpora. ZIP source.
 - **Letter Recognition** (UCI, 1991): 20,000 samples, 16 integer features, the 26 capital letters as an `Array1<char>` label (the crate's widest classification by class count). ZIP source.
 - **Banknote Authentication** (UCI, 2012): 1,372 samples, 4 continuous features, raw `0`/`1` target. It is the most compact pure-numeric benchmark. ZIP source.
-- `DOWNLOAD_RETRIES`: the crate's shared download-retry policy (2 extra attempts), exposed as a public constant.
+- `DOWNLOAD_RETRIES`: the crate's shared download-retry policy (2 extra tries), exposed as a public constant.
 
 ### Changed
-- Every loader now downloads through `dataset-core`'s `download_to_with_retries` with `DOWNLOAD_RETRIES` extra attempts, so a transient timeout on a university archive no longer fails a run.
+- Every loader now downloads through `dataset-core`'s `download_to_with_retries` with `DOWNLOAD_RETRIES` extra tries, so a transient timeout on a university archive no longer fails a run.
 - `wine_quality::WineData` is now `pub` (was `pub(crate)`), so the wine loaders can name it as their `MlDataset::Data`. The type itself is unchanged.
 
 ### Testing
-- Added `tests/preprocessing_test.rs` (27 tests, network-free) and `tests/traits_test.rs` (6 tests). `tests/common` now uses `dataset-core`'s `verify_sha256` instead of reimplementing SHA-256, dropping the `sha2` dev-dependency.
+- Added `tests/preprocessing_test.rs` (27 tests, network-free) and `tests/traits_test.rs` (6 tests). `tests/common` now uses `dataset-core`'s `verify_sha256` instead of reimplementing SHA-256. This drops the `sha2` dev-dependency.
 
 ## [0.3.0] - 2026-07-12
 ### Added
@@ -63,7 +63,7 @@ Entries are grouped by release and list only each version's notable changes. Rou
 - **Abalone** (UCI, 1994): 4,177 samples, 8 mixed features, regression target `rings`. First mixed-type regression loader.
 
 ### Changed
-- **Breaking:** `diabetes::Diabetes` now loads scikit-learn's `load_diabetes` (442 samples × 10 standardized features, **regression**) instead of the Pima Indians Diabetes dataset (768 × 8, classification). Its label accessor is renamed `labels()` → `targets()`.
+- **Breaking:** `diabetes::Diabetes` now loads scikit-learn's `load_diabetes` (442 samples × 10 standardized features, **regression**) instead of the Pima Indians Diabetes dataset (768 × 8, classification). This change renames its label accessor from `labels()` to `targets()`.
 
 ## [0.2.0] - 2026-06-05
 ### Added
@@ -94,8 +94,8 @@ Entries are grouped by release and list only each version's notable changes. Rou
 | `dataset_core::datasets::wine_quality::red_wine_quality::RedWineQuality` | `dataset_ml::wine_quality::red_wine_quality::RedWineQuality` |
 | `dataset_core::datasets::wine_quality::white_wine_quality::WhiteWineQuality` | `dataset_ml::wine_quality::white_wine_quality::WhiteWineQuality` |
 
-## History prior to the split
-These loaders were developed inside `dataset-core` 0.1.x before this crate existed. The milestones below are summarized rather than listed day-by-day:
+## History before the split
+The project developed these loaders inside `dataset-core` 0.1.x before this crate existed. This section summarizes the milestones instead of listing them day-by-day:
 - Scaffolded the starter datasets: Iris, Diabetes, Boston Housing, Titanic, and Wine Quality.
 - Replaced the hardcoded/bundled data with dynamic download and SHA-256 validation.
 - Refactored every loader to lazy loading and caching on the `Dataset` container.

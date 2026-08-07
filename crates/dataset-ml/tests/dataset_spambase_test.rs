@@ -28,8 +28,6 @@ fn assert_spambase_semantics(
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Labels are one of the two mapped names, and both classes are present with
-    // the documented counts.
     let mut n_spam = 0usize;
     let mut n_ham = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -67,8 +65,6 @@ fn assert_spambase_semantics(
 }
 
 #[test]
-// Verifies that the Spambase dataset loads with the correct shape, label values,
-// and non-negative feature domain.
 fn test_load_spambase() {
     let download_dir = "./test_load_spambase"; // if the directory does not exist, the code creates it
 
@@ -82,14 +78,13 @@ fn test_load_spambase() {
 }
 
 #[test]
-// Verifies that Spambase loading reuses an existing cached file instead of downloading it again.
 fn test_spambase_no_need_download() {
     let download_dir = "./test_spambase_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    // Load once to prime the cache. This downloads and extracts the ZIP archive.
-    // Then confirm that a second instance reuses the extracted file.
+    // The first load downloads and extracts the ZIP archive. This primes the cache.
+    // The second instance then reuses the extracted file.
     Spambase::new(download_dir).data().unwrap();
     assert!(
         file_sha256_matches(&download_dir_path.join("spambase.csv"), SPAMBASE_SHA256).unwrap(),
@@ -103,7 +98,6 @@ fn test_spambase_no_need_download() {
 }
 
 #[test]
-// Verifies that the loader detects a corrupt or fake Spambase data file and overwrites it with the real dataset.
 fn test_spambase_overwrite() {
     let download_dir = "./test_spambase_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -114,7 +108,6 @@ fn test_spambase_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // this call overwrites the fake Spambase dataset with the real data
     let dataset = Spambase::new(download_dir);
     let (_features, _labels) = dataset.data().unwrap();
 
@@ -124,7 +117,6 @@ fn test_spambase_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels and consumes the dataset.
 fn test_spambase_into_data() {
     let download_dir = "./test_spambase_into_data";
 
@@ -135,7 +127,6 @@ fn test_spambase_into_data() {
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Owned labels are correct: one of the two known classes.
     for (i, &label) in labels.iter().enumerate() {
         assert!(
             label == "ham" || label == "spam",
@@ -153,7 +144,6 @@ fn test_spambase_into_data() {
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_spambase_take_data() {
     let download_dir = "./test_spambase_take_data";
 
@@ -173,7 +163,6 @@ fn test_spambase_take_data() {
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_spambase_get_data() {
     let download_dir = "./test_spambase_get_data";
 
@@ -181,7 +170,7 @@ fn test_spambase_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // Trigger loading. get_data() then returns the cached references.
+    // After loading, get_data() returns the cached references.
     dataset.data().unwrap();
     let (features, labels) = dataset.get_data().unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 57]);
@@ -191,7 +180,6 @@ fn test_spambase_get_data() {
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_spambase_get_data_mut() {
     let download_dir = "./test_spambase_get_data_mut";
 
@@ -199,7 +187,7 @@ fn test_spambase_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Load the data. Then mutate the cached features in place, with no clone or reload.
+    // get_data_mut() mutates the cached features in place, with no clone or reload.
     dataset.data().unwrap();
     if let Some((features, _labels)) = dataset.get_data_mut() {
         features[[0, 0]] = 0.25;

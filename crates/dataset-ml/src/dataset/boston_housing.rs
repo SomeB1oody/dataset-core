@@ -55,9 +55,9 @@ type BostonHousingData = (Array2<f64>, Array1<f64>);
 /// One CSV record of the Boston Housing dataset: 13 `f64` feature columns
 /// followed by the `medv` target.
 ///
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the loader disables csv's header handling), so this struct is independent
-/// of the exact header spelling.
+/// The struct declares its fields in CSV column order. The loader disables
+/// csv's header handling, so csv deserializes the fields **positionally**.
+/// This design makes the struct independent of the exact header spelling.
 #[derive(Deserialize)]
 struct BostonHousingRecord {
     crim: f64,
@@ -76,15 +76,15 @@ struct BostonHousingRecord {
     medv: f64,
 }
 
-/// This struct represents the Boston Housing dataset and loads data lazily.
+/// A struct that represents the Boston Housing dataset with lazy loading.
 ///
-/// You do not load the dataset until you call one of the data accessor
-/// methods. After that, the dataset caches the data for later calls.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
 /// The U.S. Census Service collected the information behind the Boston Housing
-/// Dataset. It describes housing in the Boston, MA area.
+/// dataset. It describes housing in the Boston, MA area.
 ///
 /// # Feature columns
 ///
@@ -119,42 +119,43 @@ struct BostonHousingRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because every field
-/// does. This makes it safe to share across threads. The internal [`Dataset`]
-/// keeps lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::BostonHousing;
 ///
-/// let download_dir = "./boston_housing"; // the code creates the directory if it does not exist
+/// let download_dir = "./boston_housing"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = BostonHousing::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+/// let (features, targets) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[506, 13]);
 /// assert_eq!(targets.len(), 506);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place: no clone, no reload, and the change stays cached.
-/// // Prefer this over cloning with `.to_owned()` when you only need to tweak
-/// // values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.1;
 ///     targets[0] = 25.5;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable. The next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[506, 13]);
 /// assert_eq!(owned_targets.len(), 506);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_targets) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[506, 13]);
 /// assert_eq!(owned_targets.len(), 506);
@@ -168,15 +169,15 @@ impl BostonHousing {
     /// Create a new BostonHousing instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
-    /// This function only stores the storage directory.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset will be stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `BostonHousing` instance ready for lazy loading.
+    /// - `Self` - a `BostonHousing` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         BostonHousing {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -185,7 +186,6 @@ impl BostonHousing {
 
     /// Get and parse the Boston Housing dataset.
     fn load_data(dir: &str) -> Result<BostonHousingData, DatasetError> {
-        // Prepare the dataset file.
         let file_path = acquire_dataset(
             dir,
             BOSTON_HOUSING_FILENAME,
@@ -249,8 +249,8 @@ impl BostonHousing {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -273,17 +273,17 @@ impl BostonHousing {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (506 samples, 13 features)
+    /// - Dataset size does not match the expected dimensions (506 samples, 13 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -293,32 +293,32 @@ impl BostonHousing {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (506 samples)
+    /// - Dataset size does not match the expected dimensions (506 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
     /// - `&BostonHousingData` - reference to the cached `(features, targets)`
-    ///   tuple: feature matrix with shape `(506, 13)` (CRIM, ZN, INDUS, CHAS, NOX,
-    ///   RM, AGE, DIS, RAD, TAX, PTRATIO, B, LSTAT) and target vector with shape
-    ///   `(506,)` (MEDV, median home value in $1000's).
+    ///   tuple. The feature matrix has shape `(506, 13)` (CRIM, ZN, INDUS, CHAS,
+    ///   NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, B, LSTAT). The target vector has
+    ///   shape `(506,)` (MEDV, median home value in $1000's).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (506 samples, 13 features)
+    /// - Dataset size does not match the expected dimensions (506 samples, 13 features)
     pub fn data(&self) -> Result<&BostonHousingData, DatasetError> {
         self.dataset.load()
     }
@@ -326,7 +326,7 @@ impl BostonHousing {
     /// Get both features and targets as references **without** triggering loading.
     ///
     /// Unlike [`BostonHousing::data`], which loads the dataset on first call, this
-    /// never runs the loader. If the data has not been loaded yet, it returns
+    /// never runs the loader. If the data has not loaded yet, it returns
     /// `None` instead of downloading and parsing. If the data is already cached
     /// and you want to avoid the download and parse cost, use this method.
     ///
@@ -334,7 +334,7 @@ impl BostonHousing {
     ///
     /// - `Some(&BostonHousingData)` - reference to the cached `(features, targets)`
     ///   tuple (feature matrix `(506, 13)`, target vector `(506,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&BostonHousingData> {
         self.dataset.get()
     }
@@ -356,7 +356,7 @@ impl BostonHousing {
     /// - `Some(&mut BostonHousingData)` - mutable reference to the cached
     ///   `(features, targets)` tuple (feature matrix `(506, 13)`, target vector
     ///   `(506,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut BostonHousingData> {
         self.dataset.get_mut()
     }
@@ -365,7 +365,7 @@ impl BostonHousing {
     ///
     /// Unlike [`BostonHousing::data`], which borrows the cached data, this moves it
     /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset is not loaded yet, this call loads it.
+    /// the dataset has not loaded yet, this call loads it.
     ///
     /// This consumes `self`, so you cannot use the instance afterward. If you want
     /// owned data but need to keep using the instance, use
@@ -389,7 +389,8 @@ impl BostonHousing {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset, leaving it reusable.
+    /// Take **owned** features and targets out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`BostonHousing::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Unlike that method, it takes `&mut self` instead of

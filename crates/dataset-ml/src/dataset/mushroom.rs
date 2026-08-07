@@ -87,17 +87,17 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 /// The token marking a missing categorical value in the source (only in `stalk-root`).
 const MISSING_TOKEN: &str = "?";
 
-/// This struct represents the Mushroom dataset and loads it lazily.
+/// A struct that represents the Mushroom dataset with lazy loading.
 ///
-/// Nothing loads until you call a data accessor method. After loading, the
-/// data stays cached for later accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
 /// The Mushroom dataset describes hypothetical samples that correspond to 23
 /// species of gilled mushrooms in the Agaricus and Lepiota family. The records
 /// come from *The Audubon Society Field Guide to North American Mushrooms*
-/// (1981). Each species is labeled edible or poisonous. The poisonous label
+/// (1981). The guide labels each species edible or poisonous. The poisonous label
 /// also covers species of unknown edibility and species not recommended for
 /// eating. The classification task is to predict edibility from 22 categorical
 /// attributes. No simple rule determines the edibility of a mushroom, and this
@@ -152,42 +152,43 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Thread Safety
 ///
-/// Every field implements `Send` and `Sync`, so this struct implements them too. It is safe
-/// to share across threads.
-/// The internal [`Dataset`] makes initialization thread-safe and lazy.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Mushroom;
 ///
-/// let download_dir = "./mushroom"; // creates the directory if it is missing
+/// let download_dir = "./mushroom"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Mushroom::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get all data
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[8124, 22]);
 /// assert_eq!(labels.len(), 8124);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place. It needs no clone and no reload, and the change
-/// // stays cached. Prefer this method over cloning with `.to_owned()` when
-/// // you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = "x".to_string();
 ///     labels[0] = "e".to_string();
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone) and leaves
-/// // the instance reusable. The next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[8124, 22]);
 /// assert_eq!(owned_labels.len(), 8124);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[8124, 22]);
 /// assert_eq!(owned_labels.len(), 8124);
@@ -200,17 +201,16 @@ pub struct Mushroom {
 impl Mushroom {
     /// Create a new Mushroom instance without loading data.
     ///
-    /// This does not load the dataset. The dataset loads on the first call to a
-    /// data accessor method. This is a lightweight operation: it only stores the
-    /// storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory used to store the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Mushroom` instance ready for lazy loading.
+    /// - `Self` - a `Mushroom` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Mushroom {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -219,8 +219,8 @@ impl Mushroom {
 
     /// Get and parse the Mushroom dataset.
     fn load_data(dir: &str) -> Result<MushroomData, DatasetError> {
-        // Prepare the dataset file. The source file is `agaricus-lepiota.data`.
-        // The code caches it as `mushroom.csv`.
+        // The source file is `agaricus-lepiota.data`. The code caches it as
+        // `mushroom.csv`.
         let file_path = acquire_dataset(
             dir,
             MUSHROOM_FILENAME,
@@ -249,7 +249,8 @@ impl Mushroom {
                 result.map_err(|e| DatasetError::csv_read_error(MUSHROOM_DATASET_NAME, e))?;
             let line_num = idx + 1; // headerless file, lines are 1-indexed
 
-            // Skip blank lines defensively (e.g. a trailing newline).
+            // The source file can end with a trailing newline. The check below
+            // skips the resulting blank line.
             if record.iter().all(|f| f.is_empty()) {
                 continue;
             }
@@ -301,8 +302,8 @@ impl Mushroom {
 
     /// Get a reference to the categorical feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -323,8 +324,8 @@ impl Mushroom {
 
     /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -342,10 +343,10 @@ impl Mushroom {
         Ok(&self.dataset.load()?.1)
     }
 
-    /// Get features and labels as references.
+    /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -363,10 +364,11 @@ impl Mushroom {
         self.dataset.load()
     }
 
-    /// Get features and labels as references, without triggering loading.
+    /// Get both features and labels as references **without** triggering
+    /// loading.
     ///
     /// Unlike [`Mushroom::data`], which loads the dataset on first call, this never
-    /// runs the loader. If the data has not been loaded yet, it returns `None`
+    /// runs the loader. If the data has not loaded yet, it returns `None`
     /// instead of downloading and parsing.
     ///
     /// Use this method when you want the data only if it is already cached. This
@@ -376,27 +378,28 @@ impl Mushroom {
     ///
     /// - `Some(&MushroomData)` - reference to the cached `(features, labels)` tuple
     ///   (`(8124, 22)`, `(8124,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&MushroomData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. encode categorical
-    /// features). It needs no `to_owned()` clone, and the arrays stay in the
-    /// cache. The changes persist, so later calls to [`Mushroom::features`],
-    /// [`Mushroom::data`], or [`Mushroom::get_data`] see them.
+    /// This lets you change the cached arrays directly (for example, to encode
+    /// categorical features). It needs no `to_owned()` clone, and the arrays
+    /// stay in the cache. The changes persist, so later calls to
+    /// [`Mushroom::features`], [`Mushroom::data`], or [`Mushroom::get_data`]
+    /// see them.
     ///
     /// Like [`Mushroom::get_data`], this does **not** trigger loading. It returns
     /// `None` if the dataset has not been loaded. If you need to make sure the
-    /// data is present, call a loading accessor first (e.g. [`Mushroom::data`]).
+    /// data is present, call a loading accessor first, for example [`Mushroom::data`].
     ///
     /// # Returns
     ///
     /// - `Some(&mut MushroomData)` - mutable reference to the cached `(features,
     ///   labels)` tuple (`(8124, 22)`, `(8124,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut MushroomData> {
         self.dataset.get_mut()
     }
@@ -405,7 +408,7 @@ impl Mushroom {
     ///
     /// Unlike [`Mushroom::data`], which borrows the cached data, this moves it out
     /// and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// dataset loads on first access if it has not loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -429,13 +432,13 @@ impl Mushroom {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. The instance stays
-    /// reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`Mushroom::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. But instead of consuming the instance, it takes `&mut self` and moves
     /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call (e.g. [`Mushroom::features`] or [`Mushroom::data`])
+    /// next accessor call, for example [`Mushroom::features`] or [`Mushroom::data`],
     /// loads the dataset again.
     ///
     /// If you are done with the instance, use [`Mushroom::into_data`] instead.

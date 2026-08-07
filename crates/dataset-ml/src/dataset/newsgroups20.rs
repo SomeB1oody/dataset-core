@@ -12,9 +12,9 @@
 //! raw posts), not `features()`.
 //!
 //! **Documents:** `Array1<String>` of raw newsgroup posts. This is the full text,
-//! including the email-style headers. Nothing is stripped.
+//! including the email-style headers. The loader strips nothing.
 //!
-//! **Target:** `label`, one of the 20 newsgroup names (e.g. `sci.space`)
+//! **Target:** `label`, one of the 20 newsgroup names (for example, `sci.space`)
 //!
 //! **Samples:** 18,846 total: 11,314 train, 7,532 test (the standard "bydate"
 //! chronological split)
@@ -93,10 +93,10 @@ fn category_label(name: &str) -> Option<&'static str> {
     CATEGORIES.iter().copied().find(|&c| c == name)
 }
 
-/// A struct representing the 20 Newsgroups dataset with lazy loading.
+/// A struct that represents the 20 Newsgroups dataset with lazy loading.
 ///
-/// The dataset does not load until you call a data accessor method. After the
-/// first load, it caches the data for later calls.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -123,15 +123,16 @@ fn category_label(name: &str) -> Option<&'static str> {
 /// Unlike the tabular loaders, there is no feature matrix. Each sample is a raw
 /// post string. [`Newsgroups20::texts`] returns an `Array1<String>` of the full
 /// post text, **including** the email-style headers (`From:`, `Subject:`, …).
-/// Nothing is stripped, which matches scikit-learn's default. The loader decodes
-/// the files as Latin-1 (each byte maps to one Unicode scalar), the same method
-/// scikit-learn uses, so non-UTF-8 bytes stay intact. Vectorize the text
-/// (bag-of-words, TF-IDF, embeddings, …) yourself before you feed it to a model.
+/// The loader strips nothing, which matches scikit-learn's default. The loader
+/// decodes the files as Latin-1 (each byte maps to one Unicode scalar). This is
+/// the same method scikit-learn uses, so non-UTF-8 bytes stay intact. Vectorize
+/// the text (bag-of-words, TF-IDF, embeddings, …) yourself before you feed it
+/// to a model.
 ///
 /// # Labels
 ///
 /// - `label` (shape `(n_samples,)`): the `Array1<&'static str>` is one of the 20
-///   newsgroup names (e.g. `"sci.space"`, `"alt.atheism"`).
+///   newsgroup names (for example, `"sci.space"`, `"alt.atheism"`).
 ///
 /// See more information at <http://qwone.com/~jason/20Newsgroups/>.
 ///
@@ -142,43 +143,43 @@ fn category_label(name: &str) -> Option<&'static str> {
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because every field does. You can
-/// share it across threads safely. The internal [`Dataset`] makes initialization
-/// thread-safe and lazy.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Newsgroups20;
 ///
-/// let download_dir = "./newsgroups20"; // creates the directory if it does not exist
+/// let download_dir = "./newsgroups20"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Newsgroups20::new(download_dir); // the train partition
 /// let texts = dataset.texts().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (texts, labels) = dataset.data().unwrap(); // also returns texts and labels together
+/// let (texts, labels) = dataset.data().unwrap();
 /// assert_eq!(texts.len(), 11314);
 /// assert_eq!(labels.len(), 11314);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays in the
-/// // cache. Prefer this method over `.to_owned()` when you only need to change
-/// // values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((texts, labels)) = dataset.get_data_mut() {
 ///     texts[0] = "hello world".to_string();
 ///     labels[0] = "sci.space";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone). The
-/// // instance stays reusable. The next access reloads it from the cached
-/// // archive.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_texts, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_texts.len(), 11314);
 /// assert_eq!(owned_labels.len(), 11314);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it consumes
-/// // the instance. Use it when you are done with the dataset.
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_texts, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_texts.len(), 11314);
 /// assert_eq!(owned_labels.len(), 11314);
@@ -193,16 +194,16 @@ impl Newsgroups20 {
     /// posts) without loading data.
     ///
     /// This mirrors scikit-learn's default `subset="train"`. The dataset loads
-    /// lazily on your first call to a data accessor method. This is a lightweight
-    /// operation. It only stores the storage directory.
+    /// lazily, on your first call to a data accessor method. This is a
+    /// lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the loader stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Newsgroups20` instance ready for lazy loading.
+    /// - `Self` - a `Newsgroups20` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_TRAIN)
     }
@@ -215,11 +216,11 @@ impl Newsgroups20 {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the loader stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Newsgroups20` instance ready for lazy loading.
+    /// - `Self` - a `Newsgroups20` instance ready for lazy loading.
     pub fn new_test(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_TEST)
     }
@@ -232,11 +233,11 @@ impl Newsgroups20 {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the loader stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Newsgroups20` instance ready for lazy loading.
+    /// - `Self` - a `Newsgroups20` instance ready for lazy loading.
     pub fn new_all(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_ALL)
     }
@@ -253,10 +254,11 @@ impl Newsgroups20 {
         dir: &str,
         subset_dirs: &'static [&'static str],
     ) -> Result<Newsgroups20Data, DatasetError> {
-        // Caches the compressed tarball as-is. Its SHA-256 hash is the integrity
-        // check. Unlike the combined-file text loaders, the posts are multi-line
-        // raw documents. The loader keeps the canonical archive and re-extracts
-        // it in memory on each load, instead of re-serializing the posts.
+        // The loader caches the compressed tarball as-is. Its SHA-256 hash is
+        // the integrity check. Unlike the combined-file text loaders, the posts
+        // are multi-line raw documents. The loader keeps the canonical archive
+        // and re-extracts it in memory on each load, instead of re-serializing
+        // the posts.
         let archive_path = acquire_dataset(
             dir,
             NEWSGROUPS20_ARCHIVE_FILENAME,
@@ -273,16 +275,17 @@ impl Newsgroups20 {
             },
         )?;
 
-        // Extracts into a temp dir under `dir`. The temp dir deletes itself when
-        // it drops.
+        // The code extracts the archive into a temp dir under `dir`. The temp
+        // dir deletes itself when it drops.
         let extract_dir = tempfile::Builder::new().prefix("20news-").tempdir_in(dir)?;
         untar_gz(&archive_path, extract_dir.path())?;
 
         let mut texts: Vec<String> = Vec::new();
         let mut labels: Vec<&'static str> = Vec::new();
 
-        // Walk each requested partition, categories then files in a deterministic
-        // (lexicographic) order so the sample ordering is stable.
+        // The code walks each requested partition, then categories, then files,
+        // in a deterministic (lexicographic) order. This keeps the sample
+        // ordering stable.
         for subset in subset_dirs {
             let subset_path = extract_dir.path().join(subset);
             for category in sorted_child_names(&subset_path, /* dirs = */ true)? {
@@ -292,8 +295,8 @@ impl Newsgroups20 {
                 let category_path = subset_path.join(&category);
                 for file_name in sorted_child_names(&category_path, /* dirs = */ false)? {
                     let bytes = fs::read(category_path.join(&file_name))?;
-                    // Decodes as Latin-1 (byte -> Unicode scalar), like scikit-learn.
-                    // This keeps non-UTF-8 bytes intact.
+                    // The loader decodes bytes as Latin-1 (byte -> Unicode scalar),
+                    // like scikit-learn. This keeps non-UTF-8 bytes intact.
                     let text: String = bytes.iter().map(|&b| b as char).collect();
                     texts.push(text);
                     labels.push(label);
@@ -310,8 +313,8 @@ impl Newsgroups20 {
 
     /// Get a reference to the document-text vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// This is the 20 Newsgroups analogue of the tabular loaders' `features()`
     /// method. Because the data is text, the "features" are the raw post strings.
@@ -326,27 +329,27 @@ impl Newsgroups20 {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (an unexpected category directory)
     pub fn texts(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector, each entry one of
-    ///   the 20 newsgroup names (e.g. `"sci.space"`).
+    /// - `&Array1<&'static str>` - Reference to label vector, each entry one of
+    ///   the 20 newsgroup names (for example, `"sci.space"`).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (an unexpected category directory)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
@@ -354,8 +357,8 @@ impl Newsgroups20 {
 
     /// Get both document texts and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -365,7 +368,7 @@ impl Newsgroups20 {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
+    /// - File extraction or I/O operations fail
     /// - Data format is invalid (an unexpected category directory)
     pub fn data(&self) -> Result<&Newsgroups20Data, DatasetError> {
         self.dataset.load()
@@ -383,27 +386,28 @@ impl Newsgroups20 {
     ///
     /// - `Some(&Newsgroups20Data)` - reference to the cached `(texts, labels)`
     ///   tuple, if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&Newsgroups20Data> {
         self.dataset.get()
     }
 
     /// Get mutable references to document texts and labels for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. strip headers or clean
-    /// the post text), with no `to_owned()` clone and without removing them from
-    /// the cache. The changes persist, so later [`Newsgroups20::texts`],
+    /// This lets you change the cached arrays directly, for example to strip
+    /// headers or clean the post text. It needs no `to_owned()` clone, and it
+    /// does not remove them from the cache. The changes persist, so later
+    /// [`Newsgroups20::texts`],
     /// [`Newsgroups20::data`], or [`Newsgroups20::get_data`] calls see them.
     ///
     /// Like [`Newsgroups20::get_data`], this method does **not** trigger loading.
     /// It returns `None` if the dataset is not loaded. If you need the data to be
-    /// present, call a loading accessor first (e.g. [`Newsgroups20::data`]).
+    /// present, call a loading accessor first, for example [`Newsgroups20::data`].
     ///
     /// # Returns
     ///
     /// - `Some(&mut Newsgroups20Data)` - mutable reference to the cached `(texts,
     ///   labels)` tuple, if loaded.
-    /// - `None` - if the dataset is not loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut Newsgroups20Data> {
         self.dataset.get_mut()
     }
@@ -412,7 +416,7 @@ impl Newsgroups20 {
     ///
     /// Unlike [`Newsgroups20::data`], which borrows the cached data, this moves it
     /// out and returns owned arrays directly. There is no `to_owned()` clone. This
-    /// method loads the dataset on first access if it is not loaded yet.
+    /// method loads the dataset on first access if it has not loaded yet.
     ///
     /// This **consumes** `self`. You cannot use the instance afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -436,13 +440,14 @@ impl Newsgroups20 {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** document texts and labels out of the dataset, leaving it reusable.
+    /// Take **owned** document texts and labels out of the dataset. This leaves
+    /// the instance reusable.
     ///
     /// Like [`Newsgroups20::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
     /// and moves the cached data out. This resets the instance to its unloaded
-    /// state, so the next accessor call (e.g. [`Newsgroups20::texts`] or
-    /// [`Newsgroups20::data`]) loads the dataset again.
+    /// state, so the next accessor call, for example [`Newsgroups20::texts`] or
+    /// [`Newsgroups20::data`], loads the dataset again.
     ///
     /// If you are done with the instance, use [`Newsgroups20::into_data`] instead.
     ///

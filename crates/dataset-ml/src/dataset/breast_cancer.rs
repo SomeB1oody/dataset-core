@@ -56,17 +56,17 @@ const N_FEATURES: usize = 30;
 /// Type alias for the Breast Cancer dataset: (features, labels).
 type BreastCancerData = (Array2<f64>, Array1<&'static str>);
 
-/// One CSV record of the Breast Cancer dataset: an ID column, the `M`/`B`
-/// diagnosis, then the 30 `f64` features (`mean`, `se`, and `worst` for each of
-/// the 10 base measurements, in that block order).
+/// One CSV record of the Breast Cancer dataset holds an ID column, the
+/// `M`/`B` diagnosis, and 30 `f64` features. The features are `mean`, `se`,
+/// and `worst` for each of the 10 base measurements, in that block order.
 ///
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the loader disables csv's header handling), matching the headerless
-/// `wdbc.data` layout.
+/// The struct declares its fields in CSV column order. The loader disables
+/// csv's header handling, so csv deserializes the fields **positionally**.
+/// This matches the headerless `wdbc.data` layout.
 #[derive(Deserialize)]
 struct BreastCancerRecord {
-    /// The sample ID. This field consumes the first CSV column positionally. It
-    /// is not exposed as a feature, so the code never reads it on purpose.
+    /// The sample ID. This field consumes the first CSV column positionally.
+    /// It is not a feature. The loader never reads it.
     #[allow(dead_code)]
     id: u64,
     diagnosis: String,
@@ -102,11 +102,11 @@ struct BreastCancerRecord {
     fractal_dimension_worst: f64,
 }
 
-/// This struct represents the Breast Cancer Wisconsin (Diagnostic) dataset with
-/// lazy loading.
+/// A struct that represents the Breast Cancer Wisconsin (Diagnostic) dataset
+/// with lazy loading.
 ///
-/// The dataset is not loaded until you call one of the data accessor methods.
-/// Once loaded, the data is cached for subsequent accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -120,9 +120,12 @@ struct BreastCancerRecord {
 ///
 /// # Feature columns
 ///
-/// All 30 features are quantitative. They are laid out in three blocks of 10:
-/// the `mean` of each base measurement (columns `0`–`9`), its standard error
-/// (`se`, columns `10`–`19`), and its `worst` value (columns `20`–`29`).
+/// All 30 features are quantitative. The source arranges them in three blocks
+/// of 10:
+///
+/// - the `mean` of each base measurement (columns `0`–`9`)
+/// - its standard error (`se`, columns `10`–`19`)
+/// - its `worst` value (columns `20`–`29`)
 ///
 /// | Columns | Attributes                | Unit |
 /// |---------|---------------------------|------|
@@ -171,15 +174,15 @@ struct BreastCancerRecord {
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` automatically, because every field
-/// implements them. This makes it safe to share the struct across threads. The
-/// internal [`Dataset`] makes sure lazy initialization stays thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::BreastCancer;
 ///
-/// let download_dir = "./breast_cancer"; // the code will create the directory if it does not exist
+/// let download_dir = "./breast_cancer"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = BreastCancer::new(download_dir);
 /// let features = dataset.features().unwrap();
@@ -190,24 +193,25 @@ struct BreastCancerRecord {
 /// assert_eq!(features.shape(), &[569, 30]);
 /// assert_eq!(labels.len(), 569);
 ///
-/// // `get_data()` borrows the cached arrays without reloading them.
-/// // `get_data_mut()` edits them in place: no clone, no reload, the change
-/// // stays cached. Prefer this over cloning with `.to_owned()` when you only
-/// // need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 15.0;
 ///     labels[0] = "benign";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable. The next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[569, 30]);
 /// assert_eq!(owned_labels.len(), 569);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[569, 30]);
 /// assert_eq!(owned_labels.len(), 569);
@@ -220,7 +224,7 @@ pub struct BreastCancer {
 impl BreastCancer {
     /// Create a new BreastCancer instance without loading data.
     ///
-    /// The dataset loads lazily on your first call to a data accessor method.
+    /// The dataset loads lazily, on your first call to a data accessor method.
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
@@ -229,7 +233,7 @@ impl BreastCancer {
     ///
     /// # Returns
     ///
-    /// - `Self` - `BreastCancer` instance ready for lazy loading.
+    /// - `Self` - a `BreastCancer` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         BreastCancer {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -238,7 +242,6 @@ impl BreastCancer {
 
     /// Get and parse the Breast Cancer dataset.
     fn load_data(dir: &str) -> Result<BreastCancerData, DatasetError> {
-        // Prepare the dataset file.
         let file_path = acquire_dataset(
             dir,
             BREAST_CANCER_FILENAME,
@@ -256,7 +259,7 @@ impl BreastCancer {
         )?;
 
         // The csv crate deserializes each row into the struct. `wdbc.data` has no
-        // header row, so the reader disables header handling.
+        // header row, so the loader disables header handling.
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -364,8 +367,8 @@ impl BreastCancer {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -377,37 +380,37 @@ impl BreastCancer {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (569 samples, 30 features)
+    /// - Dataset size does not match the expected dimensions (569 samples, 30 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(569,)` containing diagnoses (`"malignant"`, `"benign"`)
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(569,)` containing diagnoses (`"malignant"`, `"benign"`)
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (569 samples)
+    /// - Dataset size does not match the expected dimensions (569 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -419,9 +422,9 @@ impl BreastCancer {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (569 samples, 30 features)
+    /// - Dataset size does not match the expected dimensions (569 samples, 30 features)
     pub fn data(&self) -> Result<&BreastCancerData, DatasetError> {
         self.dataset.load()
     }
@@ -429,7 +432,7 @@ impl BreastCancer {
     /// Get both features and labels as references **without** triggering loading.
     ///
     /// Unlike [`BreastCancer::data`], which loads the dataset on first call, this
-    /// method never runs the loader. If the data has not been loaded yet, it
+    /// method never runs the loader. If the data has not loaded yet, it
     /// returns `None` instead of downloading and parsing. Use this method only
     /// when you want data that is already cached. This avoids the download and
     /// parse cost.
@@ -438,7 +441,7 @@ impl BreastCancer {
     ///
     /// - `Some(&BreastCancerData)` - reference to the cached `(features, labels)`
     ///   tuple (feature matrix `(569, 30)`, label vector `(569,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&BreastCancerData> {
         self.dataset.get()
     }
@@ -460,7 +463,7 @@ impl BreastCancer {
     /// - `Some(&mut BreastCancerData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(569, 30)`, label vector
     ///   `(569,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut BreastCancerData> {
         self.dataset.get_mut()
     }
@@ -469,7 +472,7 @@ impl BreastCancer {
     ///
     /// Unlike [`BreastCancer::data`], which borrows the cached data, this moves it
     /// out and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// dataset is loaded on first access if it has not loaded yet.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -493,7 +496,8 @@ impl BreastCancer {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset, leaving it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`BreastCancer::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

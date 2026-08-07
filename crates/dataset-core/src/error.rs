@@ -236,7 +236,7 @@ impl DatasetError {
     /// # Parameters
     ///
     /// - `dataset_name` - The dataset identifier.
-    /// - `field_name` - The logical field name whose length is being validated.
+    /// - `field_name` - The logical field name that this check validates.
     /// - `expected` - The expected length.
     /// - `actual` - The actual length.
     ///

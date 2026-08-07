@@ -22,8 +22,15 @@
 //! one-hot block sums to `1` per row. See the struct docs for a per-column table.
 //!
 //! **Target:** `cover_type` - the forest cover type, one of `1`–`7` (stored as
-//! `u8`): `1` = Spruce/Fir, `2` = Lodgepole Pine, `3` = Ponderosa Pine,
-//! `4` = Cottonwood/Willow, `5` = Aspen, `6` = Douglas-fir, `7` = Krummholz.
+//! `u8`):
+//!
+//! - `1` = Spruce/Fir
+//! - `2` = Lodgepole Pine
+//! - `3` = Ponderosa Pine
+//! - `4` = Cottonwood/Willow
+//! - `5` = Aspen
+//! - `6` = Douglas-fir
+//! - `7` = Krummholz
 //!
 //! **Samples:** 581,012 total
 //! **Application:** Multi-class classification / forest cover type prediction
@@ -78,9 +85,10 @@ const N_SAMPLES: usize = 581_012;
 /// Type alias for the Cover Type dataset: (features, labels).
 type CovtypeData = (Array2<f64>, Array1<u8>);
 
-/// This struct represents the Forest Cover Type dataset. It loads data lazily: the
-/// dataset does not load until you call a data accessor method. Once loaded, the
-/// data stays cached for later accesses.
+/// A struct that represents the Forest Cover Type dataset with lazy loading.
+///
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -140,41 +148,43 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because all its fields implement them.
-/// This makes it safe to share the struct across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Covtype;
 ///
-/// let download_dir = "./covtype"; // the code creates the directory if it does not exist
+/// let download_dir = "./covtype"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Covtype::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this is also a way to get features and labels
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[581012, 54]);
 /// assert_eq!(labels.len(), 581012);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays cached.
-/// // Prefer this method over `.to_owned()` when you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 2596.0;
 ///     labels[0] = 5;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out with no `to_owned()` clone. It leaves
-/// // the instance reusable. The next access reloads data from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[581012, 54]);
 /// assert_eq!(owned_labels.len(), 581012);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but it consumes the
-/// // instance. Use it only when you are done with the dataset.
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[581012, 54]);
 /// assert_eq!(owned_labels.len(), 581012);
@@ -187,17 +197,16 @@ pub struct Covtype {
 impl Covtype {
     /// Create a new Covtype instance without loading data.
     ///
-    /// The dataset does not load immediately. It loads the first time you call a
-    /// data accessor method. This call is lightweight: it only stores the storage
-    /// directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory that holds the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Covtype` instance ready for lazy loading.
+    /// - `Self` - a `Covtype` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Covtype {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -293,8 +302,8 @@ impl Covtype {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -313,14 +322,14 @@ impl Covtype {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<u8>` - Reference to labels vector with shape `(581012,)` containing the cover-type classes (`1`–`7`).
+    /// - `&Array1<u8>` - Reference to label vector with shape `(581012,)` containing the cover-type classes (`1`–`7`).
     ///
     /// # Errors
     ///
@@ -335,14 +344,14 @@ impl Covtype {
 
     /// Get both features and labels as references.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&CovtypeData` - reference to the cached `(features, labels)` tuple: the
-    ///   feature matrix has shape `(581012, 54)` and the label vector has shape
-    ///   `(581012,)` containing the cover-type classes (`1`–`7`).
+    /// - `&CovtypeData` - reference to the cached `(features, labels)` tuple.
+    ///   The feature matrix has shape `(581012, 54)`. The label vector has shape
+    ///   `(581012,)` and contains the cover-type classes (`1`–`7`).
     ///
     /// # Errors
     ///
@@ -422,7 +431,8 @@ impl Covtype {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves it reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`Covtype::into_data`], this method returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

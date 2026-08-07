@@ -18,7 +18,6 @@ fn summarize<D: MlDataset>(dataset: &D) -> String {
 }
 
 #[test]
-// Verifies that the trait's inspection methods never trigger a download.
 fn inspection_methods_do_not_load() {
     let dataset = Iris::new("./test_traits_no_load");
 
@@ -27,12 +26,10 @@ fn inspection_methods_do_not_load() {
     assert!(dataset.peek().is_none());
     assert_eq!(Iris::NAME, "iris");
 
-    // None of the previous calls created the storage directory.
     assert!(!std::path::Path::new("./test_traits_no_load").exists());
 }
 
 #[test]
-// Verifies that one generic function works across loaders with different data shapes.
 fn a_generic_function_accepts_every_loader() {
     // Tabular pair, text pair, and mixed-type triple respectively.
     assert_eq!(summarize(&Iris::new("./a")), "iris in ./a");
@@ -42,7 +39,6 @@ fn a_generic_function_accepts_every_loader() {
 }
 
 #[test]
-// Verifies that NumSamples reads the leading axis for pair- and triple-shaped data.
 fn num_samples_reads_the_leading_axis() {
     // (features, labels): a 3-row feature matrix.
     let pair: (Array2<f64>, Array1<u8>) = (Array2::zeros((3, 7)), Array1::zeros(3));
@@ -63,7 +59,6 @@ fn num_samples_reads_the_leading_axis() {
 }
 
 #[test]
-// Verifies the load/peek/n_samples/invalidate cycle against a real dataset.
 fn load_peek_and_invalidate_cycle() {
     let download_dir = "./test_traits_load_cycle";
 
@@ -92,7 +87,6 @@ fn load_peek_and_invalidate_cycle() {
 }
 
 #[test]
-// Verifies that load_mut edits persist and that unload returns the data.
 fn load_mut_and_unload_move_data_without_cloning() {
     let download_dir = "./test_traits_load_mut_unload";
 
@@ -102,7 +96,6 @@ fn load_mut_and_unload_move_data_without_cloning() {
     let (features, _labels) = dataset.load_mut().unwrap();
     features[[0, 0]] = 42.0;
 
-    // The edit stayed in the cache.
     assert_eq!(dataset.load().unwrap().0[[0, 0]], 42.0);
 
     // `unload` moves the owned arrays out and resets the loader.
@@ -122,13 +115,11 @@ fn load_mut_and_unload_move_data_without_cloning() {
 }
 
 #[test]
-// Verifies that into_dataset returns the underlying container.
 fn into_dataset_yields_the_underlying_container() {
     let dataset = Iris::new("./test_traits_into_dataset");
 
     let container = dataset.into_dataset();
 
-    // The container carries the storage directory and is still unloaded.
     assert_eq!(container.storage_dir(), "./test_traits_into_dataset");
     assert!(!container.is_loaded());
 }

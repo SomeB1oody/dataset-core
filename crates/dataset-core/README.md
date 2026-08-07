@@ -12,13 +12,13 @@ A generic, thread-safe dataset container with lazy loading and caching for Rust.
 
 `dataset-core` provides `Dataset<T, E>`, a lightweight wrapper that pairs a storage directory with a lazily-initialized value of any type `T`. The caller supplies the loading logic through a closure stored at construction time. As a result, `Dataset<T, E>` works with any data source: local files, remote URLs, databases, or in-memory generation. (The caller freely chooses `E`, the loader's error type.)
 
-The first call to `load()` executes the closure and caches the result with `OnceLock`. Every subsequent call returns a reference to the cached value with zero overhead, even across threads.
+The first call to `load()` executes the closure and caches the result with `OnceLock`. Every later call returns a reference to the cached value with zero allocation and zero I/O, even across threads.
 
 On top of this core type, the crate provides one **optional**, feature-gated module:
 
 - **`utils`**: helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml). It ships 29 loaders, from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups. It depends on `dataset-core` with the `utils` feature enabled.
+For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml). It includes 29 loaders, from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups. It depends on `dataset-core` with the `utils` feature enabled.
 
 ## Installation
 
@@ -38,10 +38,10 @@ dataset-core = { version = "0.5", features = ["utils"] }
 
 ## Feature Flags
 
-| Feature  | What it enables                                              | Extra dependencies               |
-|----------|--------------------------------------------------------------|----------------------------------|
-| *(none)* | `Dataset<T, E>` only                                         | none                             |
-| `utils`  | Download (with optional retries), unzip, gunzip, untar, untar_gz, temp dirs, SHA-256 hashing & validation, Latin-1 reading, error types | ureq, zip, flate2, tar, tempfile, sha2, thiserror |
+| Feature  | What it enables                                                                                                                         | Extra dependencies                                                                          |
+|----------|-----------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|
+| *(none)* | `Dataset<T, E>` only                                                                                                                    | none                                                                                        |
+| `utils`  | Download (with optional retries), unzip, gunzip, untar, untar_gz, temp dirs, SHA-256 hashing & validation, Latin-1 reading, error types | ureq, zip, flate2, tar, tempfile, sha2, thiserror                                           |
 
 ## Core Usage
 
@@ -99,7 +99,7 @@ fn main() {
 
 ## Building Your Own Dataset
 
-You can wrap `Dataset<T, E>` in your own type. The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) demonstrates the recommended pattern. Here is a simplified outline:
+You can wrap `Dataset<T, E>` in your own type. The companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml) shows the recommended pattern. Here is a simplified outline:
 
 ```rust,ignore
 use dataset_core::Dataset;
@@ -128,8 +128,8 @@ See the [`dataset-ml`](https://crates.io/crates/dataset-ml) source for complete,
 
 ## Performance Considerations
 
-- **First access**: runs the loader once (potentially network + parse), caches the result.
-- **Subsequent accesses**: return a reference to the cached data, with zero allocation and zero I/O.
+- **First access**: runs the loader once, which may include a network call and parsing, and caches the result.
+- **Later accesses**: return a reference to the cached data, with zero allocation and zero I/O.
 - **Cross-thread safety**: `Dataset<T, E>` is `Send + Sync` whenever `T` is (the stored loader is always `Send + Sync`). The loader runs at most once, even under concurrent calls. An internal mutex serializes the first load. A thread that arrives mid-load waits for the result and shares it, instead of starting its own download.
 
 ## License

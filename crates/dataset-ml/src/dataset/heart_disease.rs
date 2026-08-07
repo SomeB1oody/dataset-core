@@ -87,10 +87,11 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 /// The token marking a missing value in the source (only in `ca` and `thal`).
 const MISSING_TOKEN: &str = "?";
 
-/// This struct represents the Heart Disease (Cleveland) dataset and loads it lazily.
+/// A struct that represents the Heart Disease (Cleveland) dataset with lazy
+/// loading.
 ///
-/// Nothing loads until you call a data accessor method. After loading, the
-/// data stays cached for later accesses.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -144,42 +145,43 @@ const MISSING_TOKEN: &str = "?";
 ///
 /// # Thread Safety
 ///
-/// Every field implements `Send` and `Sync`, so this struct implements them too. It is safe
-/// to share across threads.
-/// The internal [`Dataset`] makes initialization thread-safe and lazy.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::HeartDisease;
 ///
-/// let download_dir = "./heart_disease"; // creates the directory if it is missing
+/// let download_dir = "./heart_disease"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = HeartDisease::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // also a way to get features and labels
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[303, 13]);
 /// assert_eq!(labels.len(), 303);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place. It needs no clone and no reload, and the change
-/// // stays cached. Prefer this method over cloning with `.to_owned()` when
-/// // you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 60.0;
 ///     labels[0] = 1;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone) and leaves the
-/// // instance reusable. The next access reloads from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[303, 13]);
 /// assert_eq!(owned_labels.len(), 303);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[303, 13]);
 /// assert_eq!(owned_labels.len(), 303);
@@ -192,17 +194,16 @@ pub struct HeartDisease {
 impl HeartDisease {
     /// Create a new HeartDisease instance without loading data.
     ///
-    /// This does not load the dataset. The dataset loads on the first call to a
-    /// data accessor method. This is a lightweight operation: it only stores the
-    /// storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory used to store the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `HeartDisease` instance ready for lazy loading.
+    /// - `Self` - a `HeartDisease` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         HeartDisease {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -241,7 +242,7 @@ impl HeartDisease {
                 result.map_err(|e| DatasetError::csv_read_error(HEART_DISEASE_DATASET_NAME, e))?;
             let line_num = idx + 1; // headerless file, lines are 1-indexed
 
-            // Skip blank lines defensively (e.g. a trailing newline).
+            // Skip blank lines defensively (for example, a trailing newline).
             if record.iter().all(|f| f.is_empty()) {
                 continue;
             }
@@ -294,8 +295,8 @@ impl HeartDisease {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -313,14 +314,14 @@ impl HeartDisease {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<u8>` - Reference to labels vector with shape `(303,)` containing
+    /// - `&Array1<u8>` - Reference to label vector with shape `(303,)` containing
     ///   the `num` diagnosis (`0` absence through `4` increasing presence).
     ///
     /// # Errors
@@ -336,8 +337,8 @@ impl HeartDisease {
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Later calls return the
-    /// cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -356,11 +357,12 @@ impl HeartDisease {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references, without triggering loading.
+    /// Get both features and labels as references **without** triggering
+    /// loading.
     ///
     /// Unlike [`HeartDisease::data`], which loads the dataset on first call, this
-    /// never runs the loader. If the data has not been loaded yet, it returns
-    /// `None` instead of downloading and parsing.
+    /// never runs the loader. If the data has not loaded yet, it returns `None`
+    /// instead of downloading and parsing.
     ///
     /// Use this method when you want the data only if it is already cached. This
     /// avoids the download and parse cost when the data is not cached.
@@ -369,22 +371,22 @@ impl HeartDisease {
     ///
     /// - `Some(&HeartDiseaseData)` - reference to the cached `(features, labels)`
     ///   tuple (feature matrix `(303, 13)`, label vector `(303,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&HeartDiseaseData> {
         self.dataset.get()
     }
 
     /// Get mutable references to features and labels for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. impute the missing
-    /// `NaN` values, binarize the target). It needs no `to_owned()` clone, and
-    /// the arrays stay in the cache. The changes persist, so later calls to
-    /// [`HeartDisease::features`], [`HeartDisease::data`], or
+    /// This lets you change the cached arrays directly (for example, impute the
+    /// missing `NaN` values, binarize the target). It needs no `to_owned()`
+    /// clone, and the arrays stay in the cache. The changes persist, so later
+    /// calls to [`HeartDisease::features`], [`HeartDisease::data`], or
     /// [`HeartDisease::get_data`] see them.
     ///
     /// Like [`HeartDisease::get_data`], this does **not** trigger loading. It
-    /// returns `None` if the dataset has not been loaded. If you need to make
-    /// sure the data is present, call a loading accessor first (e.g.
+    /// returns `None` if the dataset has not loaded. If you need to make sure
+    /// the data is present, call a loading accessor first (for example,
     /// [`HeartDisease::data`]).
     ///
     /// # Returns
@@ -392,7 +394,7 @@ impl HeartDisease {
     /// - `Some(&mut HeartDiseaseData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(303, 13)`, label vector
     ///   `(303,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut HeartDiseaseData> {
         self.dataset.get_mut()
     }
@@ -400,8 +402,8 @@ impl HeartDisease {
     /// Consume the dataset and return **owned** features and labels.
     ///
     /// Unlike [`HeartDisease::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset is loaded on first access if it has not been loaded yet.
+    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
+    /// the dataset has not loaded yet, this call loads it.
     ///
     /// This **consumes** `self`, so the instance cannot be used afterwards. If you
     /// want owned data but need to keep using the instance, use
@@ -425,14 +427,15 @@ impl HeartDisease {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. The instance stays
-    /// reusable.
+    /// Take **owned** features and labels out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`HeartDisease::into_data`], this returns owned arrays with no
     /// `to_owned()` clone. But instead of consuming the instance, it takes
     /// `&mut self` and moves the cached data out. This resets the instance to
-    /// its unloaded state. The next accessor call (e.g. [`HeartDisease::features`]
-    /// or [`HeartDisease::data`]) loads the dataset again.
+    /// its unloaded state. The next accessor call (for example,
+    /// [`HeartDisease::features`] or [`HeartDisease::data`]) loads the dataset
+    /// again.
     ///
     /// If you are done with the instance, use [`HeartDisease::into_data`] instead.
     ///

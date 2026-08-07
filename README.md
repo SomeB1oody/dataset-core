@@ -10,10 +10,10 @@ A Cargo workspace for building and consuming Rust dataset loaders. This workspac
 
 ## Crates
 
-| Crate                                        | Path                       | What it provides                                                                                                  |
-|----------------------------------------------|----------------------------|-------------------------------------------------------------------------------------------------------------------|
+| Crate                                        | Path                       | What it provides                                                                                                                                       |
+|----------------------------------------------|----------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------|
 | [`dataset-core`](crates/dataset-core)        | `crates/dataset-core`      | The `Dataset<T, E>` type (thread-safe, lazy, cached) and the optional `utils` module (download, unzip, gunzip, tar / tar.gz extraction, SHA-256, etc.) |
-| [`dataset-ml`](crates/dataset-ml)            | `crates/dataset-ml`        | Ready-to-use loaders for 29 classic ML datasets (Iris, Adult, Titanic, Covtype, Abalone, SMS Spam, 20 Newsgroups, …), built on `dataset-core` |
+| [`dataset-ml`](crates/dataset-ml)            | `crates/dataset-ml`        | Ready-to-use loaders for 29 classic ML datasets (Iris, Adult, Titanic, Covtype, Abalone, SMS Spam, 20 Newsgroups, …), built on `dataset-core`          |
 
 ```
 dataset-core (workspace root)
@@ -27,7 +27,7 @@ dataset-core (workspace root)
 ## Which crate do I want?
 
 - **Just need lazy caching for your own data?** Depend on [`dataset-core`](crates/dataset-core).
-- **Want the classic ML datasets out of the box?** Depend on [`dataset-ml`](crates/dataset-ml). It includes `dataset-core` automatically.
+- **Want ready-to-use loaders for the classic ML datasets?** Depend on [`dataset-ml`](crates/dataset-ml). It includes `dataset-core` automatically.
 
 ``` toml
 # Minimal: just Dataset<T, E>

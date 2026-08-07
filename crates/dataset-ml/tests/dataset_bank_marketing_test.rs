@@ -94,7 +94,7 @@ fn assert_bank_semantics(
 // Verifies that the Bank Marketing dataset loads with the correct shapes, label
 // values, and feature-domain invariants.
 fn test_load_bank_marketing() {
-    let download_dir = "./test_load_bank_marketing"; // the loader creates this directory if missing
+    let download_dir = "./test_load_bank_marketing"; // the loader creates this directory if it is missing
 
     let dataset = BankMarketing::new(download_dir);
     let (strings, numerics, labels) = dataset.data().unwrap();
@@ -137,7 +137,6 @@ fn test_bank_marketing_overwrite() {
         fake_bank.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = BankMarketing::new(download_dir);
     let (_strings, _numerics, _labels) = dataset.data().unwrap();
 
@@ -155,7 +154,6 @@ fn test_bank_marketing_into_data() {
 
     let dataset = BankMarketing::new(download_dir);
     let (strings, mut numerics, labels) = dataset.into_data().unwrap();
-    // `into_data()` consumes `dataset`. The arrays are fully owned.
 
     assert_eq!(strings.shape(), &[N_SAMPLES, 9]);
     assert_eq!(numerics.shape(), &[N_SAMPLES, 7]);
@@ -177,7 +175,6 @@ fn test_bank_marketing_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // This loads the dataset. get_data() then returns the cached references.
     dataset.data().unwrap();
     let (strings, numerics, labels) = dataset.get_data().unwrap();
     assert_eq!(strings.shape(), &[N_SAMPLES, 9]);

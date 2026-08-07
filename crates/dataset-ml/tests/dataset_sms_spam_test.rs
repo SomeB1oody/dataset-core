@@ -23,7 +23,6 @@ fn assert_sms_spam_semantics(
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
-    // Labels are one of the two classes, with the documented per-class counts.
     let mut ham = 0usize;
     let mut spam = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -36,7 +35,6 @@ fn assert_sms_spam_semantics(
     assert_eq!(ham, 4827, "expected 4,827 ham messages");
     assert_eq!(spam, 747, "expected 747 spam messages");
 
-    // Every message body is non-empty.
     for (i, text) in texts.iter().enumerate() {
         assert!(!text.is_empty(), "texts[{i}] should not be empty");
     }
@@ -52,8 +50,6 @@ fn assert_sms_spam_semantics(
 }
 
 #[test]
-// Verifies that the SMS Spam dataset loads with the correct sample count, label
-// classes, and non-empty message texts.
 fn test_load_sms_spam() {
     let download_dir = "./test_load_sms_spam"; // the loader creates this directory if it is missing
 
@@ -66,7 +62,6 @@ fn test_load_sms_spam() {
 }
 
 #[test]
-// Verifies that SMS Spam reuses a cached file instead of a new download.
 fn test_sms_spam_no_need_download() {
     let download_dir = "./test_sms_spam_no_need_download";
     let download_dir_path = Path::new(download_dir);
@@ -87,8 +82,6 @@ fn test_sms_spam_no_need_download() {
 }
 
 #[test]
-// Verifies that the loader detects a corrupt or fake SMS Spam data file and
-// overwrites it with the real dataset.
 fn test_sms_spam_overwrite() {
     let download_dir = "./test_sms_spam_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -99,7 +92,6 @@ fn test_sms_spam_overwrite() {
         fake.write_all(b"fake data").unwrap();
     }
 
-    // The loader overwrites the fake file with the real dataset.
     let dataset = SmsSpam::new(download_dir);
     let (_texts, _labels) = dataset.data().unwrap();
 
@@ -109,7 +101,6 @@ fn test_sms_spam_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays and consumes the dataset.
 fn test_sms_spam_into_data() {
     let download_dir = "./test_sms_spam_into_data";
 
@@ -128,7 +119,6 @@ fn test_sms_spam_into_data() {
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
 fn test_sms_spam_take_data() {
     let download_dir = "./test_sms_spam_take_data";
 
@@ -148,7 +138,6 @@ fn test_sms_spam_take_data() {
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
 fn test_sms_spam_get_data() {
     let download_dir = "./test_sms_spam_get_data";
 
@@ -166,7 +155,6 @@ fn test_sms_spam_get_data() {
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
 fn test_sms_spam_get_data_mut() {
     let download_dir = "./test_sms_spam_get_data_mut";
 

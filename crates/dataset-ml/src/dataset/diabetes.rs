@@ -84,10 +84,10 @@ struct DiabetesRecord {
     y: f64,
 }
 
-/// This struct represents the Diabetes dataset and loads it lazily.
+/// A struct that represents the Diabetes dataset with lazy loading.
 ///
-/// The dataset loads only when you call a data accessor method. Later calls
-/// return the cached data without loading again.
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -102,8 +102,8 @@ struct DiabetesRecord {
 ///
 /// # Feature columns
 ///
-/// The loader standardizes all ten feature columns: it mean-centers each column,
-/// then divides it by its L2 norm, so the stored values are dimensionless (mean 0,
+/// The loader standardizes all ten feature columns. It mean-centers each column,
+/// then divides it by its L2 norm. The stored values are dimensionless (mean 0,
 /// sum of squares 1). The `Unit` column below records the unit of the *original*
 /// (pre-standardization) measurement where known. The parenthetical text in
 /// `Attributes` expands each abbreviated name. By 0-based column index in the
@@ -136,43 +136,43 @@ struct DiabetesRecord {
 ///
 /// # Thread Safety
 ///
-/// All fields of this struct implement `Send` and `Sync`, so the struct implements
-/// them too. This makes the struct safe to share across threads. The internal
-/// [`Dataset`] makes sure initialization is lazy and thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Diabetes;
 ///
-/// let download_dir = "./diabetes"; // the code creates the directory if it does not exist
+/// let download_dir = "./diabetes"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Diabetes::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+/// let (features, targets) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[442, 10]);
 /// assert_eq!(targets.len(), 442);
 ///
-/// // `get_data()` borrows the cached arrays and does not reload them.
-/// // `get_data_mut()` edits the arrays in place. It makes no clone, and the
-/// // change stays in the cache. Prefer `get_data_mut()` over `.to_owned()` when
-/// // you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 0.05;
 ///     targets[0] = 200.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out with no `.to_owned()` clone. It leaves
-/// // the instance reusable. The next access reloads the data from the cached
-/// // file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[442, 10]);
 /// assert_eq!(owned_targets.len(), 442);
 ///
-/// // `into_data()` also returns owned arrays with no clone. But it consumes the
-/// // instance. Use it when you are done with the dataset.
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_targets) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[442, 10]);
 /// assert_eq!(owned_targets.len(), 442);
@@ -185,12 +185,12 @@ pub struct Diabetes {
 impl Diabetes {
     /// Create a new Diabetes instance without loading data.
     ///
-    /// The dataset loads on the first call to a data accessor method. This function
-    /// only stores the storage directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - the directory that stores the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
@@ -203,7 +203,6 @@ impl Diabetes {
 
     /// Get and parse the Diabetes dataset.
     fn load_data(dir: &str) -> Result<DiabetesData, DatasetError> {
-        // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
             DIABETES_FILENAME,
@@ -300,8 +299,8 @@ impl Diabetes {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -313,17 +312,17 @@ impl Diabetes {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (442 samples, 10 features)
+    /// - Dataset size does not match the expected dimensions (442 samples, 10 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
     /// Get a reference to the target vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -335,32 +334,32 @@ impl Diabetes {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (442 samples)
+    /// - Dataset size does not match the expected dimensions (442 samples)
     pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and targets as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&DiabetesData` - reference to the cached `(features, targets)` tuple:
-    ///   feature matrix with shape `(442, 10)` (standardized `age`, `sex`, `bmi`,
-    ///   `bp`, `s1`–`s6`) and target vector with shape `(442,)` (unscaled disease
-    ///   progression).
+    /// - `&DiabetesData` - reference to the cached `(features, targets)` tuple.
+    ///   The feature matrix has shape `(442, 10)` (standardized `age`, `sex`,
+    ///   `bmi`, `bp`, `s1`–`s6`). The target vector has shape `(442,)` (unscaled
+    ///   disease progression).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match expected dimensions (442 samples, 10 features)
+    /// - Dataset size does not match the expected dimensions (442 samples, 10 features)
     pub fn data(&self) -> Result<&DiabetesData, DatasetError> {
         self.dataset.load()
     }
@@ -431,8 +430,8 @@ impl Diabetes {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. Leave the dataset
-    /// reusable.
+    /// Take **owned** features and targets out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`Diabetes::into_data`], this returns owned arrays with no `to_owned()`
     /// clone. But instead of consuming the instance, it takes `&mut self` and moves

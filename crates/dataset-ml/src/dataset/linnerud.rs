@@ -9,9 +9,9 @@
 //! This loader reproduces scikit-learn's `load_linnerud()` output. The
 //! **features** are the three exercise variables, and the **targets** are the
 //! three physiological variables, so both are `Array2<f64>` with shape
-//! `(20, 3)`. The two underlying files are the whitespace-separated
-//! `linnerud_exercise.csv` and `linnerud_physiological.csv`, distributed with
-//! scikit-learn.
+//! `(20, 3)`. Scikit-learn distributes the two underlying files: the
+//! whitespace-separated `linnerud_exercise.csv` and
+//! `linnerud_physiological.csv`.
 //!
 //! **Features (3):** the exercise variables, in scikit-learn column order
 //! - `Chins` - number of chin-ups
@@ -36,10 +36,10 @@ use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retr
 use ndarray::Array2;
 use std::path::Path;
 
-/// The URL for the Linnerud exercise (feature) file distributed with scikit-learn.
+/// The URL for the Linnerud exercise (feature) file that scikit-learn distributes.
 const LINNERUD_EXERCISE_URL: &str = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/main/sklearn/datasets/data/linnerud_exercise.csv";
 
-/// The URL for the Linnerud physiological (target) file distributed with scikit-learn.
+/// The URL for the Linnerud physiological (target) file that scikit-learn distributes.
 const LINNERUD_PHYSIOLOGICAL_URL: &str = "https://raw.githubusercontent.com/scikit-learn/scikit-learn/main/sklearn/datasets/data/linnerud_physiological.csv";
 
 /// The cache filename for the Linnerud exercise (feature) file.
@@ -112,9 +112,10 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
         .map_err(|e| DatasetError::array_shape_error(LINNERUD_DATASET_NAME, array_name, e))
 }
 
-/// This struct represents the Linnerud dataset. It loads data lazily: the
-/// dataset does not load until you call a data accessor method. Once loaded, the
-/// data stays cached for later accesses.
+/// A struct that represents the Linnerud dataset with lazy loading.
+///
+/// The dataset loads only when you call a data accessor method. After the first
+/// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
@@ -157,41 +158,43 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
 ///
 /// # Thread Safety
 ///
-/// This struct implements `Send` and `Sync` because all its fields implement them.
-/// This makes it safe to share the struct across threads. The internal
-/// [`Dataset`] makes lazy initialization thread-safe.
+/// This struct implements `Send` and `Sync` automatically, because all fields
+/// implement them. This makes the struct safe to share across threads. The
+/// internal [`Dataset`] makes lazy initialization thread-safe.
 ///
 /// # Example
 /// ```no_run
 /// use dataset_ml::Linnerud;
 ///
-/// let download_dir = "./linnerud"; // the code creates the directory if it does not exist
+/// let download_dir = "./linnerud"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Linnerud::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let targets = dataset.targets().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap(); // this is also a way to get features and targets
+/// let (features, targets) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[20, 3]);
 /// assert_eq!(targets.shape(), &[20, 3]);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
-/// // edits them in place, with no clone and no reload. The change stays cached.
-/// // Prefer this method over `.to_owned()` when you only need to change values.
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
+/// // edits the arrays in place. This needs no clone and no reload. The change
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, targets)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 6.0;
 ///     targets[[0, 0]] = 190.0;
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out with no `to_owned()` clone. It leaves
-/// // the instance reusable. The next access reloads data from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_targets) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[20, 3]);
 /// assert_eq!(owned_targets.shape(), &[20, 3]);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_targets) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[20, 3]);
 /// assert_eq!(owned_targets.shape(), &[20, 3]);
@@ -204,17 +207,16 @@ pub struct Linnerud {
 impl Linnerud {
     /// Create a new Linnerud instance without loading data.
     ///
-    /// The dataset does not load immediately. It loads the first time you call a
-    /// data accessor method. This call is lightweight: it only stores the storage
-    /// directory.
+    /// The dataset loads lazily, on your first call to a data accessor method.
+    /// This is a lightweight operation that only stores the storage directory.
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory that holds the dataset.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Linnerud` instance ready for lazy loading.
+    /// - `Self` - a `Linnerud` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Linnerud {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -223,8 +225,8 @@ impl Linnerud {
 
     /// Get and parse the Linnerud dataset.
     fn load_data(dir: &str) -> Result<LinnerudData, DatasetError> {
-        // The exercise and physiological measurements live in two separate files,
-        // each acquired (and SHA-256 verified) independently.
+        // The exercise and physiological measurements live in two separate files.
+        // The loader gets and verifies each file independently with SHA-256.
         let exercise_path = acquire_dataset(
             dir,
             LINNERUD_EXERCISE_FILENAME,
@@ -275,8 +277,8 @@ impl Linnerud {
 
     /// Get a reference to the feature matrix (the exercise variables).
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -287,7 +289,7 @@ impl Linnerud {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size does not match the expected dimensions (20 samples, 3 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
@@ -296,8 +298,8 @@ impl Linnerud {
 
     /// Get a reference to the target matrix (the physiological variables).
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -308,7 +310,7 @@ impl Linnerud {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size does not match the expected dimensions (20 samples, 3 targets)
     pub fn targets(&self) -> Result<&Array2<f64>, DatasetError> {
@@ -317,21 +319,20 @@ impl Linnerud {
 
     /// Get both features and targets as references.
     ///
-    /// This method loads the dataset lazily on the first call. Later calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&LinnerudData` - reference to the cached `(features, targets)` tuple:
-    ///   the exercise feature matrix with shape `(20, 3)` (`Chins`, `Situps`,
-    ///   `Jumps`) and the physiological target matrix with shape `(20, 3)`
-    ///   (`Weight`, `Waist`, `Pulse`).
+    /// - `&LinnerudData` - reference to the cached `(features, targets)` tuple.
+    ///   The feature matrix has shape `(20, 3)` (`Chins`, `Situps`, `Jumps`).
+    ///   The target matrix has shape `(20, 3)` (`Weight`, `Waist`, `Pulse`).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
     /// - Dataset size does not match the expected dimensions (20 samples, 3 features, 3 targets)
     pub fn data(&self) -> Result<&LinnerudData, DatasetError> {
@@ -405,7 +406,8 @@ impl Linnerud {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. This leaves it reusable.
+    /// Take **owned** features and targets out of the dataset. This leaves the
+    /// instance reusable.
     ///
     /// Like [`Linnerud::into_data`], this method returns owned arrays with no
     /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`

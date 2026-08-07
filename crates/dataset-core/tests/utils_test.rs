@@ -34,7 +34,6 @@ fn create_gz(gz_path: &Path, content: &[u8]) {
 }
 
 #[test]
-// Verifies that gunzip decompresses a gzip file back to its original bytes.
 fn test_gunzip_round_trip() {
     let dir = "./test_gunzip_round_trip";
     create_dir_all(dir).unwrap();
@@ -53,7 +52,6 @@ fn test_gunzip_round_trip() {
 }
 
 #[test]
-// Verifies that gunzip returns an error when the gzip file does not exist.
 fn test_gunzip_nonexistent_source_errors() {
     let result = gunzip(
         Path::new("./no_such_archive_for_gunzip_test.gz"),
@@ -63,13 +61,13 @@ fn test_gunzip_nonexistent_source_errors() {
 }
 
 #[test]
-// Verifies that gunzip returns an error when the source is not a valid gzip stream.
 fn test_gunzip_invalid_stream_errors() {
     let dir = "./test_gunzip_invalid_stream_errors";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
-    // Plain, non-gzip bytes: decompression must fail rather than silently succeed.
+    // The bytes are plain text, not a gzip stream. Decompression must fail
+    // here, not succeed silently.
     let bogus = dir_path.join("not_really.gz");
     fs::write(&bogus, b"this is not a gzip stream").unwrap();
 
@@ -80,7 +78,6 @@ fn test_gunzip_invalid_stream_errors() {
 }
 
 #[test]
-// Verifies that unzip correctly extracts a single file from a zip archive.
 fn test_unzip_single_file() {
     let dir = "./test_unzip_single_file";
     create_dir_all(dir).unwrap();
@@ -100,7 +97,6 @@ fn test_unzip_single_file() {
 }
 
 #[test]
-// Verifies that unzip correctly extracts all files from a multi-entry zip archive.
 fn test_unzip_multiple_files() {
     let dir = "./test_unzip_multiple_files";
     create_dir_all(dir).unwrap();
@@ -124,7 +120,6 @@ fn test_unzip_multiple_files() {
 }
 
 #[test]
-// Verifies that unzip returns an error when the zip file does not exist.
 fn test_unzip_nonexistent_zip_errors() {
     let result = unzip(
         Path::new("./no_such_archive_for_unzip_test.zip"),
@@ -134,7 +129,6 @@ fn test_unzip_nonexistent_zip_errors() {
 }
 
 #[test]
-// Verifies the basic case: acquire_dataset writes a file and returns its path.
 fn test_acquire_dataset_basic() {
     let dir = "./test_acquire_dataset_basic";
     create_dir_all(dir).unwrap();
@@ -160,7 +154,6 @@ fn test_acquire_dataset_basic() {
 }
 
 #[test]
-// Verifies that acquire_dataset succeeds without SHA256 validation when the caller gives no hash.
 fn test_acquire_dataset_no_sha256_validation() {
     let dir = "./test_acquire_dataset_no_sha256_validation";
     create_dir_all(dir).unwrap();
@@ -178,7 +171,6 @@ fn test_acquire_dataset_no_sha256_validation() {
 }
 
 #[test]
-// Verifies that acquire_dataset returns an error when the prepared file's hash does not match.
 fn test_acquire_dataset_sha256_mismatch_errors() {
     let dir = "./test_acquire_dataset_sha256_mismatch_errors";
     create_dir_all(dir).unwrap();
@@ -187,7 +179,7 @@ fn test_acquire_dataset_sha256_mismatch_errors() {
         dir,
         "output.txt",
         "test_dataset",
-        Some(ZERO_SHA256), // wrong hash
+        Some(ZERO_SHA256),
         |temp_path| {
             let dst = temp_path.join("output.txt");
             fs::write(&dst, b"hello world").unwrap();
@@ -201,8 +193,6 @@ fn test_acquire_dataset_sha256_mismatch_errors() {
 }
 
 #[test]
-// Verifies that acquire_dataset does not call the preparation closure when a
-// valid cached file already exists.
 fn test_acquire_dataset_skips_acquisition_when_cached() {
     let dir = "./test_acquire_dataset_skips_acquisition_when_cached";
     create_dir_all(dir).unwrap();
@@ -211,7 +201,6 @@ fn test_acquire_dataset_skips_acquisition_when_cached() {
     // The destination already has the correct file.
     fs::write(dir_path.join("output.txt"), b"hello world").unwrap();
 
-    // The closure must not run. If it runs, the test panics.
     let result = acquire_dataset(
         dir,
         "output.txt",
@@ -226,8 +215,6 @@ fn test_acquire_dataset_skips_acquisition_when_cached() {
 }
 
 #[test]
-// Verifies that acquire_dataset skips the preparation closure when the file
-// exists and the caller requires no hash check.
 fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
     let dir = "./test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists";
     create_dir_all(dir).unwrap();
@@ -240,7 +227,6 @@ fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
     });
 
     assert!(result.is_ok());
-    // acquire_dataset keeps the original content.
     assert_eq!(
         fs::read(dir_path.join("output.txt")).unwrap(),
         b"cached content"
@@ -250,14 +236,11 @@ fn test_acquire_dataset_no_sha256_skips_acquisition_when_file_exists() {
 }
 
 #[test]
-// Verifies that acquire_dataset overwrites a stale file with a mismatched
-// hash by preparing a new file.
 fn test_acquire_dataset_overwrites_stale_file() {
     let dir = "./test_acquire_dataset_overwrites_stale_file";
     create_dir_all(dir).unwrap();
     let dir_path = Path::new(dir);
 
-    // Stale file whose hash does not match
     fs::write(dir_path.join("output.txt"), b"stale content").unwrap();
 
     let result = acquire_dataset(
@@ -282,7 +265,6 @@ fn test_acquire_dataset_overwrites_stale_file() {
 }
 
 #[test]
-// Verifies that acquire_dataset creates the destination directory if it does not exist.
 fn test_acquire_dataset_creates_directory() {
     // dir does not exist yet. acquire_dataset must create it.
     let dir = "./test_acquire_dataset_creates_directory";
@@ -300,7 +282,6 @@ fn test_acquire_dataset_creates_directory() {
 }
 
 #[test]
-// Verifies that acquire_dataset returns the correct final file path.
 fn test_acquire_dataset_returns_correct_path() {
     let dir = "./test_acquire_dataset_returns_correct_path";
     create_dir_all(dir).unwrap();
@@ -318,7 +299,6 @@ fn test_acquire_dataset_returns_correct_path() {
 }
 
 #[test]
-// Verifies that download_to fetches a remote file and saves it to the given directory.
 fn test_download_to_downloads_file() {
     let dir = "./test_download_to_downloads_file";
     create_dir_all(dir).unwrap();

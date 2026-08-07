@@ -52,8 +52,8 @@ const DATA_SUBDIR: &str = "txt_sentoken";
 /// Number of samples.
 const N_SAMPLES: usize = 2_000;
 
-/// The class subdirectories paired with their `&'static str` labels, in the fixed
-/// (lexicographic) order they are walked.
+/// The class subdirectories paired with their `&'static str` labels, in the
+/// fixed (lexicographic) order the loader walks them.
 const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")];
 
 /// A struct that represents the Movie Review Polarity dataset with lazy loading.
@@ -66,9 +66,9 @@ const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")]
 /// The polarity dataset v2.0 (Pang and Lee, 2004) collects 2,000 movie reviews
 /// pulled from the IMDb archive, for document-level sentiment classification.
 /// Of these, 1,000 have an overall positive rating and 1,000 have an overall
-/// negative rating. The reviews are distributed pre-tokenized and lowercased
-/// (the `txt_sentoken` form, one sentence per line). It is one of the most
-/// widely cited sentiment benchmarks.
+/// negative rating. The dataset provides the reviews pre-tokenized and
+/// lowercased (the `txt_sentoken` form, one sentence per line). It is one of
+/// the most widely cited sentiment benchmarks.
 ///
 /// # Documents
 ///
@@ -101,34 +101,35 @@ const CLASS_DIRS: [(&str, &str); 2] = [("neg", "negative"), ("pos", "positive")]
 /// ```no_run
 /// use dataset_ml::MovieReviewPolarity;
 ///
-/// let download_dir = "./movie_review_polarity"; // the code creates the directory if it does not exist
+/// let download_dir = "./movie_review_polarity"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = MovieReviewPolarity::new(download_dir);
 /// let texts = dataset.texts().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (texts, labels) = dataset.data().unwrap(); // this also returns texts and labels
+/// let (texts, labels) = dataset.data().unwrap();
 /// assert_eq!(texts.len(), 2000);
 /// assert_eq!(labels.len(), 2000);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
 /// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. Prefer this method over `.to_owned()` when you only need to
-/// // change values.
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((texts, labels)) = dataset.get_data_mut() {
 ///     texts[0] = "hello world".to_string();
 ///     labels[0] = "positive";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out (no `to_owned()` clone). It leaves
-/// // the instance reusable. The next access reloads the data from the cached archive.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_texts, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_texts.len(), 2000);
 /// assert_eq!(owned_labels.len(), 2000);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_texts, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_texts.len(), 2000);
 /// assert_eq!(owned_labels.len(), 2000);
@@ -146,11 +147,11 @@ impl MovieReviewPolarity {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `MovieReviewPolarity` instance ready for lazy loading.
+    /// - `Self` - a `MovieReviewPolarity` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         MovieReviewPolarity {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -159,10 +160,10 @@ impl MovieReviewPolarity {
 
     /// Get and parse the Movie Review Polarity dataset.
     fn load_data(dir: &str) -> Result<MovieReviewPolarityData, DatasetError> {
-        // Cache the compressed tarball as-is. Its SHA-256 is the integrity check.
-        // Like `Newsgroups20`, the reviews are multi-line raw documents. Instead of
-        // re-serializing them, the code keeps the canonical archive and re-extracts
-        // it in memory on load.
+        // The loader caches the compressed tarball as-is, and uses its SHA-256
+        // hash as the integrity check. Like `Newsgroups20`, the reviews are
+        // multi-line raw documents. Instead of re-serializing them, the code
+        // keeps the canonical archive and re-extracts it in memory on load.
         let archive_path = acquire_dataset(
             dir,
             MOVIE_REVIEW_POLARITY_ARCHIVE_FILENAME,
@@ -179,8 +180,8 @@ impl MovieReviewPolarity {
             },
         )?;
 
-        // Extract the archive into a temp dir under `dir`. The temp dir cleans up
-        // when it drops.
+        // The code extracts the archive into a temp dir under `dir`. The temp
+        // dir cleans up when it drops.
         let extract_dir = tempfile::Builder::new()
             .prefix("polarity-")
             .tempdir_in(dir)?;
@@ -215,8 +216,8 @@ impl MovieReviewPolarity {
 
     /// Get a reference to the review-text vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// This method is the Movie Review Polarity equivalent of the tabular loaders'
     /// `features()`. The data is text, so the "features" are the raw review
@@ -232,35 +233,35 @@ impl MovieReviewPolarity {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
-    /// - Dataset size does not match expected dimensions (2,000 samples)
+    /// - File extraction or I/O operations fail
+    /// - Dataset size does not match the expected dimensions (2,000 samples)
     pub fn texts(&self) -> Result<&Array1<String>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(2000,)` containing `"positive"` or `"negative"`
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(2000,)` containing `"positive"` or `"negative"`
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
-    /// - Dataset size does not match expected dimensions (2,000 samples)
+    /// - File extraction or I/O operations fail
+    /// - Dataset size does not match the expected dimensions (2,000 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both review texts and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -271,8 +272,8 @@ impl MovieReviewPolarity {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - Archive extraction or I/O operations fail
-    /// - Dataset size does not match expected dimensions (2,000 samples)
+    /// - File extraction or I/O operations fail
+    /// - Dataset size does not match the expected dimensions (2,000 samples)
     pub fn data(&self) -> Result<&MovieReviewPolarityData, DatasetError> {
         self.dataset.load()
     }
@@ -289,7 +290,7 @@ impl MovieReviewPolarity {
     ///
     /// - `Some(&MovieReviewPolarityData)` - reference to the cached `(texts,
     ///   labels)` tuple (`(2000,)`, `(2000,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&MovieReviewPolarityData> {
         self.dataset.get()
     }
@@ -311,7 +312,7 @@ impl MovieReviewPolarity {
     ///
     /// - `Some(&mut MovieReviewPolarityData)` - mutable reference to the cached
     ///   `(texts, labels)` tuple (`(2000,)`, `(2000,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut MovieReviewPolarityData> {
         self.dataset.get_mut()
     }

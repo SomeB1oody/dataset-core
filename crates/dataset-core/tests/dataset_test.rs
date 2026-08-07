@@ -22,7 +22,6 @@ fn counting_dataset() -> (Dataset<usize, std::convert::Infallible>, Arc<AtomicUs
 }
 
 #[test]
-// Verifies that the loader runs only on the first access and the dataset caches the value.
 fn load_runs_the_loader_once_and_caches() {
     let (dataset, calls) = counting_dataset();
 
@@ -33,14 +32,12 @@ fn load_runs_the_loader_once_and_caches() {
     assert_eq!(*first, 1);
     assert!(dataset.is_loaded());
 
-    // Repeated loads return the same reference without running the loader again.
     let second = dataset.load().unwrap();
     assert!(std::ptr::eq(first, second));
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
-// Verifies that concurrent loads run the loader exactly once. All threads see the same result.
 fn concurrent_loads_run_the_loader_once() {
     const THREADS: usize = 16;
 
@@ -74,12 +71,10 @@ fn concurrent_loads_run_the_loader_once() {
 }
 
 #[test]
-// Verifies that the dataset does not cache a failed load. The next load retries the loader.
 fn failed_load_is_not_cached() {
     let calls = Arc::new(AtomicUsize::new(0));
     let loader_calls = Arc::clone(&calls);
 
-    // The loader fails on the first attempt. It succeeds after that.
     let dataset = Dataset::<usize, String>::new("./unused_dir", move |_| {
         if loader_calls.fetch_add(1, Ordering::SeqCst) == 0 {
             Err("transient failure".to_string())
@@ -96,7 +91,6 @@ fn failed_load_is_not_cached() {
 }
 
 #[test]
-// Verifies that load_mut loads on demand and its edits persist in the cache.
 fn load_mut_loads_then_edits_in_place() {
     let (mut dataset, calls) = counting_dataset();
 
@@ -104,14 +98,12 @@ fn load_mut_loads_then_edits_in_place() {
     *dataset.load_mut().unwrap() = 99;
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 
-    // The edit stayed in the cache, and no reload happened.
     assert_eq!(dataset.get(), Some(&99));
     assert_eq!(*dataset.load().unwrap(), 99);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
-// Verifies that get/get_mut never trigger loading.
 fn get_and_get_mut_never_load() {
     let (mut dataset, calls) = counting_dataset();
 
@@ -124,7 +116,6 @@ fn get_and_get_mut_never_load() {
 }
 
 #[test]
-// Verifies that invalidate drops the cache but keeps the loader.
 fn invalidate_drops_the_cache_and_keeps_the_loader() {
     let (mut dataset, calls) = counting_dataset();
 
@@ -132,13 +123,11 @@ fn invalidate_drops_the_cache_and_keeps_the_loader() {
     dataset.invalidate();
     assert!(!dataset.is_loaded());
 
-    // The container runs the same loader again. The counter has advanced.
     assert_eq!(*dataset.load().unwrap(), 2);
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 
 #[test]
-// Verifies that set_loader swaps the loader and invalidates the cached value.
 fn set_loader_swaps_the_loader_and_invalidates() {
     let (mut dataset, calls) = counting_dataset();
 
@@ -147,17 +136,14 @@ fn set_loader_swaps_the_loader_and_invalidates() {
     dataset.set_loader(|_| Ok(1000));
     assert!(!dataset.is_loaded());
 
-    // The container uses the new loader. It never calls the old loader again.
     assert_eq!(*dataset.load().unwrap(), 1000);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]
-// Verifies that take moves the value out and leaves the container reusable.
 fn take_returns_the_value_and_resets_the_container() {
     let (mut dataset, calls) = counting_dataset();
 
-    // Nothing is cached yet, so take returns nothing. It does not trigger a load.
     assert!(dataset.take().is_none());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
 
@@ -165,16 +151,13 @@ fn take_returns_the_value_and_resets_the_container() {
     assert_eq!(dataset.take(), Some(1));
     assert!(!dataset.is_loaded());
 
-    // Reusable: the next load runs the loader again.
     assert_eq!(*dataset.load().unwrap(), 2);
 }
 
 #[test]
-// Verifies that into_inner consumes the container and yields the cached value.
 fn into_inner_consumes_the_container() {
     let (dataset, _calls) = counting_dataset();
 
-    // A container with no cached value returns `None`. It does not trigger a load.
     assert_eq!(dataset.into_inner(), None);
 
     let (dataset, _calls) = counting_dataset();
@@ -183,7 +166,6 @@ fn into_inner_consumes_the_container() {
 }
 
 #[test]
-// Verifies that storage_dir reports the path given at construction.
 fn storage_dir_is_reported_verbatim() {
     let dataset: Dataset<u8, std::convert::Infallible> = Dataset::new("./some/dir", |_| Ok(0));
 
@@ -191,7 +173,6 @@ fn storage_dir_is_reported_verbatim() {
 }
 
 #[test]
-// Verifies that the loader receives the storage directory given at construction.
 fn loader_receives_the_storage_dir() {
     let dataset: Dataset<String, std::convert::Infallible> =
         Dataset::new("./expected/dir", |dir| Ok(dir.to_string()));
@@ -200,7 +181,6 @@ fn loader_receives_the_storage_dir() {
 }
 
 #[test]
-// Verifies that Debug reports the storage directory and the load state.
 fn debug_reports_storage_dir_and_load_state() {
     let dataset: Dataset<u8, std::convert::Infallible> = Dataset::new("./debug/dir", |_| Ok(0));
 

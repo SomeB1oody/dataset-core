@@ -40,7 +40,7 @@ const IRIS_FILENAME: &str = "iris.csv";
 /// The SHA256 hash of the Iris dataset file.
 const IRIS_SHA256: &str = "c52742e50315a99f956a383faedf7575552675f6409ef0f9a47076dd08479930";
 
-/// The name of the dataset
+/// The name of the dataset.
 const IRIS_DATASET_NAME: &str = "iris";
 
 /// Type alias for the Iris dataset: (features, labels).
@@ -49,9 +49,10 @@ type IrisData = (Array2<f64>, Array1<&'static str>);
 /// One CSV record of the Iris dataset: four `f64` measurements followed by the
 /// species label.
 ///
-/// Fields are declared in CSV column order and deserialized **positionally**
-/// (the loader disables csv's header handling), so this struct is independent
-/// of the exact header spelling and of any byte-order mark on the header row.
+/// This struct declares fields in CSV column order. Serde deserializes them
+/// positionally, because the loader disables csv's header handling. This
+/// makes the struct independent of the exact header spelling and of any
+/// byte-order mark on the header row.
 #[derive(Deserialize)]
 struct IrisRecord {
     sepal_length: f64,
@@ -103,34 +104,35 @@ struct IrisRecord {
 /// ```no_run
 /// use dataset_ml::Iris;
 ///
-/// let download_dir = "./iris"; // the code creates the directory if it does not exist
+/// let download_dir = "./iris"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Iris::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap(); // this also returns features and labels
+/// let (features, labels) = dataset.data().unwrap();
 /// assert_eq!(features.shape(), &[150, 4]);
 /// assert_eq!(labels.len(), 150);
 ///
-/// // `get_data()` borrows the cached arrays without reloading. `get_data_mut()`
+/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
 /// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. Prefer this method over `.to_owned()` when you only need to
-/// // change values.
+/// // stays cached. If you only need to change values, prefer this method over
+/// // `.to_owned()`.
 /// if let Some((features, labels)) = dataset.get_data_mut() {
 ///     features[[0, 0]] = 5.5;
 ///     labels[0] = "setosa-modified";
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves owned arrays out (no `to_owned()` clone). It leaves the
-/// // instance reusable. The next access reloads the data from the cached file.
+/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
+/// // leaves the instance reusable. The next access reloads the data from the
+/// // cached file.
 /// let (owned_features, owned_labels) = dataset.take_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[150, 4]);
 /// assert_eq!(owned_labels.len(), 150);
 ///
-/// // `into_data()` also returns owned arrays with no clone, but consumes the
-/// // instance (use it when you are done with the dataset).
+/// // `into_data()` also returns the owned arrays with no clone, but it
+/// // consumes the instance. If you are done with the dataset, use it.
 /// let (owned_features, owned_labels) = dataset.into_data().unwrap();
 /// assert_eq!(owned_features.shape(), &[150, 4]);
 /// assert_eq!(owned_labels.len(), 150);
@@ -148,11 +150,11 @@ impl Iris {
     ///
     /// # Parameters
     ///
-    /// - `storage_dir` - Directory where the dataset is stored.
+    /// - `storage_dir` - The directory that stores the dataset.
     ///
     /// # Returns
     ///
-    /// - `Self` - `Iris` instance ready for lazy loading.
+    /// - `Self` - an `Iris` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Iris {
             dataset: Dataset::new(storage_dir, Self::load_data),
@@ -161,7 +163,6 @@ impl Iris {
 
     /// Get and parse the Iris dataset.
     fn load_data(dir: &str) -> Result<IrisData, DatasetError> {
-        // Prepare the dataset file
         let file_path = acquire_dataset(
             dir,
             IRIS_FILENAME,
@@ -173,7 +174,6 @@ impl Iris {
             },
         )?;
 
-        // csv deserializes into the struct
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
@@ -225,8 +225,8 @@ impl Iris {
 
     /// Get a reference to the feature matrix.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
@@ -240,52 +240,52 @@ impl Iris {
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (150 samples, 4 features)
+    /// - Dataset size does not match the expected dimensions (150 samples, 4 features)
     pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
         Ok(&self.dataset.load()?.0)
     }
 
-    /// Get a reference to the labels vector.
+    /// Get a reference to the label vector.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to labels vector with shape `(150,)` containing species names (`"setosa"`, `"versicolor"`, `"virginica"`)
+    /// - `&Array1<&'static str>` - Reference to label vector with shape `(150,)` containing species names (`"setosa"`, `"versicolor"`, `"virginica"`)
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (150 samples)
+    /// - Dataset size does not match the expected dimensions (150 samples)
     pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
         Ok(&self.dataset.load()?.1)
     }
 
     /// Get both features and labels as references.
     ///
-    /// This method triggers lazy loading on first call. Subsequent calls return
-    /// the cached data instantly.
+    /// This method triggers lazy loading on the first call. Later calls return
+    /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&IrisData` - reference to the cached `(features, labels)` tuple: the
-    ///   feature matrix has shape `(150, 4)` (sepal length/width, petal
-    ///   length/width, all in cm) and the label vector has shape `(150,)`
-    ///   containing species names (`"setosa"`, `"versicolor"`, `"virginica"`).
+    /// - `&IrisData` - reference to the cached `(features, labels)` tuple.
+    ///   The feature matrix has shape `(150, 4)` (sepal length/width, petal
+    ///   length/width, all in cm). The label vector has shape `(150,)` and
+    ///   contains species names (`"setosa"`, `"versicolor"`, `"virginica"`).
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
+    /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match expected dimensions (150 samples, 4 features)
+    /// - Dataset size does not match the expected dimensions (150 samples, 4 features)
     pub fn data(&self) -> Result<&IrisData, DatasetError> {
         self.dataset.load()
     }
@@ -294,15 +294,15 @@ impl Iris {
     ///
     /// Unlike [`Iris::data`], which loads the dataset on first call, this method
     /// never runs the loader. If the data has not loaded yet, this method returns
-    /// `None` instead of downloading and parsing it. Use this method when you want
-    /// the data only if it is already cached. This avoids the download and parse
-    /// cost when the data is not yet cached.
+    /// `None` instead of downloading and parsing it. If you want the data only
+    /// when it is already cached, use this method. It avoids the download and
+    /// parse cost when the data is not cached yet.
     ///
     /// # Returns
     ///
     /// - `Some(&IrisData)` - reference to the cached `(features, labels)` tuple
     ///   (feature matrix `(150, 4)`, label vector `(150,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data(&self) -> Option<&IrisData> {
         self.dataset.get()
     }
@@ -315,8 +315,8 @@ impl Iris {
     /// calls to [`Iris::features`], [`Iris::data`], or [`Iris::get_data`] observe
     /// them.
     ///
-    /// Like [`Iris::get_data`], this method does not trigger loading. It returns
-    /// `None` if the dataset has not loaded yet. If you need the data to be
+    /// Like [`Iris::get_data`], this method does not trigger loading. If the
+    /// dataset has not loaded yet, it returns `None`. If you need the data to be
     /// present, call a loading accessor first, for example [`Iris::data`].
     ///
     /// # Returns
@@ -324,7 +324,7 @@ impl Iris {
     /// - `Some(&mut IrisData)` - mutable reference to the cached
     ///   `(features, labels)` tuple (feature matrix `(150, 4)`, label vector
     ///   `(150,)`), if loaded.
-    /// - `None` - if the dataset has not been loaded yet.
+    /// - `None` - if the dataset has not loaded yet.
     pub fn get_data_mut(&mut self) -> Option<&mut IrisData> {
         self.dataset.get_mut()
     }
