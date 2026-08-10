@@ -5,7 +5,7 @@
 //!
 //! 1. Download from a URL.
 //! 2. Verify a SHA-256 hash.
-//! 3. Parse CSV records, or extract raw documents from an archive.
+//! 3. Parse the source: CSV records, raw documents from an archive, or binary IDX images.
 //! 4. Expose typed accessors backed by [`ndarray`].
 //!
 //! The crate root also re-exports every loader struct, so
@@ -38,6 +38,7 @@
 //! | [`kddcup99`](crate::dataset::kddcup99) | 494,021 / 4,898,431 | 41 | Classification |
 //! | [`letter_recognition`](crate::dataset::letter_recognition) | 20,000 | 16 | Classification (26 classes) |
 //! | [`linnerud`](crate::dataset::linnerud) | 20 | 3 | Regression (multi-output) |
+//! | [`mnist`](crate::dataset::mnist) | 60,000 / 10,000 / 70,000 | 784 (28×28 pixels) | Classification (10 classes) |
 //! | [`mushroom`](crate::dataset::mushroom) | 8,124 | 22 | Classification |
 //! | [`spambase`](crate::dataset::spambase) | 4,601 | 57 | Classification |
 //! | [`titanic`](crate::dataset::titanic) | 891 | 11 | Classification |
@@ -218,6 +219,20 @@ pub mod linnerud;
 /// full-document reviews. Sourced from a `.tar.gz` archive (decompressed with
 /// `untar_gz`).
 pub mod movie_review_polarity;
+
+/// MNIST handwritten digits dataset module.
+///
+/// Contains the MNIST database (LeCun et al. 1998) for multi-class
+/// classification: recognizing a handwritten digit (`0`-`9`) from a 28×28
+/// grayscale image. It is the crate's first **binary**-format source (IDX, read
+/// from four gzip-compressed files) and its first dataset of raw pixels at a
+/// useful size. `features()` returns an `Array2<u8>` of shape
+/// `(n_samples, 784)`, and `images()` returns the same buffer as a
+/// `(n_samples, 28, 28)` view at no copy. The pixels stay `u8` rather than
+/// `f64`, which is lossless for this source and holds 52 MiB instead of 419 MiB
+/// for all 70,000 images. It offers `new`/`new_test`/`new_all` subset
+/// constructors.
+pub mod mnist;
 
 /// Mushroom dataset module.
 ///

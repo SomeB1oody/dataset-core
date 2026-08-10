@@ -18,7 +18,7 @@ On top of this core type, the crate provides one **optional**, feature-gated mod
 
 - **`utils`**: helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml). It includes 31 loaders, from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups. It depends on `dataset-core` with the `utils` feature enabled.
+For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml).
 
 ## Installation
 
@@ -69,33 +69,33 @@ fn main() {
 
 ### `Dataset<T, E>` API
 
-| Method               | Returns         | Description                                                         |
-|----------------------|-----------------|--------------------------------------------------------------------|
-| `new(dir, loader)`   | `Dataset<T, E>` | Create an instance and store the loader (no I/O)                   |
-| `load()`             | `Result<&T, E>` | Run the stored loader on first call, return cached `&T` thereafter |
-| `load_mut()`         | `Result<&mut T, E>` | Load if needed, then borrow the cached value mutably for in-place edits |
-| `get()` / `get_mut()`| `Option<&T>` / `Option<&mut T>` | Borrow the cached value **without** loading                |
-| `take()`             | `Option<T>`     | Move the cached value out and leave the container reusable         |
-| `into_inner()`       | `Option<T>`     | Consume the container and return the cached value                  |
-| `set_loader(loader)` | `()`            | Replace the loader and invalidate the cache (lazy re-parse)        |
-| `invalidate()`       | `()`            | Drop the cached value, keep the loader (next `load` re-runs it)    |
-| `is_loaded()`        | `bool`          | Whether the dataset has already loaded its data                    |
-| `storage_dir()`      | `&str`          | The storage directory path                                         |
+| Method                | Returns                         | Description                                                             |
+|-----------------------|---------------------------------|-------------------------------------------------------------------------|
+| `new(dir, loader)`    | `Dataset<T, E>`                 | Create an instance and store the loader (no I/O)                        |
+| `load()`              | `Result<&T, E>`                 | Run the stored loader on first call, return cached `&T` thereafter      |
+| `load_mut()`          | `Result<&mut T, E>`             | Load if needed, then borrow the cached value mutably for in-place edits |
+| `get()` / `get_mut()` | `Option<&T>` / `Option<&mut T>` | Borrow the cached value **without** loading                             |
+| `take()`              | `Option<T>`                     | Move the cached value out and leave the container reusable              |
+| `into_inner()`        | `Option<T>`                     | Consume the container and return the cached value                       |
+| `set_loader(loader)`  | `()`                            | Replace the loader and invalidate the cache (lazy re-parse)             |
+| `invalidate()`        | `()`                            | Drop the cached value, keep the loader (next `load` re-runs it)         |
+| `is_loaded()`         | `bool`                          | Whether the dataset has already loaded its data                         |
+| `storage_dir()`       | `&str`                          | The storage directory path                                              |
 
 ## Utility Functions (feature `utils`)
 
-| Function              | Purpose                                                                                |
-|-----------------------|----------------------------------------------------------------------------------------|
-| `download_to`         | Download a remote file into a directory                                                |
-| `download_to_with_retries` | Like `download_to`, but retries transient failures with exponential backoff    |
-| `unzip`               | Extract a ZIP archive                                                                  |
-| `gunzip`              | Decompress a gzip (`.gz`) file into a single output file                               |
-| `untar`               | Extract a tar (`.tar`) archive into a directory                                        |
-| `untar_gz`            | Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a directory, and stream it so no intermediate file touches disk |
-| `sha256_file`         | Compute a file's SHA-256 digest as hex. Use it to pin a new dataset's hash             |
-| `verify_sha256`       | Check a file against a hash you already have                                           |
-| `read_latin1`         | Read a file as Latin-1 text, losslessly and without failing on non-UTF-8 bytes         |
-| `acquire_dataset`     | Cache-aware acquisition: reuse a valid local file, prepare it in a temp dir, check the hash, then move it into place |
+| Function                   | Purpose                                                                                                                         |
+|----------------------------|---------------------------------------------------------------------------------------------------------------------------------|
+| `download_to`              | Download a remote file into a directory                                                                                         |
+| `download_to_with_retries` | Like `download_to`, but retries transient failures with exponential backoff                                                     |
+| `unzip`                    | Extract a ZIP archive                                                                                                           |
+| `gunzip`                   | Decompress a gzip (`.gz`) file into a single output file                                                                        |
+| `untar`                    | Extract a tar (`.tar`) archive into a directory                                                                                 |
+| `untar_gz`                 | Extract a gzip-compressed tar (`.tar.gz` / `.tgz`) archive into a directory, and stream it so no intermediate file touches disk |
+| `sha256_file`              | Compute a file's SHA-256 digest as hex. Use it to pin a new dataset's hash                                                      |
+| `verify_sha256`            | Check a file against a hash you already have                                                                                    |
+| `read_latin1`              | Read a file as Latin-1 text, losslessly and without failing on non-UTF-8 bytes                                                  |
+| `acquire_dataset`          | Cache-aware acquisition: reuse a valid local file, prepare it in a temp dir, check the hash, then move it into place            |
 
 ## Building Your Own Dataset
 

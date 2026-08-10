@@ -7,7 +7,7 @@
 //!
 //! 1. Download from a URL.
 //! 2. Verify a SHA-256 hash.
-//! 3. Parse CSV records, or extract raw documents from an archive.
+//! 3. Parse the source: CSV records, raw documents from an archive, or binary IDX images.
 //! 4. Expose typed accessors backed by [`ndarray`].
 //!
 //! # Feature flags
@@ -16,7 +16,7 @@
 //!
 //! | Feature         | What it enables |
 //! |-----------------|-----------------|
-//! | `dataset`       | The `dataset` module and its 31 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
+//! | `dataset`       | The `dataset` module and its 32 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
 //! | `preprocessing` | The `preprocessing` module: seeded train/test and k-fold splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
 //!
 //! The `traits` module is always available, whichever features you pick. It holds
@@ -133,7 +133,7 @@ pub use dataset::{
     breast_cancer::BreastCancer, california_housing::CaliforniaHousing,
     car_evaluation::CarEvaluation, covtype::Covtype, diabetes::Diabetes, digits::Digits,
     heart_disease::HeartDisease, ionosphere::Ionosphere, iris::Iris, kddcup99::Kddcup99,
-    letter_recognition::LetterRecognition, linnerud::Linnerud,
+    letter_recognition::LetterRecognition, linnerud::Linnerud, mnist::Mnist,
     movie_review_polarity::MovieReviewPolarity, mushroom::Mushroom, newsgroups20::Newsgroups20,
     palmer_penguins::PalmerPenguins, sentiment_sentences::SentimentSentences, sms_spam::SmsSpam,
     spambase::Spambase, titanic::Titanic, wine_quality::red_wine_quality::RedWineQuality,

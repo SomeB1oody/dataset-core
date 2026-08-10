@@ -10,11 +10,11 @@
 
 ## Overview
 
-`dataset-ml` includes loaders for 31 classic ML datasets. Each loader:
+`dataset-ml` includes loaders for 32 classic ML datasets. Each loader:
 
 - Downloads the source file on first access with `ureq`, and retries transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
-- Parses the source (CSV, or raw documents extracted from an archive for the text corpora) into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
+- Parses the source into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
 - Caches the parsed result in memory using `dataset_core::Dataset<T, E>`. Later accesses return a `&` reference with zero I/O.
 
 Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
@@ -33,10 +33,10 @@ dataset-ml = "0.4"
 
 ## Feature flags
 
-| Feature         | Default | What it enables                                                                                                                                                            |
-|-----------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dataset`       | yes     | The `dataset` module and its 31 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
-| `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies.                                                 |
+| Feature         | Default | What it enables                                                                                  |
+|-----------------|---------|--------------------------------------------------------------------------------------------------|
+| `dataset`       | yes     | The `dataset` module and its loaders, the crate-root re-export of every loader struct            |
+| `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding |
 
 The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`. You can write a loader of your own against the same interface with both features off.
 
