@@ -10,7 +10,7 @@
 
 ## 概述
 
-`dataset-ml` 内置了 29 个经典 ML 数据集的加载器。每个加载器会：
+`dataset-ml` 内置了 31 个经典 ML 数据集的加载器。每个加载器会：
 
 - 在首次访问时下载源文件（通过 `ureq`），并对瞬时网络故障自动重试。
 - 校验预设的 SHA-256 哈希值，以检测损坏或上游变化。
@@ -35,7 +35,7 @@ dataset-ml = "0.4"
 
 | 特性            | 默认 | 启用内容                                                                                                                                   |
 |-----------------|------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `dataset`       | 是   | `dataset` 模块及其 29 个加载器、所有加载器结构体在 crate 根部的重新导出，以及 `DOWNLOAD_RETRIES`。会引入 `csv`、`serde`、`tempfile` 依赖。 |
+| `dataset`       | 是   | `dataset` 模块及其 31 个加载器、所有加载器结构体在 crate 根部的重新导出，以及 `DOWNLOAD_RETRIES`。会引入 `csv`、`serde`、`tempfile` 依赖。 |
 | `preprocessing` | 是   | `preprocessing` 模块：带随机种子的划分、特征缩放、独热编码与标签编码。不引入任何依赖。                                                     |
 
 无论选择哪些特性，`traits` 模块始终可用。它提供 `MlDataset` 和 `NumSamples`，因此即使两个特性都关闭，你也可以按同一套接口编写自己的加载器。
@@ -85,6 +85,8 @@ fn main() {
 - `data()` — 一次性获取所有引用
 
 > 文本加载器 **SmsSpam**、**YoutubeSpam**、**SentimentSentences**、**Newsgroups20** 和 **MovieReviewPolarity** 是例外。文本语料没有固定的特征矩阵，因此它们不提供 `features()`，而是提供 `texts()`（原始文档的 `Array1<String>`）。**SentimentSentences** 还提供 `sources()`（每条句子来自哪个评论站点）。**Newsgroups20** 是唯一的**多分类**文本加载器（20 类），并提供 `new`/`new_test`/`new_all` 三个子集构造函数。
+
+> **BikeSharingHourly** 和 **BikeSharingDaily** 在上述模式之外多提供一个 `dates()` 访问器：`Array1<String>`，保存每条记录的日历日期（`YYYY-MM-DD`）。它们是本 crate 中仅有的带时间轴的数据集，行按时间顺序排列，因此可以按时间切分而不是随机切分。它们的 `targets()` 是 `(n, 3)` 矩阵，三列依次为 `casual`、`registered`、`cnt`；只需要单一目标时取 `targets.column(2)` 即可。
 
 ## `MlDataset` trait
 

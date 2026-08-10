@@ -23,6 +23,8 @@
 //! | [`adult`](crate::dataset::adult) | 32,561 | 14 | Classification |
 //! | [`bank_marketing`](crate::dataset::bank_marketing) | 45,211 | 16 | Classification |
 //! | [`banknote_authentication`](crate::dataset::banknote_authentication) | 1,372 | 4 | Classification |
+//! | [`bike_sharing_hourly`](crate::dataset::bike_sharing::bike_sharing_hourly) | 17,379 | 12 | Regression (multi-output) |
+//! | [`bike_sharing_daily`](crate::dataset::bike_sharing::bike_sharing_daily) | 731 | 11 | Regression (multi-output) |
 //! | [`iris`](crate::dataset::iris) | 150 | 4 | Classification |
 //! | [`breast_cancer`](crate::dataset::breast_cancer) | 569 | 30 | Classification |
 //! | [`boston_housing`](crate::dataset::boston_housing) | 506 | 13 | Regression |
@@ -87,6 +89,20 @@ pub mod bank_marketing;
 /// pure-numeric benchmark. Its target is the source's raw `0`/`1` code as an
 /// `Array1<u8>`, because UCI does not document which code means which.
 pub mod banknote_authentication;
+
+/// Bike Sharing dataset module.
+///
+/// Contains the Bike Sharing dataset (UCI, Fanaee-T 2013) for **regression**:
+/// predicting the rental count of the Capital Bikeshare system in Washington,
+/// D.C., over 2011 and 2012 from the calendar attributes and the weather. It is
+/// the crate's first dataset with a **time axis**. Each sample carries its
+/// calendar date through a `dates()` accessor, and the rows stay in
+/// chronological order, so a split by time is possible. One ZIP archive holds
+/// two aggregations of the same rental log, and each one has its own loader:
+/// `bike_sharing_hourly::BikeSharingHourly` (17,379 records) and
+/// `bike_sharing_daily::BikeSharingDaily` (731 records). Both use the
+/// multi-output target `(casual, registered, cnt)`.
+pub mod bike_sharing;
 
 /// Boston Housing dataset module.
 ///

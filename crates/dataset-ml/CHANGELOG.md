@@ -2,7 +2,7 @@
 
 This file documents all notable changes to the `dataset-ml` crate.
 
-This crate provides loaders for 29 classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
+This crate provides loaders for 31 classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
 
 See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more information.
 
@@ -10,8 +10,13 @@ This changelog groups entries by release and lists only each version's notable c
 
 ## [Unreleased]
 ### Added
+- **Bike Sharing** (UCI, Fanaee-T 2013): rental counts of the Capital Bikeshare system in Washington, D.C., over 2011 and 2012, with the calendar attributes and the weather of each period. This is the crate's first dataset with a **time axis**. A new `dates()` accessor returns the calendar date of each record as `YYYY-MM-DD`, and the rows stay in chronological order, so a split by time is possible. One ZIP source holds two aggregations of the same rental log, and each one has its own loader and its own cached file:
+  - `BikeSharingHourly`: 17,379 records, 12 numeric features
+  - `BikeSharingDaily`: 731 records, 11 numeric features (no `hr` column)
+
+  Both use the multi-output regression target `(casual, registered, cnt)` as an `Array2<f64>` with 3 columns, where `cnt` is the sum of the other two. For the usual single-target task, take `targets.column(2)`.
 - Two feature flags, both on by default, so a user can compile only the half they need:
-  - `dataset`: the `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which are now optional.
+  - `dataset`: the `dataset` module and its 31 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which are now optional.
   - `preprocessing`: the `preprocessing` module. It adds no dependencies.
 
   With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The `traits` module stays available under every feature combination, so a downstream loader can implement `MlDataset` with both features off.

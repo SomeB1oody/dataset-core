@@ -18,7 +18,7 @@ On top of this core type, the crate provides one **optional**, feature-gated mod
 
 - **`utils`**: helpers for downloading files, extracting archives, verifying SHA-256 hashes, and managing temporary directories.
 
-For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml). It includes 29 loaders, from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups. It depends on `dataset-core` with the `utils` feature enabled.
+For ready-to-use loaders for classic ML datasets, see the companion crate [`dataset-ml`](https://crates.io/crates/dataset-ml). It includes 31 loaders, from Iris, Breast Cancer, and California Housing to Covertype, KDD Cup '99, and 20 Newsgroups. It depends on `dataset-core` with the `utils` feature enabled.
 
 ## Installation
 

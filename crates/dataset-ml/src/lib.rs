@@ -16,7 +16,7 @@
 //!
 //! | Feature         | What it enables |
 //! |-----------------|-----------------|
-//! | `dataset`       | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
+//! | `dataset`       | The `dataset` module and its 31 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
 //! | `preprocessing` | The `preprocessing` module: seeded train/test and k-fold splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
 //!
 //! The `traits` module is always available, whichever features you pick. It holds
@@ -127,7 +127,9 @@ pub mod traits;
 #[cfg(feature = "dataset")]
 pub use dataset::{
     abalone::Abalone, adult::Adult, bank_marketing::BankMarketing,
-    banknote_authentication::BanknoteAuthentication, boston_housing::BostonHousing,
+    banknote_authentication::BanknoteAuthentication,
+    bike_sharing::bike_sharing_daily::BikeSharingDaily,
+    bike_sharing::bike_sharing_hourly::BikeSharingHourly, boston_housing::BostonHousing,
     breast_cancer::BreastCancer, california_housing::CaliforniaHousing,
     car_evaluation::CarEvaluation, covtype::Covtype, diabetes::Diabetes, digits::Digits,
     heart_disease::HeartDisease, ionosphere::Ionosphere, iris::Iris, kddcup99::Kddcup99,

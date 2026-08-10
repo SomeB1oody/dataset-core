@@ -10,7 +10,7 @@
 
 ## Overview
 
-`dataset-ml` includes loaders for 29 classic ML datasets. Each loader:
+`dataset-ml` includes loaders for 31 classic ML datasets. Each loader:
 
 - Downloads the source file on first access with `ureq`, and retries transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
@@ -35,7 +35,7 @@ dataset-ml = "0.4"
 
 | Feature         | Default | What it enables                                                                                                                                                            |
 |-----------------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `dataset`       | yes     | The `dataset` module and its 29 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
+| `dataset`       | yes     | The `dataset` module and its 31 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
 | `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies.                                                 |
 
 The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`. You can write a loader of your own against the same interface with both features off.
@@ -84,7 +84,7 @@ Each dataset struct follows the same pattern:
 - `labels()` / `targets()`: reference to label/target vector
 - `data()`: all references at once
 
-> The text loaders **SmsSpam**, **YoutubeSpam**, **SentimentSentences**, **Newsgroups20**, and **MovieReviewPolarity** are the exception. A text corpus has no fixed feature matrix. Instead of `features()`, these loaders expose `texts()`, an `Array1<String>` of raw documents. **SentimentSentences** also exposes `sources()` (the review site each sentence came from). **Newsgroups20** is the only **multi-class** text loader, with 20 classes. It offers `new`/`new_test`/`new_all` subset constructors.
+There are some exceptional cases, which will be noted in their documentation.
 
 ## The `MlDataset` trait
 
