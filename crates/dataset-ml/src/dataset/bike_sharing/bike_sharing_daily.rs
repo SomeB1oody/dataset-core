@@ -52,9 +52,8 @@ const N_FEATURES: usize = 11;
 /// [`BikeSharingHourly`](super::bike_sharing_hourly::BikeSharingHourly), with
 /// the hour column dropped. Each daily count is the exact sum of the hourly
 /// counts of that date, and each daily weather reading is their mean. The task
-/// is to predict the daily rental count. At 731 samples it is small enough for
-/// a quick experiment, and its two full years of consecutive days suit a split
-/// by time.
+/// is to predict the daily rental count. Its two full years of consecutive days
+/// suit a split by time.
 ///
 /// # Dates
 ///
@@ -81,9 +80,9 @@ const N_FEATURES: usize = 11;
 /// | `9`    | `hum`        | humidity, divided by 100                        |
 /// | `10`   | `windspeed`  | wind speed, divided by 67                       |
 ///
-/// The last four columns arrive normalized to `[0, 1]` in the source. They hold
-/// the daily mean of the hourly readings. To read a value in its physical unit,
-/// multiply it by the divisor in the table.
+/// The source normalizes the last four columns to `[0, 1]`. They hold the daily
+/// mean of the hourly readings. To read a value in its physical unit, multiply
+/// it by the divisor in the table.
 ///
 /// The `weathersit` scale also defines a code `4` for heavy rain or snow. No
 /// day carries it. The hourly subset does hold that code, on 3 of its records.
@@ -96,9 +95,8 @@ const N_FEATURES: usize = 11;
 ///
 /// The archive's own `Readme.txt` maps `season` to `1:springer, 2:summer,
 /// 3:fall, 4:winter`. The dates in the data disagree: season `1` runs from
-/// December 21 to March 20, which is winter in the northern hemisphere. This
-/// loader documents the mapping that the dates support, which is also the
-/// mapping the UCI web page lists.
+/// December 21 to March 20, which is winter in the northern hemisphere. The
+/// table above follows the dates, as the UCI web page does.
 ///
 /// # Targets
 ///

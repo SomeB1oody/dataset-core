@@ -130,7 +130,7 @@ fn assert_bike_daily_semantics(
             weathersit
         );
 
-        // `temp`, `atemp`, `hum`, and `windspeed` arrive normalized to [0, 1].
+        // The source normalizes `temp`, `atemp`, `hum`, and `windspeed` to [0, 1].
         for col in 7..N_FEATURES {
             assert!(
                 (0.0..=1.0).contains(&features[[row, col]]),

@@ -1,41 +1,47 @@
-//! MNIST database of handwritten digits.
+//! Fashion-MNIST dataset of clothing images.
 //!
-//! 70,000 grayscale images of handwritten digits, each 28×28 pixels, split into
-//! a 60,000-image training partition and a 10,000-image test partition. The task
-//! is to recognize which digit (`0`-`9`) an image shows. MNIST is the standard
-//! entry benchmark for image classification.
-//! [`digits`](crate::dataset::digits) holds the same task at 8×8.
+//! 70,000 grayscale images of clothing articles from the Zalando catalog, each
+//! 28×28 pixels, split into a 60,000-image training partition and a
+//! 10,000-image test partition. The task is to recognize which of 10 garment
+//! classes an image shows.
+//!
+//! Fashion-MNIST matches [`mnist`](crate::dataset::mnist) in image size, class
+//! count, partition sizes, and file format. Its classes overlap more, so it is
+//! the harder task of the two.
 //!
 //! **Images:** an `Array2<u8>` of shape `(n_samples, 784)`. Each row is one 28×28
 //! image, flattened in row-major order. Each value is a pixel intensity in
-//! `0..=255`, where `0` is the background. [`Mnist::images`](crate::Mnist::images)
-//! returns the same buffer as a `(n_samples, 28, 28)` view, at no copy.
+//! `0..=255`, where `0` is the background.
+//! [`FashionMnist::images`](crate::FashionMnist::images) returns the same buffer
+//! as a `(n_samples, 28, 28)` view, at no copy.
 //!
-//! **Labels:** an `Array1<u8>`, the digit each image shows, one of `0`-`9`.
+//! **Labels:** an `Array1<u8>`, the garment class, one of `0`-`9`. See
+//! [`FashionMnist::CLASS_NAMES`](crate::FashionMnist::CLASS_NAMES) for the name
+//! of each code.
 //!
 //! **Samples:**
-//! - Training partition: 60,000
-//! - Test partition: 10,000
+//! - Training partition: 60,000 (exactly 6,000 per class)
+//! - Test partition: 10,000 (exactly 1,000 per class)
 //! - Both: 70,000
 //!
-//! **Application:** Multi-class image classification / handwritten digit recognition
+//! **Application:** Multi-class image classification / garment recognition
 //!
 //! **Missing values:** none.
 //!
-//! **Source:** LeCun, Y., Cortes, C., and Burges, C. J. C. The MNIST database of
-//! handwritten digits. This loader reads the four canonical IDX files from the
-//! `ossci-datasets` mirror. <http://yann.lecun.com/exdb/mnist/>
+//! **Source:** Xiao, H., Rasul, K., and Vollgraf, R. (2017). Fashion-MNIST.
+//! Zalando Research, released under the MIT license.
+//! <https://github.com/zalandoresearch/fashion-mnist>
 
-use super::idx::{self, Partition};
+use super::idx::{self, N_CLASSES, Partition};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError};
 use ndarray::{Array1, Array2, ArrayView3};
 
-/// Type alias for the MNIST dataset: (images, labels).
-pub type MnistData = (Array2<u8>, Array1<u8>);
+/// Type alias for the Fashion-MNIST dataset: (images, labels).
+pub type FashionMnistData = (Array2<u8>, Array1<u8>);
 
 /// The name of the dataset.
-const MNIST_DATASET_NAME: &str = "mnist";
+const FASHION_MNIST_DATASET_NAME: &str = "fashion_mnist";
 
 /// Number of samples in the training partition.
 const N_TRAIN_SAMPLES: usize = 60_000;
@@ -45,23 +51,23 @@ const N_TEST_SAMPLES: usize = 10_000;
 
 /// The training partition: 60,000 images.
 static TRAIN_PARTITION: Partition = Partition {
-    images_url: "https://ossci-datasets.s3.amazonaws.com/mnist/train-images-idx3-ubyte.gz",
-    images_filename: "train-images-idx3-ubyte",
-    images_sha256: "ba891046e6505d7aadcbbe25680a0738ad16aec93bde7f9b65e87a2fc25776db",
-    labels_url: "https://ossci-datasets.s3.amazonaws.com/mnist/train-labels-idx1-ubyte.gz",
-    labels_filename: "train-labels-idx1-ubyte",
-    labels_sha256: "65a50cbbf4e906d70832878ad85ccda5333a97f0f4c3dd2ef09a8a9eef7101c5",
+    images_url: "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/train-images-idx3-ubyte.gz",
+    images_filename: "fashion-train-images-idx3-ubyte",
+    images_sha256: "c59f468a2f672dc815687fe0f83887768d799fd8a3f3276145d20f83aa44d888",
+    labels_url: "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/train-labels-idx1-ubyte.gz",
+    labels_filename: "fashion-train-labels-idx1-ubyte",
+    labels_sha256: "bad3541b69d912435c50bb6ba87bec294ff4f6a2e1246121d8633921760443d9",
     n_samples: N_TRAIN_SAMPLES,
 };
 
 /// The test partition: 10,000 images.
 static TEST_PARTITION: Partition = Partition {
-    images_url: "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-images-idx3-ubyte.gz",
-    images_filename: "t10k-images-idx3-ubyte",
-    images_sha256: "0fa7898d509279e482958e8ce81c8e77db3f2f8254e26661ceb7762c4d494ce7",
-    labels_url: "https://ossci-datasets.s3.amazonaws.com/mnist/t10k-labels-idx1-ubyte.gz",
-    labels_filename: "t10k-labels-idx1-ubyte",
-    labels_sha256: "ff7bcfd416de33731a308c3f266cc351222c34898ecbeaf847f06e48f7ec33f2",
+    images_url: "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/t10k-images-idx3-ubyte.gz",
+    images_filename: "fashion-t10k-images-idx3-ubyte",
+    images_sha256: "5b4141f0afbad91edebe8549f8fcffe087ea10ca49f1dbef5c9a5cd8815ce37b",
+    labels_url: "https://github.com/zalandoresearch/fashion-mnist/raw/master/data/fashion/t10k-labels-idx1-ubyte.gz",
+    labels_filename: "fashion-t10k-labels-idx1-ubyte",
+    labels_sha256: "0402a96d92fd2663957122ceb108a494c5af83dab82d92729df917d7dec38c34",
     n_samples: N_TEST_SAMPLES,
 };
 
@@ -74,26 +80,29 @@ const SUBSET_TEST: &[&Partition] = &[&TEST_PARTITION];
 /// Subset selector: both partitions (70,000 images, train followed by test).
 const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 
-/// A struct that represents the MNIST dataset with lazy loading.
+/// A struct that represents the Fashion-MNIST dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
 /// load, the dataset caches the data for later accesses.
 ///
 /// # About Dataset
 ///
-/// MNIST holds 70,000 grayscale images of handwritten digits, each 28×28 pixels,
-/// with the digit each one shows. The source built it from two NIST databases,
-/// so the digits of the training partition and the test partition come from
-/// disjoint groups of writers. The task is to recognize the digit. It is the
-/// standard entry benchmark for image classification.
+/// Fashion-MNIST holds 70,000 grayscale images of clothing articles from the
+/// Zalando catalog, each 28×28 pixels, with the garment class each one shows.
+/// It matches [`Mnist`](crate::Mnist) in image size, class count, partition
+/// sizes, and file format, so the two loaders present the same interface.
+///
+/// Fashion-MNIST is the harder task of the two. The garment classes overlap far
+/// more than the handwritten digits do, and the pullover, coat, and shirt
+/// classes are the ones that confuse a model.
 ///
 /// # Subsets
 ///
 /// The source ships two partitions, and three constructors select them:
 ///
-/// - [`Mnist::new`]: the training partition, 60,000 images
-/// - [`Mnist::new_test`]: the test partition, 10,000 images
-/// - [`Mnist::new_all`]: both, 70,000 images, train followed by test
+/// - [`FashionMnist::new`]: the training partition, 60,000 images
+/// - [`FashionMnist::new_test`]: the test partition, 10,000 images
+/// - [`FashionMnist::new_all`]: both, 70,000 images, train followed by test
 ///
 /// Keep the two partitions apart to compare a result with published work. The
 /// standard protocol trains on the 60,000 and reports on the 10,000.
@@ -103,12 +112,15 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 ///
 /// # Images
 ///
-/// [`Mnist::features`] returns an `Array2<u8>` of shape `(n_samples, 784)`. Each
-/// row is one image, flattened in row-major order, and each value is a pixel
-/// intensity in `0..=255`. `0` is the background and 255 is the darkest ink.
+/// [`FashionMnist::features`] returns an `Array2<u8>` of shape
+/// `(n_samples, 784)`. Each row is one image, flattened in row-major order, and
+/// each value is a pixel intensity in `0..=255`. `0` is the background.
 ///
-/// [`Mnist::images`] returns the same buffer shaped `(n_samples, 28, 28)`. It is
-/// a view over that buffer, not a second copy.
+/// [`FashionMnist::images`] returns the same buffer shaped
+/// `(n_samples, 28, 28)`. It is a view over that buffer, not a second copy.
+///
+/// A garment can reach the edge of its frame, so a border pixel is not always
+/// background.
 ///
 /// [`preprocessing`](crate::preprocessing) takes `&Array2<f64>`. Convert the
 /// pixels with `features.mapv(f64::from)`. To scale them to `[0, 1]` in the same
@@ -116,24 +128,43 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 ///
 /// # Labels
 ///
-/// [`Mnist::labels`] returns an `Array1<u8>`, the digit each image shows, one of
-/// `0`-`9`. The classes are close to balanced. The training partition ranges
-/// from 5,421 images of `5` to 6,742 images of `1`.
+/// [`FashionMnist::labels`] returns an `Array1<u8>`, the garment class, one of
+/// `0`-`9`. [`FashionMnist::CLASS_NAMES`] maps a code to its name:
+///
+/// | Code | Class       | Code | Class      |
+/// |------|-------------|------|------------|
+/// | `0`  | T-shirt/top | `5`  | Sandal     |
+/// | `1`  | Trouser     | `6`  | Shirt      |
+/// | `2`  | Pullover    | `7`  | Sneaker    |
+/// | `3`  | Dress       | `8`  | Bag        |
+/// | `4`  | Coat        | `9`  | Ankle boot |
+///
+/// The classes are **exactly** balanced: 6,000 images per class in the training
+/// partition and 1,000 per class in the test partition. A plain
+/// [`train_test_split`](crate::preprocessing::train_test_split) therefore needs
+/// no stratification to keep the classes even.
 ///
 /// # Source format
 ///
 /// The source ships four gzip-compressed IDX files, one image file and one label
 /// file per partition. IDX is a binary format: a big-endian header of 4-byte
 /// integers, then the raw bytes. The storage directory holds each file
-/// **decompressed**, under the name the source gives it.
+/// **decompressed**, under the source name prefixed with `fashion-`. The
+/// upstream files carry the same names as the MNIST files, and the prefix keeps
+/// them apart. [`Mnist`](crate::Mnist) and `FashionMnist` can therefore share
+/// one storage directory.
 ///
-/// See more information at <http://yann.lecun.com/exdb/mnist/>.
+/// See more information at <https://github.com/zalandoresearch/fashion-mnist>.
+///
+/// # License
+///
+/// Zalando Research releases Fashion-MNIST under the MIT license.
 ///
 /// # Citation
 ///
-/// LeCun, Y., Bottou, L., Bengio, Y., and Haffner, P. (1998). "Gradient-based
-/// learning applied to document recognition." *Proceedings of the IEEE*, 86(11),
-/// 2278-2324. <https://doi.org/10.1109/5.726791>
+/// Xiao, H., Rasul, K., and Vollgraf, R. (2017). "Fashion-MNIST: a Novel Image
+/// Dataset for Benchmarking Machine Learning Algorithms." arXiv:1708.07747.
+/// <https://arxiv.org/abs/1708.07747>
 ///
 /// # Thread Safety
 ///
@@ -143,12 +174,12 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 ///
 /// # Example
 /// ```no_run
-/// use dataset_ml::Mnist;
+/// use dataset_ml::FashionMnist;
 ///
 /// // the loader creates the directory if it does not exist
-/// let download_dir = "./mnist";
+/// let download_dir = "./fashion_mnist";
 ///
-/// let mut dataset = Mnist::new(download_dir);
+/// let mut dataset = FashionMnist::new(download_dir);
 /// let features = dataset.features().unwrap();
 /// let labels = dataset.labels().unwrap();
 ///
@@ -157,11 +188,15 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 /// assert_eq!(features.shape(), &[60000, 784]);
 /// assert_eq!(labels.len(), 60000);
 ///
+/// // Name the class of the first image.
+/// let name = FashionMnist::CLASS_NAMES[labels[0] as usize];
+/// println!("the first image shows a {name}");
+///
 /// // images() reshapes the same buffer to 28x28, with no copy.
 /// let images = dataset.images().unwrap();
 /// assert_eq!(images.shape(), &[60000, 28, 28]);
 ///
-/// // Scale the pixels to [0, 1] for a model.
+/// // Scale the pixels to [0, 1] for a model. This allocates the f64 copy.
 /// let scaled = features.mapv(|pixel| f64::from(pixel) / 255.0);
 /// assert_eq!(scaled.shape(), &[60000, 784]);
 ///
@@ -185,12 +220,37 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 /// assert_eq!(owned_labels.len(), 60000);
 /// ```
 #[derive(Debug)]
-pub struct Mnist {
-    dataset: Dataset<MnistData, DatasetError>,
+pub struct FashionMnist {
+    dataset: Dataset<FashionMnistData, DatasetError>,
 }
 
-impl Mnist {
-    /// Create a new Mnist instance for the **training** partition (60,000
+impl FashionMnist {
+    /// The name of each garment class, indexed by its label code.
+    ///
+    /// A label of `3` names `CLASS_NAMES[3]`, which is `"Dress"`. The order is
+    /// the one the source defines.
+    ///
+    /// # Example
+    /// ```
+    /// use dataset_ml::FashionMnist;
+    ///
+    /// assert_eq!(FashionMnist::CLASS_NAMES[0], "T-shirt/top");
+    /// assert_eq!(FashionMnist::CLASS_NAMES[9], "Ankle boot");
+    /// ```
+    pub const CLASS_NAMES: [&'static str; N_CLASSES] = [
+        "T-shirt/top",
+        "Trouser",
+        "Pullover",
+        "Dress",
+        "Coat",
+        "Sandal",
+        "Shirt",
+        "Sneaker",
+        "Bag",
+        "Ankle boot",
+    ];
+
+    /// Create a new FashionMnist instance for the **training** partition (60,000
     /// images) without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -202,15 +262,15 @@ impl Mnist {
     ///
     /// # Returns
     ///
-    /// - `Self` - a `Mnist` instance ready for lazy loading.
+    /// - `Self` - a `FashionMnist` instance ready for lazy loading.
     pub fn new(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_TRAIN)
     }
 
-    /// Create a new Mnist instance for the **test** partition (10,000 images)
-    /// without loading data.
+    /// Create a new FashionMnist instance for the **test** partition (10,000
+    /// images) without loading data.
     ///
-    /// See [`Mnist::new`] for the loading semantics.
+    /// See [`FashionMnist::new`] for the loading semantics.
     ///
     /// # Parameters
     ///
@@ -218,15 +278,15 @@ impl Mnist {
     ///
     /// # Returns
     ///
-    /// - `Self` - a `Mnist` instance ready for lazy loading.
+    /// - `Self` - a `FashionMnist` instance ready for lazy loading.
     pub fn new_test(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_TEST)
     }
 
-    /// Create a new Mnist instance for **all** 70,000 images (the training
+    /// Create a new FashionMnist instance for **all** 70,000 images (the training
     /// partition followed by the test partition) without loading data.
     ///
-    /// See [`Mnist::new`] for the loading semantics.
+    /// See [`FashionMnist::new`] for the loading semantics.
     ///
     /// # Parameters
     ///
@@ -234,24 +294,24 @@ impl Mnist {
     ///
     /// # Returns
     ///
-    /// - `Self` - a `Mnist` instance ready for lazy loading.
+    /// - `Self` - a `FashionMnist` instance ready for lazy loading.
     pub fn new_all(storage_dir: &str) -> Self {
         Self::with_subset(storage_dir, SUBSET_ALL)
     }
 
     /// Construct an instance whose loader reads the given partitions.
     fn with_subset(storage_dir: &str, subset: &'static [&'static Partition]) -> Self {
-        Mnist {
+        FashionMnist {
             dataset: Dataset::new(storage_dir, move |dir| Self::load_data(dir, subset)),
         }
     }
 
-    /// Get and parse the MNIST dataset for the requested subset.
+    /// Get and parse the Fashion-MNIST dataset for the requested subset.
     fn load_data(
         dir: &str,
         subset: &'static [&'static Partition],
-    ) -> Result<MnistData, DatasetError> {
-        idx::load_partitions(dir, MNIST_DATASET_NAME, subset)
+    ) -> Result<FashionMnistData, DatasetError> {
+        idx::load_partitions(dir, FASHION_MNIST_DATASET_NAME, subset)
     }
 
     /// Get a reference to the flattened image matrix.
@@ -266,7 +326,7 @@ impl Mnist {
     ///   order. Each value is a pixel intensity in `0..=255`. `n_samples` is
     ///   60,000, 10,000, or 70,000, by the constructor you used.
     ///
-    /// For the 28×28 shape, use [`Mnist::images`]. For
+    /// For the 28×28 shape, use [`FashionMnist::images`]. For
     /// [`preprocessing`](crate::preprocessing), convert with
     /// `features.mapv(f64::from)`.
     ///
@@ -283,9 +343,9 @@ impl Mnist {
 
     /// Get the images as a `(n_samples, 28, 28)` view.
     ///
-    /// This reshapes the buffer that [`Mnist::features`] returns. It is a view
-    /// over the same memory, not a second copy. Use it when a model wants the
-    /// spatial layout instead of a flat row.
+    /// This reshapes the buffer that [`FashionMnist::features`] returns. It is a
+    /// view over the same memory, not a second copy. Use it when a model wants
+    /// the spatial layout instead of a flat row.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
@@ -305,7 +365,7 @@ impl Mnist {
         features
             .view()
             .into_shape_with_order((n_samples, idx::IMAGE_ROWS, idx::IMAGE_COLS))
-            .map_err(|e| DatasetError::array_shape_error(MNIST_DATASET_NAME, "images", e))
+            .map_err(|e| DatasetError::array_shape_error(FASHION_MNIST_DATASET_NAME, "images", e))
     }
 
     /// Get a reference to the label vector.
@@ -316,7 +376,8 @@ impl Mnist {
     /// # Returns
     ///
     /// - `&Array1<u8>` - Reference to the label vector with shape `(n_samples,)`.
-    ///   Each value is the digit the matching image shows, one of `0`-`9`.
+    ///   Each value is the garment class of the matching image, one of `0`-`9`.
+    ///   [`FashionMnist::CLASS_NAMES`] names each code.
     ///
     /// # Errors
     ///
@@ -337,30 +398,30 @@ impl Mnist {
     ///
     /// # Returns
     ///
-    /// - `&MnistData` - reference to the cached `(images, labels)` tuple: image
-    ///   matrix `(n_samples, 784)` and label vector `(n_samples,)`.
+    /// - `&FashionMnistData` - reference to the cached `(images, labels)` tuple:
+    ///   image matrix `(n_samples, 784)` and label vector `(n_samples,)`.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, or a header
     /// or length check).
-    pub fn data(&self) -> Result<&MnistData, DatasetError> {
+    pub fn data(&self) -> Result<&FashionMnistData, DatasetError> {
         self.dataset.load()
     }
 
     /// Get images and labels as references **without** triggering loading.
     ///
-    /// Unlike [`Mnist::data`], this method never runs the loader. If the data has
-    /// not loaded yet, it returns `None` instead of downloading and parsing it.
-    /// Use this method when you want the data only if it is already cached. This
-    /// skips the cost of a download and a parse.
+    /// Unlike [`FashionMnist::data`], this method never runs the loader. If the
+    /// data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it. Use this method when you want the data only if it is already
+    /// cached. This skips the cost of a download and a parse.
     ///
     /// # Returns
     ///
-    /// - `Some(&MnistData)` - reference to the cached `(images, labels)` tuple,
-    ///   if loaded.
+    /// - `Some(&FashionMnistData)` - reference to the cached `(images, labels)`
+    ///   tuple, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&MnistData> {
+    pub fn get_data(&self) -> Option<&FashionMnistData> {
         self.dataset.get()
     }
 
@@ -369,32 +430,33 @@ impl Mnist {
     /// This lets you change the cached arrays directly. For example, you can
     /// binarize the pixels. This needs no `.to_owned()` clone, and it does not
     /// remove the data from the cache. The changes stay in the cache. Later calls
-    /// to [`Mnist::features`], [`Mnist::data`], or [`Mnist::get_data`] see the
-    /// changes.
+    /// to [`FashionMnist::features`], [`FashionMnist::data`], or
+    /// [`FashionMnist::get_data`] see the changes.
     ///
-    /// Like [`Mnist::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not loaded yet. If you need the data to be
-    /// present, call a loading accessor first, for example [`Mnist::data`].
+    /// Like [`FashionMnist::get_data`], this does **not** trigger loading. It
+    /// returns `None` if the dataset has not loaded yet. If you need the data to
+    /// be present, call a loading accessor first, for example
+    /// [`FashionMnist::data`].
     ///
     /// # Returns
     ///
-    /// - `Some(&mut MnistData)` - mutable reference to the cached
+    /// - `Some(&mut FashionMnistData)` - mutable reference to the cached
     ///   `(images, labels)` tuple, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut MnistData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut FashionMnistData> {
         self.dataset.get_mut()
     }
 
     /// Consume the dataset and return **owned** images and labels.
     ///
-    /// Unlike [`Mnist::data`], which borrows the cached data, this moves the data
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset has not loaded yet, the first access loads it.
+    /// Unlike [`FashionMnist::data`], which borrows the cached data, this moves
+    /// the data out and returns owned arrays directly. It needs no `to_owned()`
+    /// clone. If the dataset has not loaded yet, the first access loads it.
     ///
     /// This **consumes** `self`. After the call, you cannot use the instance
     /// again. If you want owned data but need to keep using the instance, use
-    /// [`Mnist::take_data`] instead. It takes `&mut self` and leaves the instance
-    /// reusable.
+    /// [`FashionMnist::take_data`] instead. It takes `&mut self` and leaves the
+    /// instance reusable.
     ///
     /// # Returns
     ///
@@ -405,7 +467,7 @@ impl Mnist {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, or a header or
     /// length check).
-    pub fn into_data(self) -> Result<MnistData, DatasetError> {
+    pub fn into_data(self) -> Result<FashionMnistData, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -416,13 +478,13 @@ impl Mnist {
     /// Take **owned** images and labels out of the dataset. This leaves the
     /// instance reusable.
     ///
-    /// Like [`Mnist::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call, for example [`Mnist::features`] or [`Mnist::data`],
-    /// loads the dataset again.
+    /// Like [`FashionMnist::into_data`], this returns owned arrays with no
+    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
+    /// and moves the cached data out. This resets the instance to its unloaded
+    /// state. The next accessor call, for example [`FashionMnist::features`] or
+    /// [`FashionMnist::data`], loads the dataset again.
     ///
-    /// If you are done with the instance, use [`Mnist::into_data`] instead.
+    /// If you are done with the instance, use [`FashionMnist::into_data`] instead.
     ///
     /// # Returns
     ///
@@ -433,7 +495,7 @@ impl Mnist {
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, or a header or
     /// length check).
-    pub fn take_data(&mut self) -> Result<MnistData, DatasetError> {
+    pub fn take_data(&mut self) -> Result<FashionMnistData, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -442,4 +504,4 @@ impl Mnist {
     }
 }
 
-impl_ml_dataset!(Mnist, MnistData, "mnist");
+impl_ml_dataset!(FashionMnist, FashionMnistData, "fashion_mnist");

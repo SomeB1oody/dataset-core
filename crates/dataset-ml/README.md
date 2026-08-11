@@ -10,7 +10,7 @@
 
 ## Overview
 
-`dataset-ml` includes loaders for 32 classic ML datasets. Each loader:
+`dataset-ml` includes loaders for classic ML datasets. Each loader:
 
 - Downloads the source file on first access with `ureq`, and retries transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.

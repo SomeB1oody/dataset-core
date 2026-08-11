@@ -11,7 +11,7 @@
 //! - **`utils`**: helper functions to download files, extract archives, verify
 //!   SHA-256 hashes, and manage temporary directories.
 //!
-//! Ready-to-use loaders for 26 classic ML datasets live in the companion crate
+//! Ready-to-use loaders for classic ML datasets live in the companion crate
 //! [`dataset-ml`](https://crates.io/crates/dataset-ml). Examples include Iris, Breast
 //! Cancer, Titanic, Forest CoverType, KDD Cup '99, and 20 Newsgroups. The crate depends
 //! on `dataset-core` with the `utils` feature enabled and serves as the reference

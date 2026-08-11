@@ -49,10 +49,9 @@ const N_FEATURES: usize = 12;
 /// The hourly Bike Sharing subset holds one record per hour of the years 2011
 /// and 2012, from the Capital Bikeshare system in Washington, D.C. Each record
 /// joins the rental counts of that hour with the calendar attributes and the
-/// weather readings. The task is to predict the rental count. Because every
-/// record carries its date and the rows stay in chronological order, the subset
-/// also suits time-series work, such as a split by time instead of a random
-/// split.
+/// weather readings. The task is to predict the rental count. Every record
+/// carries its date, and the rows stay in chronological order. The subset
+/// therefore also suits time-series work, such as a split by time.
 ///
 /// # Dates
 ///
@@ -85,17 +84,15 @@ const N_FEATURES: usize = 12;
 /// | `10`   | `hum`        | humidity, divided by 100                        |
 /// | `11`   | `windspeed`  | wind speed, divided by 67                       |
 ///
-/// The last four columns arrive normalized to `[0, 1]` in the source. To read a
-/// value in its physical unit, multiply it by the divisor in the table.
+/// The source normalizes the last four columns to `[0, 1]`. To read a value in
+/// its physical unit, multiply it by the divisor in the table.
 ///
-/// The `weathersit` code `4` is rare: 3 of the 17,379 records carry it. A
-/// stratified split over this feature is not useful at that count.
+/// The `weathersit` code `4` is rare: 3 of the 17,379 records carry it.
 ///
 /// The archive's own `Readme.txt` maps `season` to `1:springer, 2:summer,
 /// 3:fall, 4:winter`. The dates in the data disagree: season `1` runs from
-/// December 21 to March 20, which is winter in the northern hemisphere. This
-/// loader documents the mapping that the dates support, which is also the
-/// mapping the UCI web page lists.
+/// December 21 to March 20, which is winter in the northern hemisphere. The
+/// table above follows the dates, as the UCI web page does.
 ///
 /// # Targets
 ///

@@ -1,11 +1,10 @@
 //! Bike Sharing dataset.
 //!
 //! Rental counts of the Capital Bikeshare system in Washington, D.C., over the
-//! two years 2011 and 2012, joined with the weather and the season of each
-//! period. The task is to predict the rental count from the calendar and
-//! weather attributes. This is the crate's first dataset with a time axis: each
-//! sample carries the calendar date it was recorded on, and the rows stay in
-//! chronological order.
+//! two years 2011 and 2012. Each record also carries the weather and the season
+//! of its period. The task is to predict the rental count from the calendar and
+//! weather attributes. Each sample carries its calendar date, and the rows stay
+//! in chronological order.
 //!
 //! The one source archive holds two aggregations of the same rental log. Each
 //! one has its own loader:
@@ -17,9 +16,9 @@
 //! subsets span `2011-01-01` to `2012-12-31`.
 //!
 //! **Features:** 12 for the hourly subset, 11 for the daily subset. The daily
-//! subset has no `hr` column. Every feature is numeric. The weather readings
-//! `temp`, `atemp`, `hum`, and `windspeed` come normalized to `[0, 1]` in the
-//! source. The calendar attributes are integer codes.
+//! subset has no `hr` column. Every feature is numeric. The source normalizes
+//! the weather readings `temp`, `atemp`, `hum`, and `windspeed` to `[0, 1]`.
+//! The calendar attributes are integer codes.
 //!
 //! **Targets (3, multi-output):** `casual`, `registered`, and `cnt`. The count
 //! `cnt` is the sum of `casual` and `registered`. Use `casual` and `registered`
@@ -78,8 +77,7 @@ const N_LEADING_COLUMNS: usize = 2;
 /// Get one CSV member of the shared Bike Sharing ZIP archive.
 ///
 /// Both subsets come from the same archive, under different member names. Each
-/// one caches its own member as a separate file with its own SHA256 hash, so a
-/// user who needs one subset never parses the other.
+/// one caches its own member as a separate file with its own SHA256 hash.
 ///
 /// # Parameters
 ///

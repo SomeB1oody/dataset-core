@@ -2,7 +2,7 @@
 
 This file documents all notable changes to the `dataset-ml` crate.
 
-This crate provides loaders for 32 classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
+This crate provides loaders for classic machine learning datasets, built on [`dataset-core`](https://crates.io/crates/dataset-core). These include tabular benchmarks (Iris, Breast Cancer, California Housing, Diabetes, Adult, Covtype, …) and text corpora (SMS Spam, 20 Newsgroups, Movie Review Polarity, …). The crate also includes the `preprocessing` and `traits` modules, which apply to every loader.
 
 See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for more information.
 
@@ -10,16 +10,21 @@ This changelog groups entries by release and lists only each version's notable c
 
 ## [Unreleased]
 ### Added
-- **MNIST** (LeCun et al. 1998): 70,000 handwritten digit images, each 28×28 grayscale pixels, in a 60,000-image training partition and a 10,000-image test partition. `new`/`new_test`/`new_all` select the subset. This is the crate's first **binary** source format (IDX, read from four gzip-compressed files) and its first dataset of raw pixels at a useful size, next to the 8×8 `Digits`. Two points depart from the other loaders:
-  - `features()` returns an `Array2<u8>` of shape `(n_samples, 784)`, not the usual `f64`. The source stores one unsigned byte per pixel, so `u8` is lossless, and it holds 52 MiB for all 70,000 images where `f64` would hold 419 MiB. `preprocessing` takes `f64`, so convert with `features.mapv(f64::from)` when you need it.
-  - `images()` returns the same buffer as an `ArrayView3<u8>` of shape `(n_samples, 28, 28)`. It is a view, so it copies nothing.
-- **Bike Sharing** (UCI, Fanaee-T 2013): rental counts of the Capital Bikeshare system in Washington, D.C., over 2011 and 2012, with the calendar attributes and the weather of each period. This is the crate's first dataset with a **time axis**. A new `dates()` accessor returns the calendar date of each record as `YYYY-MM-DD`, and the rows stay in chronological order, so a split by time is possible. One ZIP source holds two aggregations of the same rental log, and each one has its own loader and its own cached file:
+- **Fashion-MNIST** (Zalando, Xiao et al. 2017): 70,000 images of clothing articles, each 28×28 grayscale pixels, in the same 60,000/10,000 split as MNIST. It matches the MNIST loader method for method, including `new`/`new_test`/`new_all`, the `Array2<u8>` images, and `images()`. Two additions of its own:
+  - `FashionMnist::CLASS_NAMES` names each label code, from `"T-shirt/top"` (`0`) to `"Ankle boot"` (`9`).
+  - The classes are **exactly** balanced: 6,000 images per class for training and 1,000 for test.
+
+  The upstream files carry the same names as the MNIST files, so this loader prefixes each cached name with `fashion-`. Both datasets can share one storage directory. MIT license.
+- **MNIST** (LeCun et al. 1998): 70,000 handwritten digit images, each 28×28 grayscale pixels, in a 60,000-image training partition and a 10,000-image test partition. `new`/`new_test`/`new_all` select the subset. Its source is the binary IDX format, read from four gzip-compressed files. Two points depart from the other loaders:
+  - `features()` returns an `Array2<u8>` of shape `(n_samples, 784)`, not the usual `f64`. `preprocessing` takes `f64`, so convert with `features.mapv(f64::from)`.
+  - `images()` returns the same buffer as an `ArrayView3<u8>` of shape `(n_samples, 28, 28)`. It is a view over that buffer, not a second copy.
+- **Bike Sharing** (UCI, Fanaee-T 2013): rental counts of the Capital Bikeshare system in Washington, D.C., over 2011 and 2012, with the calendar attributes and the weather of each period. A new `dates()` accessor returns the calendar date of each record as `YYYY-MM-DD`, and the rows stay in chronological order, so a split by time is possible. One ZIP source holds two aggregations of the same rental log, and each one has its own loader and its own cached file:
   - `BikeSharingHourly`: 17,379 records, 12 numeric features
   - `BikeSharingDaily`: 731 records, 11 numeric features (no `hr` column)
 
   Both use the multi-output regression target `(casual, registered, cnt)` as an `Array2<f64>` with 3 columns, where `cnt` is the sum of the other two. For the usual single-target task, take `targets.column(2)`.
 - Two feature flags, both on by default, so a user can compile only the half they need:
-  - `dataset`: the `dataset` module and its 32 loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which are now optional.
+  - `dataset`: the `dataset` module and its loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which are now optional.
   - `preprocessing`: the `preprocessing` module. It adds no dependencies.
 
   With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The `traits` module stays available under every feature combination, so a downstream loader can implement `MlDataset` with both features off.

@@ -33,6 +33,7 @@
 //! | [`covtype`](crate::dataset::covtype) | 581,012 | 54 | Classification |
 //! | [`diabetes`](crate::dataset::diabetes) | 442 | 10 | Regression |
 //! | [`digits`](crate::dataset::digits) | 1,797 | 64 | Classification |
+//! | [`fashion_mnist`](crate::dataset::fashion_mnist) | 60,000 / 10,000 / 70,000 | 784 (28×28 pixels) | Classification (10 classes) |
 //! | [`heart_disease`](crate::dataset::heart_disease) | 303 | 13 | Classification |
 //! | [`ionosphere`](crate::dataset::ionosphere) | 351 | 34 | Classification |
 //! | [`kddcup99`](crate::dataset::kddcup99) | 494,021 / 4,898,431 | 41 | Classification |
@@ -53,6 +54,12 @@
 //! | [`movie_review_polarity`](crate::dataset::movie_review_polarity) | 2,000 | text | Classification |
 //!
 //! Each module documents its own source and column layout.
+
+/// Reader for the IDX binary format, shared by [`mnist`] and [`fashion_mnist`].
+///
+/// The two datasets ship the same four-file layout and the same 28×28 image
+/// shape. This module is internal to the crate, unlike every other module here.
+mod idx;
 
 /// Abalone dataset module.
 ///
@@ -95,10 +102,9 @@ pub mod banknote_authentication;
 ///
 /// Contains the Bike Sharing dataset (UCI, Fanaee-T 2013) for **regression**:
 /// predicting the rental count of the Capital Bikeshare system in Washington,
-/// D.C., over 2011 and 2012 from the calendar attributes and the weather. It is
-/// the crate's first dataset with a **time axis**. Each sample carries its
-/// calendar date through a `dates()` accessor, and the rows stay in
-/// chronological order, so a split by time is possible. One ZIP archive holds
+/// D.C., over 2011 and 2012 from the calendar attributes and the weather. Each
+/// sample carries its calendar date through a `dates()` accessor, and the rows
+/// stay in chronological order, so a split by time is possible. One ZIP archive holds
 /// two aggregations of the same rental log, and each one has its own loader:
 /// `bike_sharing_hourly::BikeSharingHourly` (17,379 records) and
 /// `bike_sharing_daily::BikeSharingDaily` (731 records). Both use the
@@ -156,6 +162,18 @@ pub mod diabetes;
 /// classification: recognizing handwritten digits (`0`–`9`) from 8×8 grayscale
 /// images flattened into 64 integer pixel intensities.
 pub mod digits;
+
+/// Fashion-MNIST dataset module.
+///
+/// Contains the Fashion-MNIST dataset (Zalando, Xiao et al. 2017) for
+/// multi-class classification: recognizing one of 10 garment classes from a
+/// 28×28 grayscale image. It matches [`mnist`] in image size, class count,
+/// partition sizes, and IDX file format, but its classes overlap more. They are
+/// exactly balanced: 6,000 images per class for training and 1,000 for test.
+/// Like `mnist`, it returns pixels as `Array2<u8>` and offers `images()`, plus a
+/// `CLASS_NAMES` constant that names each label code. It offers
+/// `new`/`new_test`/`new_all` subset constructors.
+pub mod fashion_mnist;
 
 /// Heart Disease (Cleveland) dataset module.
 ///
@@ -224,13 +242,10 @@ pub mod movie_review_polarity;
 ///
 /// Contains the MNIST database (LeCun et al. 1998) for multi-class
 /// classification: recognizing a handwritten digit (`0`-`9`) from a 28×28
-/// grayscale image. It is the crate's first **binary**-format source (IDX, read
-/// from four gzip-compressed files) and its first dataset of raw pixels at a
-/// useful size. `features()` returns an `Array2<u8>` of shape
-/// `(n_samples, 784)`, and `images()` returns the same buffer as a
-/// `(n_samples, 28, 28)` view at no copy. The pixels stay `u8` rather than
-/// `f64`, which is lossless for this source and holds 52 MiB instead of 419 MiB
-/// for all 70,000 images. It offers `new`/`new_test`/`new_all` subset
+/// grayscale image. Its source is the binary IDX format, read from four
+/// gzip-compressed files. `features()` returns the pixels as an `Array2<u8>` of
+/// shape `(n_samples, 784)`, and `images()` returns the same buffer as a
+/// `(n_samples, 28, 28)` view. It offers `new`/`new_test`/`new_all` subset
 /// constructors.
 pub mod mnist;
 
