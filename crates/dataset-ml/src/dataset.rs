@@ -40,6 +40,7 @@
 //! | [`letter_recognition`](crate::dataset::letter_recognition) | 20,000 | 16 | Classification (26 classes) |
 //! | [`linnerud`](crate::dataset::linnerud) | 20 | 3 | Regression (multi-output) |
 //! | [`mnist`](crate::dataset::mnist) | 60,000 / 10,000 / 70,000 | 784 (28×28 pixels) | Classification (10 classes) |
+//! | [`movielens_100k`](crate::dataset::movielens_100k) | 100,000 ratings | 943 users × 1,682 movies | Recommendation |
 //! | [`mushroom`](crate::dataset::mushroom) | 8,124 | 22 | Classification |
 //! | [`spambase`](crate::dataset::spambase) | 4,601 | 57 | Classification |
 //! | [`titanic`](crate::dataset::titanic) | 891 | 11 | Classification |
@@ -249,6 +250,18 @@ pub mod movie_review_polarity;
 /// `(n_samples, 28, 28)` view. It offers `new`/`new_test`/`new_all` subset
 /// constructors.
 pub mod mnist;
+
+/// MovieLens 100K dataset module.
+///
+/// Contains the MovieLens 100K dataset (GroupLens, Harper & Konstan 2015) for
+/// **recommendation**: 100,000 ratings that 943 users gave to 1,682 movies
+/// between September 1997 and April 1998. One sample is one rating, so the
+/// loader returns the log as four parallel arrays through `users()`, `items()`,
+/// `ratings()`, and `timestamps()`. `N_USERS` and `N_ITEMS` give the two
+/// identifier ranges. GroupLens permits research use under conditions that this
+/// crate's MIT license does not cover, so read the struct docs before you use
+/// the data.
+pub mod movielens_100k;
 
 /// Mushroom dataset module.
 ///

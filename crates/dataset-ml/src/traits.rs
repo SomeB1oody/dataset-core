@@ -15,7 +15,7 @@
 //! - [`is_loaded`](MlDataset::is_loaded) and [`storage_dir`](MlDataset::storage_dir)
 //!   let you inspect a loader without touching the data.
 //! - [`n_samples`](MlDataset::n_samples) gives a uniform sample count that works
-//!   across the single-array, pair-shaped, and triple-shaped datasets alike.
+//!   the same way whatever shape a loader parses into.
 //!
 //! This trait deliberately names its data accessors [`load`](MlDataset::load),
 //! [`peek`](MlDataset::peek), and [`unload`](MlDataset::unload) rather than reusing
@@ -50,13 +50,14 @@ use ndarray::{Array, Axis, Dimension};
 
 /// A parsed dataset whose samples can be counted.
 ///
-/// This crate implements it for the three shapes its loaders parse into:
+/// This crate implements it for the four shapes its loaders parse into:
 ///
 /// - A single array, for a dataset with no target. `features` is the one example.
 /// - An array pair, such as `(features, labels)`, `(features, targets)`, or
 ///   `(texts, labels)`.
 /// - An array triple, such as `(categorical, numeric, labels)` or
 ///   `(texts, sources, labels)`.
+/// - An array quadruple, such as `(users, items, ratings, timestamps)`.
 ///
 /// In all of them, the first array's leading axis is the sample axis, so this
 /// counts that axis. A zero-dimensional array has no leading axis, so do not use
@@ -94,6 +95,19 @@ where
     DA: Dimension,
     DB: Dimension,
     DC: Dimension,
+{
+    fn num_samples(&self) -> usize {
+        self.0.len_of(Axis(0))
+    }
+}
+
+impl<A, DA, B, DB, C, DC, E, DE> NumSamples
+    for (Array<A, DA>, Array<B, DB>, Array<C, DC>, Array<E, DE>)
+where
+    DA: Dimension,
+    DB: Dimension,
+    DC: Dimension,
+    DE: Dimension,
 {
     fn num_samples(&self) -> usize {
         self.0.len_of(Axis(0))
@@ -139,10 +153,9 @@ where
 pub trait MlDataset: Sized {
     /// What this loader parses into: the module's `…Data` type alias.
     ///
-    /// It must implement [`NumSamples`], which the single arrays, array pairs,
-    /// and array triples every loader here produces already satisfy. This trait
-    /// needs that bound up front, rather than placing it on
-    /// [`n_samples`](Self::n_samples) itself.
+    /// It must implement [`NumSamples`], which every shape a loader here parses
+    /// into already satisfies. This trait needs that bound up front, rather than
+    /// placing it on [`n_samples`](Self::n_samples) itself.
     /// That way, a generic `fn f<D: MlDataset>(d: &D)` can call `d.n_samples()`
     /// without repeating the bound.
     type Data: NumSamples;

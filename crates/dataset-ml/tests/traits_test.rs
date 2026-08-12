@@ -60,6 +60,15 @@ fn num_samples_reads_the_leading_axis() {
         Array1::zeros(5),
     );
     assert_eq!(triple.num_samples(), 5);
+
+    // (users, items, ratings, timestamps): the rating log's quadruple.
+    let quadruple: (Array1<u16>, Array1<u16>, Array1<u8>, Array1<i64>) = (
+        Array1::zeros(7),
+        Array1::zeros(7),
+        Array1::zeros(7),
+        Array1::zeros(7),
+    );
+    assert_eq!(quadruple.num_samples(), 7);
 }
 
 #[test]

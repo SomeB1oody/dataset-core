@@ -109,7 +109,7 @@ fn main() {
 | `load()` / `load_mut()`         | Load if needed, then borrow the parsed data (`load_mut` for in-place edits)     |
 | `peek()`                        | Borrow the parsed data **without** triggering a load                            |
 | `unload()`                      | Move the parsed data out, leaving the loader reusable                           |
-| `n_samples()`                   | Sample count, uniform across single-array, pair-, and triple-shaped datasets    |
+| `n_samples()`                   | Sample count, uniform whatever shape a loader parses into                       |
 | `is_loaded()` / `storage_dir()` | Inspect the loader without touching the data                                    |
 | `invalidate()`                  | Drop the in-memory cache to free the memory a large dataset holds               |
 

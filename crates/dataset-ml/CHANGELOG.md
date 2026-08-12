@@ -10,6 +10,7 @@ This changelog groups entries by release and lists only each version's notable c
 
 ## [Unreleased]
 ### Added
+- **MovieLens 100K** (GroupLens, Harper & Konstan 2015): 100,000 ratings that 943 users gave to 1,682 movies between September 1997 and April 1998. One sample is one rating, so `n_samples()` returns 100,000 and the loader returns the log as four parallel arrays through `users()`, `items()`, `ratings()`, and `timestamps()`. `MovieLens100k::N_USERS` and `MovieLens100k::N_ITEMS` give the two identifier ranges, which start at `1`. The loader reads `u.data` alone and leaves the archive's movie, user, and split files unread. GroupLens permits research use under conditions this crate's MIT license does not cover, including no redistribution and no commercial use without permission.
 - **Wholesale Customers** (UCI, Cardoso 2013): the annual spending of 440 clients of a Portuguese wholesale distributor across six product categories, with a sales-channel code and a region code. The dataset has **no target column**, so the loader offers `features()` and no `labels()` or `targets()`. Its data is a single `Array2<f64>` of shape `(440, 8)`, and `data()` returns that same matrix. A `WholesaleCustomers::COLUMN_NAMES` constant names the 8 columns.
 - **Fashion-MNIST** (Zalando, Xiao et al. 2017): 70,000 images of clothing articles, each 28×28 grayscale pixels, in the same 60,000/10,000 split as MNIST. It matches the MNIST loader method for method, including `new`/`new_test`/`new_all`, the `Array2<u8>` images, and `images()`. Two additions of its own:
   - `FashionMnist::CLASS_NAMES` names each label code, from `"T-shirt/top"` (`0`) to `"Ankle boot"` (`9`).
@@ -31,7 +32,7 @@ This changelog groups entries by release and lists only each version's notable c
   With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The `traits` module stays available under every feature combination, so a downstream loader can implement `MlDataset` with both features off.
 
 ### Changed
-- `traits::NumSamples` now covers a bare `ndarray::Array`, next to the array pairs and triples it already covered. A loader whose `Data` is one array, such as `WholesaleCustomers`, therefore satisfies `MlDataset::Data` and supports `n_samples()`. The existing implementations are unchanged.
+- `traits::NumSamples` now covers a bare `ndarray::Array` and an array quadruple, next to the array pairs and triples it already covered. A loader whose `Data` is one array (`WholesaleCustomers`) or four arrays (`MovieLens100k`) therefore satisfies `MlDataset::Data` and supports `n_samples()`. The existing implementations are unchanged.
 - Dataset loaders moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`, and the same one-level shift applies to all 28 loader modules. The crate root now holds three modules: `dataset`, `preprocessing`, and `traits`.
 - The crate root still re-exports every loader struct, so `dataset_ml::Iris` and the other struct names are unchanged. Code that imports a struct from the crate root needs no edit.
 - The dataset overview table moved from the crate root docs to the `dataset` module docs, which is where the modules it lists now live.
