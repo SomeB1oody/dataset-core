@@ -136,7 +136,8 @@ pub use dataset::{
     kddcup99::Kddcup99, letter_recognition::LetterRecognition, linnerud::Linnerud, mnist::Mnist,
     movie_review_polarity::MovieReviewPolarity, mushroom::Mushroom, newsgroups20::Newsgroups20,
     palmer_penguins::PalmerPenguins, sentiment_sentences::SentimentSentences, sms_spam::SmsSpam,
-    spambase::Spambase, titanic::Titanic, wine_quality::red_wine_quality::RedWineQuality,
+    spambase::Spambase, titanic::Titanic, wholesale_customers::WholesaleCustomers,
+    wine_quality::red_wine_quality::RedWineQuality,
     wine_quality::white_wine_quality::WhiteWineQuality, wine_recognition::WineRecognition,
     youtube_spam::YoutubeSpam,
 };

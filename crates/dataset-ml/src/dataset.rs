@@ -45,6 +45,7 @@
 //! | [`titanic`](crate::dataset::titanic) | 891 | 11 | Classification |
 //! | [`palmer_penguins`](crate::dataset::palmer_penguins) | 344 | 7 | Classification |
 //! | [`sms_spam`](crate::dataset::sms_spam) | 5,574 | text | Classification |
+//! | [`wholesale_customers`](crate::dataset::wholesale_customers) | 440 | 8 | Clustering (no target) |
 //! | [`wine_recognition`](crate::dataset::wine_recognition) | 178 | 13 | Classification |
 //! | [`red_wine_quality`](crate::dataset::wine_quality::red_wine_quality) | 1,599 | 11 | Regression |
 //! | [`white_wine_quality`](crate::dataset::wine_quality::white_wine_quality) | 4,898 | 11 | Regression |
@@ -312,6 +313,17 @@ pub mod spambase;
 /// Contains data about Titanic passengers for predicting survival based
 /// on features like passenger class, sex, age, and fare.
 pub mod titanic;
+
+/// Wholesale Customers dataset module.
+///
+/// Contains the Wholesale Customers dataset (UCI, Cardoso 2013) for
+/// **clustering**: segmenting 440 clients of a Portuguese wholesale distributor
+/// by their annual spending across six product categories, plus a sales-channel
+/// code and a region code. The dataset has **no target column**, so the loader
+/// offers `features()` and no `labels()` or `targets()`. Its data is a single
+/// `Array2<f64>`, and `data()` returns that same matrix. A `COLUMN_NAMES`
+/// constant names the 8 columns.
+pub mod wholesale_customers;
 
 /// Wine Quality dataset module.
 ///

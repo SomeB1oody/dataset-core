@@ -40,6 +40,10 @@ fn a_generic_function_accepts_every_loader() {
 
 #[test]
 fn num_samples_reads_the_leading_axis() {
+    // A single array: the shape of a dataset with no target.
+    let single: Array2<f64> = Array2::zeros((4, 6));
+    assert_eq!(single.num_samples(), 4);
+
     // (features, labels): a 3-row feature matrix.
     let pair: (Array2<f64>, Array1<u8>) = (Array2::zeros((3, 7)), Array1::zeros(3));
     assert_eq!(pair.num_samples(), 3);

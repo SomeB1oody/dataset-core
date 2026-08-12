@@ -15,7 +15,7 @@
 //! - [`is_loaded`](MlDataset::is_loaded) and [`storage_dir`](MlDataset::storage_dir)
 //!   let you inspect a loader without touching the data.
 //! - [`n_samples`](MlDataset::n_samples) gives a uniform sample count that works
-//!   across the pair-shaped and triple-shaped datasets alike.
+//!   across the single-array, pair-shaped, and triple-shaped datasets alike.
 //!
 //! This trait deliberately names its data accessors [`load`](MlDataset::load),
 //! [`peek`](MlDataset::peek), and [`unload`](MlDataset::unload) rather than reusing
@@ -50,11 +50,17 @@ use ndarray::{Array, Axis, Dimension};
 
 /// A parsed dataset whose samples can be counted.
 ///
-/// This crate implements it for the array pairs and triples every loader parses
-/// into. Examples are `(features, labels)`, `(features, targets)`,
-/// `(texts, labels)`, `(categorical, numeric, labels)`, and
-/// `(texts, sources, labels)`. In all of them, the first array's leading axis is
-/// the sample axis, so this counts that axis.
+/// This crate implements it for the three shapes its loaders parse into:
+///
+/// - A single array, for a dataset with no target. `features` is the one example.
+/// - An array pair, such as `(features, labels)`, `(features, targets)`, or
+///   `(texts, labels)`.
+/// - An array triple, such as `(categorical, numeric, labels)` or
+///   `(texts, sources, labels)`.
+///
+/// In all of them, the first array's leading axis is the sample axis, so this
+/// counts that axis. A zero-dimensional array has no leading axis, so do not use
+/// one as the first array.
 ///
 /// You only need this trait directly to call [`MlDataset::n_samples`] in a generic
 /// function. If you want the same from a loader of your own, implement it for your
@@ -62,6 +68,15 @@ use ndarray::{Array, Axis, Dimension};
 pub trait NumSamples {
     /// The number of samples the parsed data holds.
     fn num_samples(&self) -> usize;
+}
+
+impl<A, D> NumSamples for Array<A, D>
+where
+    D: Dimension,
+{
+    fn num_samples(&self) -> usize {
+        self.len_of(Axis(0))
+    }
 }
 
 impl<A, DA, B, DB> NumSamples for (Array<A, DA>, Array<B, DB>)
@@ -124,9 +139,10 @@ where
 pub trait MlDataset: Sized {
     /// What this loader parses into: the module's `…Data` type alias.
     ///
-    /// It must implement [`NumSamples`], which the array pairs and triples every
-    /// loader here produces already satisfy. This trait needs that bound up
-    /// front, rather than placing it on [`n_samples`](Self::n_samples) itself.
+    /// It must implement [`NumSamples`], which the single arrays, array pairs,
+    /// and array triples every loader here produces already satisfy. This trait
+    /// needs that bound up front, rather than placing it on
+    /// [`n_samples`](Self::n_samples) itself.
     /// That way, a generic `fn f<D: MlDataset>(d: &D)` can call `d.n_samples()`
     /// without repeating the bound.
     type Data: NumSamples;
