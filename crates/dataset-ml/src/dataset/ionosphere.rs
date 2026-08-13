@@ -6,14 +6,58 @@
 //! pass through the ionosphere instead. The task is to predict the quality of a
 //! return from 34 continuous features.
 //!
-//! **Features (34, all numeric):** 17 pulses, each described by two attributes:
-//! the real and imaginary components of the complex electromagnetic signal,
-//! processed by an autocorrelation function. The first attribute is `0` or `1`
-//! (whether the return was usable), and the second attribute is constant `0` in
-//! this collection. The loader still exposes both attributes verbatim as `f64`
-//! columns.
+//! The system processed each received signal with an autocorrelation function.
+//! It used 17 pulse numbers. Each pulse gives two attributes: the real part and
+//! the imaginary part of the complex electromagnetic signal. The source
+//! normalizes the values to about `-1..=1`.
 //!
-//! **Target:** `class` - one of `good` or `bad`
+//! **Columns (35):**
+//!
+//! | Name | Type | Description |
+//! |------|------|-------------|
+//! | `attribute_1` | `Numeric` | pulse 1, real part (`0` or `1`) |
+//! | `attribute_2` | `Numeric` | pulse 1, imaginary part (constant `0` here) |
+//! | `attribute_3` | `Numeric` | pulse 2, real part |
+//! | `attribute_4` | `Numeric` | pulse 2, imaginary part |
+//! | `attribute_5` | `Numeric` | pulse 3, real part |
+//! | `attribute_6` | `Numeric` | pulse 3, imaginary part |
+//! | `attribute_7` | `Numeric` | pulse 4, real part |
+//! | `attribute_8` | `Numeric` | pulse 4, imaginary part |
+//! | `attribute_9` | `Numeric` | pulse 5, real part |
+//! | `attribute_10` | `Numeric` | pulse 5, imaginary part |
+//! | `attribute_11` | `Numeric` | pulse 6, real part |
+//! | `attribute_12` | `Numeric` | pulse 6, imaginary part |
+//! | `attribute_13` | `Numeric` | pulse 7, real part |
+//! | `attribute_14` | `Numeric` | pulse 7, imaginary part |
+//! | `attribute_15` | `Numeric` | pulse 8, real part |
+//! | `attribute_16` | `Numeric` | pulse 8, imaginary part |
+//! | `attribute_17` | `Numeric` | pulse 9, real part |
+//! | `attribute_18` | `Numeric` | pulse 9, imaginary part |
+//! | `attribute_19` | `Numeric` | pulse 10, real part |
+//! | `attribute_20` | `Numeric` | pulse 10, imaginary part |
+//! | `attribute_21` | `Numeric` | pulse 11, real part |
+//! | `attribute_22` | `Numeric` | pulse 11, imaginary part |
+//! | `attribute_23` | `Numeric` | pulse 12, real part |
+//! | `attribute_24` | `Numeric` | pulse 12, imaginary part |
+//! | `attribute_25` | `Numeric` | pulse 13, real part |
+//! | `attribute_26` | `Numeric` | pulse 13, imaginary part |
+//! | `attribute_27` | `Numeric` | pulse 14, real part |
+//! | `attribute_28` | `Numeric` | pulse 14, imaginary part |
+//! | `attribute_29` | `Numeric` | pulse 15, real part |
+//! | `attribute_30` | `Numeric` | pulse 15, imaginary part |
+//! | `attribute_31` | `Numeric` | pulse 16, real part |
+//! | `attribute_32` | `Numeric` | pulse 16, imaginary part |
+//! | `attribute_33` | `Numeric` | pulse 17, real part |
+//! | `attribute_34` | `Numeric` | pulse 17, imaginary part |
+//! | `class` | `String` | `good` or `bad` |
+//!
+//! The source designates the 34 attributes as the inputs
+//! ([`Ionosphere::FEATURE_NAMES`](crate::Ionosphere::FEATURE_NAMES)) and `class` as the label
+//! ([`Ionosphere::TARGET`](crate::Ionosphere::TARGET)).
+//!
+//! The first two attributes are degenerate in this collection. `attribute_1`
+//! holds `0` or `1`. `attribute_2` is always `0`. The loader keeps both
+//! verbatim, so the schema matches the source exactly.
 //!
 //! **Samples:** 351 total (225 good, 126 bad)
 //! **Application:** Binary classification / radar return quality
@@ -22,9 +66,10 @@
 //! <https://doi.org/10.24432/C5W01B>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 use csv::ReaderBuilder;
@@ -59,9 +104,6 @@ const N_COLUMNS: usize = 35;
 /// Source column index of the label (`class`). The label is the **last** column.
 const LABEL_COLUMN: usize = 34;
 
-/// Type alias for the Ionosphere dataset: (features, labels).
-type IonosphereData = (Array2<f64>, Array1<&'static str>);
-
 /// A struct that represents the Ionosphere dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
@@ -82,28 +124,55 @@ type IonosphereData = (Array2<f64>, Array1<&'static str>);
 /// real and imaginary parts of the complex electromagnetic signal, for a
 /// total of 34 continuous features.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The `(351, 34)` `Array2<f64>` matrix holds all 34 quantitative features.
-/// Columns come in 17 real/imaginary pairs (pulses `1`–`17`):
+/// | Name | Type | Description |
+/// |------|------|-------------|
+/// | `attribute_1` | `Numeric` | pulse 1, real part (`0` or `1`) |
+/// | `attribute_2` | `Numeric` | pulse 1, imaginary part (constant `0` here) |
+/// | `attribute_3` | `Numeric` | pulse 2, real part |
+/// | `attribute_4` | `Numeric` | pulse 2, imaginary part |
+/// | `attribute_5` | `Numeric` | pulse 3, real part |
+/// | `attribute_6` | `Numeric` | pulse 3, imaginary part |
+/// | `attribute_7` | `Numeric` | pulse 4, real part |
+/// | `attribute_8` | `Numeric` | pulse 4, imaginary part |
+/// | `attribute_9` | `Numeric` | pulse 5, real part |
+/// | `attribute_10` | `Numeric` | pulse 5, imaginary part |
+/// | `attribute_11` | `Numeric` | pulse 6, real part |
+/// | `attribute_12` | `Numeric` | pulse 6, imaginary part |
+/// | `attribute_13` | `Numeric` | pulse 7, real part |
+/// | `attribute_14` | `Numeric` | pulse 7, imaginary part |
+/// | `attribute_15` | `Numeric` | pulse 8, real part |
+/// | `attribute_16` | `Numeric` | pulse 8, imaginary part |
+/// | `attribute_17` | `Numeric` | pulse 9, real part |
+/// | `attribute_18` | `Numeric` | pulse 9, imaginary part |
+/// | `attribute_19` | `Numeric` | pulse 10, real part |
+/// | `attribute_20` | `Numeric` | pulse 10, imaginary part |
+/// | `attribute_21` | `Numeric` | pulse 11, real part |
+/// | `attribute_22` | `Numeric` | pulse 11, imaginary part |
+/// | `attribute_23` | `Numeric` | pulse 12, real part |
+/// | `attribute_24` | `Numeric` | pulse 12, imaginary part |
+/// | `attribute_25` | `Numeric` | pulse 13, real part |
+/// | `attribute_26` | `Numeric` | pulse 13, imaginary part |
+/// | `attribute_27` | `Numeric` | pulse 14, real part |
+/// | `attribute_28` | `Numeric` | pulse 14, imaginary part |
+/// | `attribute_29` | `Numeric` | pulse 15, real part |
+/// | `attribute_30` | `Numeric` | pulse 15, imaginary part |
+/// | `attribute_31` | `Numeric` | pulse 16, real part |
+/// | `attribute_32` | `Numeric` | pulse 16, imaginary part |
+/// | `attribute_33` | `Numeric` | pulse 17, real part |
+/// | `attribute_34` | `Numeric` | pulse 17, imaginary part |
+/// | `class` | `String` | `good` or `bad` |
 ///
-/// | Columns   | Attribute                                   |
-/// |-----------|---------------------------------------------|
-/// | `0`       | pulse 1 - real part (`0` or `1`)            |
-/// | `1`       | pulse 1 - imaginary part (constant `0` here)|
-/// | `2`, `3`  | pulse 2 - real, imaginary                   |
-/// | …         | …                                           |
-/// | `32`, `33`| pulse 17 - real, imaginary                  |
+/// The source designates the 34 attributes as the inputs
+/// ([`Ionosphere::FEATURE_NAMES`]) and `class` as the label
+/// ([`Ionosphere::TARGET`]).
 ///
-/// The source normalizes the values to about `-1..=1`. The first two columns
-/// are degenerate in this collection: column `0` is `0` or `1`, and column `1`
-/// is always `0`. The loader keeps them verbatim, so the schema matches the
-/// source exactly.
-///
-/// # Labels
-///
-/// - `class` (shape `(351,)`): the `Array1<&'static str>` maps the source's
-///   single-letter codes to readable names, `g` → `"good"` and `b` → `"bad"`.
+/// The source normalizes the values to about `-1..=1`. The first two attributes
+/// are degenerate in this collection: `attribute_1` is `0` or `1`, and
+/// `attribute_2` is always `0`. The loader keeps them verbatim, so the schema
+/// matches the source exactly. The `class` column maps the source's
+/// single-letter codes to readable names, `g` → `good` and `b` → `bad`.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/52/ionosphere>.
 ///
@@ -122,45 +191,92 @@ type IonosphereData = (Array2<f64>, Array1<&'static str>);
 /// ```no_run
 /// use dataset_ml::Ionosphere;
 ///
-/// let download_dir = "./ionosphere"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./ionosphere";
 ///
 /// let mut dataset = Ionosphere::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 351);
+/// assert_eq!(table.n_columns(), 35);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Ionosphere::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[351, 34]);
-/// assert_eq!(labels.len(), 351);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 0.5;
-///     labels[0] = "bad";
+/// // Reach the label column by name.
+/// let class = table.column(Ionosphere::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(class.len(), 351);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("attribute_1") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.5;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[351, 34]);
-/// assert_eq!(owned_labels.len(), 351);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 351);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[351, 34]);
-/// assert_eq!(owned_labels.len(), 351);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 351);
 /// ```
 #[derive(Debug)]
 pub struct Ionosphere {
-    dataset: Dataset<IonosphereData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Ionosphere {
+    /// The columns the source designates as the model inputs, in source order.
+    /// The source numbers its attributes from 1.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "attribute_1",
+        "attribute_2",
+        "attribute_3",
+        "attribute_4",
+        "attribute_5",
+        "attribute_6",
+        "attribute_7",
+        "attribute_8",
+        "attribute_9",
+        "attribute_10",
+        "attribute_11",
+        "attribute_12",
+        "attribute_13",
+        "attribute_14",
+        "attribute_15",
+        "attribute_16",
+        "attribute_17",
+        "attribute_18",
+        "attribute_19",
+        "attribute_20",
+        "attribute_21",
+        "attribute_22",
+        "attribute_23",
+        "attribute_24",
+        "attribute_25",
+        "attribute_26",
+        "attribute_27",
+        "attribute_28",
+        "attribute_29",
+        "attribute_30",
+        "attribute_31",
+        "attribute_32",
+        "attribute_33",
+        "attribute_34",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new Ionosphere instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -180,7 +296,7 @@ impl Ionosphere {
     }
 
     /// Get and parse the Ionosphere dataset.
-    fn load_data(dir: &str) -> Result<IonosphereData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // The source file is `ionosphere.data`. The cache stores it as
         // `ionosphere.csv`.
         let file_path = acquire_dataset(
@@ -204,7 +320,7 @@ impl Ionosphere {
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
-        let mut labels: Vec<&'static str> = Vec::with_capacity(N_SAMPLES);
+        let mut classes: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
             let record =
@@ -250,144 +366,93 @@ impl Ionosphere {
                     ));
                 }
             };
-            labels.push(label);
+            classes.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(IONOSPHERE_DATASET_NAME));
+        // The source lists the 34 attributes first and the class last.
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        for (index, &name) in Self::FEATURE_NAMES.iter().enumerate() {
+            let values: Vec<f64> = features[index..]
+                .iter()
+                .step_by(N_FEATURES)
+                .copied()
+                .collect();
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(classes)),
+        ));
 
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(IONOSPHERE_DATASET_NAME, "features", e))?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(IONOSPHERE_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to the numeric feature matrix with shape
-    ///   `(351, 34)`: 17 pulses × (real, imaginary) autocorrelation components.
+    /// - `&Table` - reference to the cached table of 351 samples and 35 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (351 samples, 34 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<&'static str>` - Reference to label vector with shape `(351,)` containing class names (`"good"`, `"bad"`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (351 samples)
-    pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&IonosphereData` - reference to the cached `(features, labels)` tuple: the
-    ///   feature matrix has shape `(351, 34)` and the label vector has shape
-    ///   `(351,)` containing class names (`"good"`, `"bad"`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (351 samples, 34 features)
-    pub fn data(&self) -> Result<&IonosphereData, DatasetError> {
+    /// - Data format is invalid (wrong number of columns, unparseable values, an
+    ///   unknown class)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Ionosphere::data`], which loads the dataset on first call, this
-    /// never runs the loader. If the data has not loaded yet, it returns
-    /// `None` instead of downloading and parsing. If the data is already cached
-    /// and you want to avoid the download and parse cost, use this method.
+    /// Unlike [`Ionosphere::data`], this method never runs the loader. If the
+    /// data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&IonosphereData)` - reference to the cached `(features, labels)`
-    ///   tuple (feature matrix `(351, 34)`, label vector `(351,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&IonosphereData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize features,
-    /// replace label values), with no `to_owned()` clone. The cache keeps the
-    /// change: it does not remove the arrays. Later calls to
-    /// [`Ionosphere::features`], [`Ionosphere::data`], or [`Ionosphere::get_data`]
-    /// observe the change.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Ionosphere::data`] or
+    /// [`Ionosphere::get_data`] see them.
     ///
-    /// Like [`Ionosphere::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. If you need to make sure the data
-    /// is present, call a loading accessor first (e.g. [`Ionosphere::data`]).
+    /// Like [`Ionosphere::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut IonosphereData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(351, 34)`, label vector
-    ///   `(351,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut IonosphereData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Ionosphere::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset has not loaded yet, this call loads it.
-    ///
-    /// This consumes `self`, so you cannot use the instance afterward. If you want
-    /// owned data but need to keep using the instance, use
-    /// [`Ionosphere::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Ionosphere::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(351, 34)` and owned label vector with shape `(351,)`.
+    /// - `Table` - the owned table of 351 samples and 35 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<IonosphereData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -395,27 +460,20 @@ impl Ionosphere {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Ionosphere::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Unlike that method, it takes `&mut self` instead of
-    /// consuming the instance. It moves the cached data out and resets the
-    /// instance to its unloaded state. The next accessor call (e.g.
-    /// [`Ionosphere::features`] or [`Ionosphere::data`]) loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Ionosphere::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(351, 34)` and owned label vector with shape `(351,)`.
+    /// - `Table` - the owned table of 351 samples and 35 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<IonosphereData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -424,4 +482,4 @@ impl Ionosphere {
     }
 }
 
-impl_ml_dataset!(Ionosphere, IonosphereData, "ionosphere");
+impl_ml_dataset!(Ionosphere, "ionosphere");

@@ -2,35 +2,39 @@
 //!
 //! A simple hierarchical decision model produced this dataset. It evaluates cars
 //! using six categorical attributes that describe price and technical
-//! characteristics. The task is to predict a car's overall acceptability. Like
-//! [`crate::dataset::mushroom`], it is **all-categorical**: every feature is a string
-//! code, so there is no numeric feature matrix.
+//! characteristics. The task is to predict a car's overall acceptability.
 //!
-//! **Features (6, all categorical):**
-//! - `buying` - buying price: `vhigh`, `high`, `med`, `low`
-//! - `maint` - maintenance price: `vhigh`, `high`, `med`, `low`
-//! - `doors` - number of doors: `2`, `3`, `4`, `5more`
-//! - `persons` - passenger capacity: `2`, `4`, `more`
-//! - `lug_boot` - luggage boot size: `small`, `med`, `big`
-//! - `safety` - estimated safety: `low`, `med`, `high`
+//! **Columns (7):**
 //!
-//! **Target:** `class` - one of `unacc`, `acc`, `good`, `vgood`
+//! | Name       | Type      | Description                                   |
+//! |------------|-----------|-------------------------------------------------|
+//! | `buying`   | `String`  | buying price: `vhigh`, `high`, `med`, `low`   |
+//! | `maint`    | `String`  | maintenance price: `vhigh`, `high`, `med`, `low` |
+//! | `doors`    | `String`  | number of doors: `2`, `3`, `4`, `5more`       |
+//! | `persons`  | `String`  | passenger capacity: `2`, `4`, `more`          |
+//! | `lug_boot` | `String`  | luggage boot size: `small`, `med`, `big`      |
+//! | `safety`   | `String`  | estimated safety: `low`, `med`, `high`        |
+//! | `class`    | `String`  | acceptability: `unacc`, `acc`, `good`, `vgood` |
+//!
+//! The source designates the six attributes as the inputs
+//! ([`CarEvaluation::FEATURE_NAMES`](crate::CarEvaluation::FEATURE_NAMES)) and `class` as the label
+//! ([`CarEvaluation::TARGET`](crate::CarEvaluation::TARGET)).
 //!
 //! **Samples:** 1,728 (the full cartesian product of the six attributes)
 //! **Application:** Multi-class classification / car acceptability
+//!
+//! **Missing values:** none.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5JP48>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for Car Evaluation dataset: (categorical features, labels).
-type CarEvaluationData = (Array2<String>, Array1<String>);
 
 /// The URL for the Car Evaluation dataset (the `car.data` file).
 const CAR_EVALUATION_DATA_URL: &str =
@@ -85,25 +89,24 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 /// It has 1,728 records with no missing values. Researchers use it to test
 /// constructive induction and structure discovery methods.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// All 6 features are categorical string codes. The `(1728, 6)` `Array2<String>`
-/// matrix holds them. There is no numeric matrix. By 0-based column:
+/// | Name       | Type      | Description                                   |
+/// |------------|-----------|-------------------------------------------------|
+/// | `buying`   | `String`  | buying price: `vhigh`, `high`, `med`, `low`   |
+/// | `maint`    | `String`  | maintenance price: `vhigh`, `high`, `med`, `low` |
+/// | `doors`    | `String`  | number of doors: `2`, `3`, `4`, `5more`       |
+/// | `persons`  | `String`  | passenger capacity: `2`, `4`, `more`          |
+/// | `lug_boot` | `String`  | luggage boot size: `small`, `med`, `big`      |
+/// | `safety`   | `String`  | estimated safety: `low`, `med`, `high`        |
+/// | `class`    | `String`  | `unacc`, `acc`, `good`, or `vgood`            |
 ///
-/// | Column | Attribute  | Values                        |
-/// |--------|------------|-------------------------------|
-/// | `0`    | `buying`   | `vhigh`, `high`, `med`, `low` |
-/// | `1`    | `maint`    | `vhigh`, `high`, `med`, `low` |
-/// | `2`    | `doors`    | `2`, `3`, `4`, `5more`        |
-/// | `3`    | `persons`  | `2`, `4`, `more`              |
-/// | `4`    | `lug_boot` | `small`, `med`, `big`         |
-/// | `5`    | `safety`   | `low`, `med`, `high`          |
+/// The loader keeps every value as the source spells it. The source
+/// designates the six attributes as the inputs
+/// ([`CarEvaluation::FEATURE_NAMES`]) and `class` as the label
+/// ([`CarEvaluation::TARGET`]).
 ///
-/// # Labels
-///
-/// - `class` (shape `(1728,)`, `Array1<String>`): each value is `unacc`
-///   (unacceptable), `acc` (acceptable), `good`, or `vgood` (very good), unchanged
-///   from the source.
+/// Missing values: none.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/19/car+evaluation>.
 ///
@@ -122,45 +125,57 @@ const FEATURE_COLUMNS: [(usize, &str); N_FEATURES] = [
 /// ```no_run
 /// use dataset_ml::CarEvaluation;
 ///
-/// let download_dir = "./car_evaluation"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./car_evaluation";
 ///
 /// let mut dataset = CarEvaluation::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
-/// assert_eq!(features.shape(), &[1728, 6]);
-/// assert_eq!(labels.len(), 1728);
+/// assert_eq!(table.n_samples(), 1728);
+/// assert_eq!(table.n_columns(), 7);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = "low".to_string();
-///     labels[0] = "acc".to_string();
+/// // Every feature is a string, so reach each one by name.
+/// let buying = table.column("buying").unwrap().as_string().unwrap();
+/// assert_eq!(buying.len(), 1728);
+///
+/// // Reach the label column by name.
+/// let class = table.column(CarEvaluation::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(class.len(), 1728);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("buying") {
+///         if let dataset_ml::ColumnData::String(values) = column.data_mut() {
+///             values[0] = "low".to_string();
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1728, 6]);
-/// assert_eq!(owned_labels.len(), 1728);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1728);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1728, 6]);
-/// assert_eq!(owned_labels.len(), 1728);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1728);
 /// ```
 #[derive(Debug)]
 pub struct CarEvaluation {
-    dataset: Dataset<CarEvaluationData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl CarEvaluation {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] =
+        ["buying", "maint", "doors", "persons", "lug_boot", "safety"];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new CarEvaluation instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -180,7 +195,7 @@ impl CarEvaluation {
     }
 
     /// Get and parse the Car Evaluation dataset.
-    fn load_data(dir: &str) -> Result<CarEvaluationData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // The source file is `car.data`. The loader caches it as
         // `car_evaluation.csv`.
         let file_path = acquire_dataset(
@@ -204,7 +219,10 @@ impl CarEvaluation {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut features: Vec<String> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
+        let mut features: Vec<Vec<String>> = FEATURE_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut labels: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -227,7 +245,7 @@ impl CarEvaluation {
             }
 
             // Categorical features, kept verbatim.
-            for &(col, name) in FEATURE_COLUMNS.iter() {
+            for (values, &(col, name)) in features.iter_mut().zip(FEATURE_COLUMNS.iter()) {
                 let value = &record[col];
                 if value.is_empty() {
                     return Err(DatasetError::invalid_value(
@@ -237,7 +255,7 @@ impl CarEvaluation {
                         line_num,
                     ));
                 }
-                features.push(value.to_string());
+                values.push(value.to_string());
             }
 
             // Label, kept verbatim (`unacc`, `acc`, `good`, or `vgood`).
@@ -253,143 +271,85 @@ impl CarEvaluation {
             labels.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(CAR_EVALUATION_DATASET_NAME));
+        // The columns follow the source order: the 6 features, then `class`.
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        for (values, &(_col, name)) in features.into_iter().zip(FEATURE_COLUMNS.iter()) {
+            columns.push(Column::new(
+                name,
+                ColumnData::String(Array1::from_vec(values)),
+            ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(labels)),
+        ));
 
-        let features_array =
-            Array2::from_shape_vec((n_samples, N_FEATURES), features).map_err(|e| {
-                DatasetError::array_shape_error(CAR_EVALUATION_DATASET_NAME, "features", e)
-            })?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(CAR_EVALUATION_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the categorical feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to the categorical feature matrix with shape
-    ///   `(1728, 6)`. Each value is a string code (`buying`, `maint`, `doors`,
-    ///   `persons`, `lug_boot`, `safety`).
+    /// - `&Table` - reference to the cached table of 1,728 samples and 7
+    ///   columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (1,728 samples)
-    pub fn features(&self) -> Result<&Array2<String>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(1728,)` containing `class` values (`unacc`, `acc`, `good`, `vgood`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (1,728 samples)
-    pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&CarEvaluationData` - reference to the cached `(features, labels)` tuple:
-    ///   the categorical feature matrix `(1728, 6)` and the label vector `(1728,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (1,728 samples)
-    pub fn data(&self) -> Result<&CarEvaluationData, DatasetError> {
+    /// - Data format is invalid (wrong number of columns, an empty value)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering
-    /// loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`CarEvaluation::data`], which loads the dataset on first call, this
-    /// never runs the loader. If the data has not loaded yet, it returns
-    /// `None` instead of downloading and parsing. If the data is already cached
-    /// and you want to avoid the download and parse cost, use this method.
+    /// Unlike [`CarEvaluation::data`], this method never runs the loader. If the
+    /// data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&CarEvaluationData)` - reference to the cached `(features, labels)`
-    ///   tuple (`(1728, 6)`, `(1728,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&CarEvaluationData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. encode categorical
-    /// features), with no `to_owned()` clone. The cache keeps the change: it does
-    /// not remove the arrays. Later calls to [`CarEvaluation::features`],
-    /// [`CarEvaluation::data`], or [`CarEvaluation::get_data`] observe the change.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`CarEvaluation::data`] or
+    /// [`CarEvaluation::get_data`] see them.
     ///
-    /// Like [`CarEvaluation::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. If you need to make sure
-    /// the data is present, call a loading accessor first (e.g.
-    /// [`CarEvaluation::data`]).
+    /// Like [`CarEvaluation::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut CarEvaluationData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (`(1728, 6)`, `(1728,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut CarEvaluationData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`CarEvaluation::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset has not loaded yet, this call loads it.
-    ///
-    /// This consumes `self`, so you cannot use the instance afterward. If you want
-    /// owned data but need to keep using the instance, use
-    /// [`CarEvaluation::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`CarEvaluation::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array1<String>)` - owned categorical feature matrix
-    ///   `(1728, 6)` and owned label vector `(1728,)`.
+    /// - `Table` - the owned table of 1,728 samples and 7 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<CarEvaluationData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -397,28 +357,20 @@ impl CarEvaluation {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`CarEvaluation::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Unlike that method, it takes `&mut self` instead of
-    /// consuming the instance. It moves the cached data out and resets the
-    /// instance to its unloaded state. The next accessor call (e.g.
-    /// [`CarEvaluation::features`] or [`CarEvaluation::data`]) loads the dataset
-    /// again.
-    ///
-    /// If you are done with the instance, use [`CarEvaluation::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array1<String>)` - owned categorical feature matrix
-    ///   `(1728, 6)` and owned label vector `(1728,)`.
+    /// - `Table` - the owned table of 1,728 samples and 7 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<CarEvaluationData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -427,4 +379,4 @@ impl CarEvaluation {
     }
 }
 
-impl_ml_dataset!(CarEvaluation, CarEvaluationData, "car_evaluation");
+impl_ml_dataset!(CarEvaluation, "car_evaluation");

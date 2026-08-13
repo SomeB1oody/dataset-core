@@ -4,6 +4,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_ml::dataset::newsgroups20::*;
+use dataset_ml::table::{ColumnData, Table};
 use std::collections::HashSet;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
@@ -17,6 +18,9 @@ const NEWSGROUPS20_SHA256: &str =
 const N_TRAIN: usize = 11_314;
 const N_TEST: usize = 7_532;
 const N_ALL: usize = 18_846;
+
+/// The two column names, in source order.
+const COLUMN_NAMES: [&str; 2] = ["text", "label"];
 
 /// The 20 newsgroup category names.
 const CATEGORIES: [&str; 20] = [
@@ -42,13 +46,55 @@ const CATEGORIES: [&str; 20] = [
     "talk.religion.misc",
 ];
 
-/// Assert the train-partition invariants: the sample count, all 20 categories with
-/// a known per-class count, non-empty posts, and the first document. The
-/// deterministic lexicographic walk fixes this first document.
-fn assert_newsgroups20_train_semantics(
-    texts: &ndarray::Array1<String>,
-    labels: &ndarray::Array1<&'static str>,
-) {
+/// Assert the column layout the documentation states: two columns, one text
+/// feature and one string target.
+fn assert_newsgroups20_schema(table: &Table) {
+    // Every name in the loader's constants reaches a real column.
+    for name in Newsgroups20::FEATURE_NAMES {
+        assert!(
+            table.column(name).is_some(),
+            "FEATURE_NAMES entry `{name}` names no column"
+        );
+    }
+    assert!(
+        table.column(Newsgroups20::TARGET).is_some(),
+        "TARGET `{}` names no column",
+        Newsgroups20::TARGET
+    );
+    assert!(
+        !Newsgroups20::FEATURE_NAMES.contains(&Newsgroups20::TARGET),
+        "the target must not also be a feature"
+    );
+    assert_eq!(table.n_columns(), 2);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    assert_eq!(Newsgroups20::FEATURE_NAMES, ["text"]);
+    assert_eq!(Newsgroups20::TARGET, "label");
+
+    let text = table.column(Newsgroups20::FEATURE_NAMES[0]).unwrap();
+    assert!(matches!(text.data(), ColumnData::String(_)));
+
+    let label = table.column(Newsgroups20::TARGET).unwrap();
+    assert!(matches!(label.data(), ColumnData::String(_)));
+}
+
+/// Assert the train-partition invariants: the column layout, the sample count,
+/// all 20 categories with a known per-class count, non-empty posts, and the first
+/// document. The deterministic lexicographic walk fixes this first document.
+fn assert_newsgroups20_train_semantics(table: &Table) {
+    assert_eq!(table.n_samples(), N_TRAIN);
+    assert_newsgroups20_schema(table);
+
+    let texts = table
+        .column(Newsgroups20::FEATURE_NAMES[0])
+        .unwrap()
+        .as_string()
+        .unwrap();
+    let labels = table
+        .column(Newsgroups20::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
     assert_eq!(texts.len(), N_TRAIN);
     assert_eq!(labels.len(), N_TRAIN);
 
@@ -56,12 +102,12 @@ fn assert_newsgroups20_train_semantics(
 
     let mut seen: HashSet<&str> = HashSet::new();
     let mut alt_atheism = 0usize;
-    for (i, &label) in labels.iter().enumerate() {
+    for (i, label) in labels.iter().enumerate() {
         assert!(
-            known.contains(label),
+            known.contains(label.as_str()),
             "labels[{i}] = {label:?} is not a known newsgroup"
         );
-        seen.insert(label);
+        seen.insert(label.as_str());
         if label == "alt.atheism" {
             alt_atheism += 1;
         }
@@ -84,16 +130,14 @@ fn assert_newsgroups20_train_semantics(
 }
 
 #[test]
-// Verifies that the 20 Newsgroups train partition loads with the correct sample
-// count, categories, per-class counts, and non-empty posts.
+// Verifies that the 20 Newsgroups train partition loads with the correct column
+// layout, sample count, categories, per-class counts, and non-empty posts.
 fn test_load_newsgroups20() {
     // If the directory does not exist, the code creates it.
     let download_dir = "./test_load_newsgroups20";
 
     let dataset = Newsgroups20::new(download_dir);
-    let (texts, labels) = dataset.data().unwrap();
-
-    assert_newsgroups20_train_semantics(texts, labels);
+    assert_newsgroups20_train_semantics(dataset.data().unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -107,17 +151,29 @@ fn test_newsgroups20_subsets() {
 
     // `new_test` and `new_all` share the same cached archive in this directory.
     let test_set = Newsgroups20::new_test(download_dir);
-    let (test_texts, test_labels) = test_set.data().unwrap();
-    assert_eq!(test_texts.len(), N_TEST);
+    let test_table = test_set.data().unwrap();
+    assert_eq!(test_table.n_samples(), N_TEST);
+    assert_newsgroups20_schema(test_table);
+    let test_labels = test_table
+        .column(Newsgroups20::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
     assert_eq!(test_labels.len(), N_TEST);
-    assert!(test_labels.iter().all(|l| known.contains(l)));
+    assert!(test_labels.iter().all(|l| known.contains(l.as_str())));
 
     let all_set = Newsgroups20::new_all(download_dir);
-    let (all_texts, all_labels) = all_set.data().unwrap();
-    assert_eq!(all_texts.len(), N_ALL);
-    assert_eq!(all_labels.len(), N_ALL);
+    let all_table = all_set.data().unwrap();
+    assert_eq!(all_table.n_samples(), N_ALL);
+    assert_newsgroups20_schema(all_table);
     assert_eq!(N_TRAIN + N_TEST, N_ALL);
-    assert!(all_labels.iter().all(|l| known.contains(l)));
+    let all_labels = all_table
+        .column(Newsgroups20::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
+    assert_eq!(all_labels.len(), N_ALL);
+    assert!(all_labels.iter().all(|l| known.contains(l.as_str())));
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -140,7 +196,7 @@ fn test_newsgroups20_no_need_download() {
     );
 
     let dataset = Newsgroups20::new(download_dir);
-    let (_texts, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_TRAIN);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -159,7 +215,7 @@ fn test_newsgroups20_overwrite() {
     }
 
     let dataset = Newsgroups20::new(download_dir);
-    let (_texts, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_TRAIN);
 
     assert!(
         file_sha256_matches(
@@ -173,46 +229,47 @@ fn test_newsgroups20_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays, consuming the dataset.
+// Verifies that into_data() returns the owned table, consuming the dataset.
 fn test_newsgroups20_into_data() {
     let download_dir = "./test_newsgroups20_into_data";
 
     let dataset = Newsgroups20::new(download_dir);
-    let (mut texts, labels) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned arrays are fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumes `dataset`. The returned table is fully owned.
 
-    assert_eq!(texts.len(), N_TRAIN);
-    assert_eq!(labels.len(), N_TRAIN);
+    assert_eq!(table.n_samples(), N_TRAIN);
+    assert_newsgroups20_schema(&table);
 
-    // The caller can mutate owned data directly, with no `to_owned()` clone.
-    texts[0] = "cleaned text".to_string();
-    assert_eq!(texts[0], "cleaned text");
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::String(values)) = table.column_mut("text").map(|c| c.data_mut()) {
+        values[0] = "cleaned text".to_string();
+    }
+    assert_eq!(
+        table.column("text").unwrap().as_string().unwrap()[0],
+        "cleaned text"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
+// Verifies that take_data() returns the owned table and leaves the dataset reusable.
 fn test_newsgroups20_take_data() {
     let download_dir = "./test_newsgroups20_take_data";
 
     let mut dataset = Newsgroups20::new(download_dir);
-    let (texts, labels) = dataset.take_data().unwrap();
-
-    assert_eq!(texts.len(), N_TRAIN);
-    assert_eq!(labels.len(), N_TRAIN);
+    let table = dataset.take_data().unwrap();
+    assert_eq!(table.n_samples(), N_TRAIN);
 
     // After take_data, the instance resets to unloaded but stays usable. The next
-    // access reloads the data (from the cached archive) and yields the same shapes.
-    let (reloaded_texts, reloaded_labels) = dataset.data().unwrap();
-    assert_eq!(reloaded_texts.len(), N_TRAIN);
-    assert_eq!(reloaded_labels.len(), N_TRAIN);
+    // access reloads the data (from the cached archive) and yields the same shape.
+    assert_eq!(dataset.data().unwrap().n_samples(), N_TRAIN);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_newsgroups20_get_data() {
     let download_dir = "./test_newsgroups20_get_data";
 
@@ -220,17 +277,15 @@ fn test_newsgroups20_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, get_data() returns the cached references.
+    // After loading, get_data() returns the cached reference.
     dataset.data().unwrap();
-    let (texts, labels) = dataset.get_data().unwrap();
-    assert_eq!(texts.len(), N_TRAIN);
-    assert_eq!(labels.len(), N_TRAIN);
+    assert_eq!(dataset.get_data().unwrap().n_samples(), N_TRAIN);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
+// Verifies that get_data_mut() edits the cached table in place and the change persists.
 fn test_newsgroups20_get_data_mut() {
     let download_dir = "./test_newsgroups20_get_data_mut";
 
@@ -240,13 +295,23 @@ fn test_newsgroups20_get_data_mut() {
 
     // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
-    if let Some((texts, _labels)) = dataset.get_data_mut() {
-        texts[0] = "normalized".to_string();
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::String(values)) = table.column_mut("text").map(|c| c.data_mut())
+    {
+        values[0] = "normalized".to_string();
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (texts, _labels) = dataset.data().unwrap();
-    assert_eq!(texts[0], "normalized");
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("text").unwrap().as_string().unwrap()[0],
+        "normalized"
+    );
+    assert_eq!(
+        table.column("label").unwrap().as_string().unwrap()[0],
+        "alt.atheism",
+        "the other columns should stay untouched"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

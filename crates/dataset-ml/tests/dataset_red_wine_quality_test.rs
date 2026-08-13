@@ -5,45 +5,68 @@ mod common;
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
 use dataset_ml::dataset::wine_quality::red_wine_quality::RedWineQuality;
+use dataset_ml::table::{ColumnData, Table};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
 
-#[test]
-fn test_load_red_wine_quality() {
-    let download_dir = "./test_load_red_wine_quality"; // if this directory does not exist, the code creates it
+/// Number of samples.
+const N_SAMPLES: usize = 1599;
 
-    let dataset = RedWineQuality::new(download_dir);
-    let features = dataset.features().unwrap();
-    let targets = dataset.targets().unwrap();
+/// The 12 column names, in source order.
+const COLUMN_NAMES: [&str; 12] = [
+    "fixed acidity",
+    "volatile acidity",
+    "citric acid",
+    "residual sugar",
+    "chlorides",
+    "free sulfur dioxide",
+    "total sulfur dioxide",
+    "density",
+    "pH",
+    "sulphates",
+    "alcohol",
+    "quality",
+];
 
-    assert_eq!(features.shape(), &[1599, 11]);
-    assert_eq!(targets.len(), 1599);
+/// Assert the column layout the documentation claims: 12 numeric columns in
+/// source order, 11 features and one target named `quality`.
+fn assert_columns_match_the_docs(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
 
-    let (features, targets) = dataset.data().unwrap();
-    let mut features_owned = features.to_owned();
-    let mut targets_owned = targets.to_owned();
+    assert_eq!(RedWineQuality::FEATURE_NAMES.len(), 11);
+    assert_eq!(RedWineQuality::TARGET, "quality");
+    assert!(
+        table.column(RedWineQuality::TARGET).is_some(),
+        "TARGET `{}` names no column",
+        RedWineQuality::TARGET
+    );
+    assert!(
+        !RedWineQuality::FEATURE_NAMES.contains(&RedWineQuality::TARGET),
+        "the target must not also be a feature"
+    );
 
-    for row in 0..features.nrows() {
-        for col in 0..features.ncols() {
-            let val = features[[row, col]];
-            assert!(
-                val.is_finite(),
-                "feature[{}, {}] = {} is not finite",
-                row,
-                col,
-                val
-            );
-        }
+    for column in table.columns() {
+        assert!(
+            matches!(column.data(), ColumnData::Numeric(_)),
+            "column {} should be numeric",
+            column.name()
+        );
     }
-    for i in 0..targets.len() {
-        let val = targets[i];
-        assert!(val.is_finite(), "target[{}] = {} is not finite", i, val);
-    }
+}
+
+/// Assert the quality target holds whole numbers in the valid score range, and
+/// that the subset holds more than one score.
+fn assert_quality_scores(table: &Table) {
+    let targets = table.column("quality").unwrap().as_numeric().unwrap();
+    assert_eq!(targets.len(), N_SAMPLES);
 
     let mut unique_qualities = std::collections::HashSet::new();
     for i in 0..targets.len() {
         let val = targets[i];
+        assert!(val.is_finite(), "target[{}] = {} is not finite", i, val);
         assert!(
             val.fract() == 0.0,
             "target[{}] = {} is not an integer value",
@@ -62,9 +85,61 @@ fn test_load_red_wine_quality() {
         unique_qualities.len() > 1,
         "targets should contain more than one unique quality score"
     );
+}
 
-    features_owned[[0, 0]] = 10.0;
-    targets_owned[0] = 7.0;
+#[test]
+fn test_load_red_wine_quality() {
+    let download_dir = "./test_load_red_wine_quality"; // if this directory does not exist, the code creates it
+
+    let dataset = RedWineQuality::new(download_dir);
+    let table = dataset.data().unwrap();
+
+    assert_columns_match_the_docs(table);
+    assert_quality_scores(table);
+
+    // Every physicochemical measurement is finite.
+    let features = table
+        .numeric_matrix(&RedWineQuality::FEATURE_NAMES)
+        .unwrap();
+    assert_eq!(features.shape(), &[N_SAMPLES, 11]);
+    for row in 0..features.nrows() {
+        for col in 0..features.ncols() {
+            let val = features[[row, col]];
+            assert!(
+                val.is_finite(),
+                "feature[{}, {}] = {} is not finite",
+                row,
+                col,
+                val
+            );
+        }
+    }
+
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that a column reached by name holds the same values as its position
+// in the feature matrix.
+fn test_red_wine_quality_columns_agree_with_the_matrix() {
+    let download_dir = "./test_red_wine_quality_columns_agree_with_the_matrix";
+
+    let dataset = RedWineQuality::new(download_dir);
+    let table = dataset.data().unwrap();
+    let features = table
+        .numeric_matrix(&RedWineQuality::FEATURE_NAMES)
+        .unwrap();
+
+    for (col, name) in COLUMN_NAMES[..11].iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 800, N_SAMPLES - 1] {
+            assert_eq!(
+                column[row],
+                features[[row, col]],
+                "column {name} disagrees with matrix column {col} at row {row}"
+            );
+        }
+    }
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -83,7 +158,7 @@ fn test_red_wine_quality_no_need_download() {
     .unwrap();
 
     let dataset = RedWineQuality::new(download_dir);
-    let (_features, _targets) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -101,7 +176,7 @@ fn test_red_wine_quality_overwrite() {
     }
 
     let dataset = RedWineQuality::new(download_dir);
-    let (_features, _targets) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -119,25 +194,22 @@ fn test_red_wine_quality_into_data() {
     let download_dir = "./test_red_wine_quality_into_data";
 
     let dataset = RedWineQuality::new(download_dir);
-    let (mut features, targets) = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. `features` and `targets` are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[1599, 11]);
-    assert_eq!(targets.len(), 1599);
+    assert_columns_match_the_docs(&table);
+    assert_quality_scores(&table);
 
-    for i in 0..targets.len() {
-        let val = targets[i];
-        assert!(
-            (0.0..=10.0).contains(&val),
-            "target[{}] = {} is outside the valid quality range [0, 10]",
-            i,
-            val
-        );
+    // Owned data allows direct mutation and needs no clone.
+    if let Some(ColumnData::Numeric(values)) =
+        table.column_mut("fixed acidity").map(|c| c.data_mut())
+    {
+        values[0] = 10.0;
     }
-
-    // Owned data allows direct mutation and needs no `to_owned()` clone.
-    features[[0, 0]] = 10.0;
-    assert_eq!(features[[0, 0]], 10.0);
+    assert_eq!(
+        table.column("fixed acidity").unwrap().as_numeric().unwrap()[0],
+        10.0
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -147,16 +219,16 @@ fn test_red_wine_quality_take_data() {
     let download_dir = "./test_red_wine_quality_take_data";
 
     let mut dataset = RedWineQuality::new(download_dir);
-    let (features, targets) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(features.shape(), &[1599, 11]);
-    assert_eq!(targets.len(), 1599);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
 
     // After take_data, the instance resets to unloaded but stays usable. The next
-    // access reloads it from the cached file and yields the same shapes.
-    let (reloaded_features, reloaded_targets) = dataset.data().unwrap();
-    assert_eq!(reloaded_features.shape(), &[1599, 11]);
-    assert_eq!(reloaded_targets.len(), 1599);
+    // access reloads it from the cached file and yields the same layout.
+    let reloaded = dataset.data().unwrap();
+    assert_eq!(reloaded.n_samples(), N_SAMPLES);
+    assert_eq!(reloaded.n_columns(), 12);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -169,11 +241,11 @@ fn test_red_wine_quality_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, get_data() returns the cached references.
+    // After loading, get_data() returns the cached reference.
     dataset.data().unwrap();
-    let (features, targets) = dataset.get_data().unwrap();
-    assert_eq!(features.shape(), &[1599, 11]);
-    assert_eq!(targets.len(), 1599);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -186,15 +258,21 @@ fn test_red_wine_quality_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // get_data_mut() mutates the cached features in place, with no clone or reload.
+    // get_data_mut() mutates the cached column in place, with no clone or reload.
     dataset.data().unwrap();
-    if let Some((features, _targets)) = dataset.get_data_mut() {
-        features[[0, 0]] = 99.0;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) =
+            table.column_mut("fixed acidity").map(|c| c.data_mut())
+    {
+        values[0] = 99.0;
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (features, _targets) = dataset.data().unwrap();
-    assert_eq!(features[[0, 0]], 99.0);
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("fixed acidity").unwrap().as_numeric().unwrap()[0],
+        99.0
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

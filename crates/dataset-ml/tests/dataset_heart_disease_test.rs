@@ -5,6 +5,7 @@ mod common;
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
 use dataset_ml::dataset::heart_disease::*;
+use dataset_ml::table::{ColumnData, Table};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -17,18 +18,55 @@ const HEART_DISEASE_SHA256: &str =
 /// The Heart Disease dataset has this many samples.
 const N_SAMPLES: usize = 303;
 
+/// The 14 column names, in source order.
+const COLUMN_NAMES: [&str; 14] = [
+    "age", "sex", "cp", "trestbps", "chol", "fbs", "restecg", "thalach", "exang", "oldpeak",
+    "slope", "ca", "thal", "num",
+];
+
+/// Assert the column layout the documentation claims: the names and the column
+/// types.
+fn assert_heart_disease_schema(table: &Table) {
+    assert_eq!(table.n_columns(), 14);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    assert_eq!(HeartDisease::FEATURE_NAMES.len(), 13);
+    assert_eq!(HeartDisease::FEATURE_NAMES, COLUMN_NAMES[..13]);
+    assert_eq!(HeartDisease::TARGET, COLUMN_NAMES[13]);
+
+    for name in HeartDisease::FEATURE_NAMES {
+        let column = table.column(name).unwrap();
+        assert!(
+            matches!(column.data(), ColumnData::Numeric(_)),
+            "feature {name} should be numeric"
+        );
+    }
+
+    let num = table.column(HeartDisease::TARGET).unwrap();
+    assert!(matches!(num.data(), ColumnData::Integer(_)));
+}
+
 /// Assert the Heart Disease dataset invariants: the schema shape, the diagnosis
 /// target domain, and the numeric feature domain including the `?` → `NaN` mapping.
-fn assert_heart_disease_semantics(features: &ndarray::Array2<f64>, labels: &ndarray::Array1<u8>) {
+fn assert_heart_disease_semantics(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_heart_disease_schema(table);
+
+    let features = table.numeric_matrix(&HeartDisease::FEATURE_NAMES).unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 13]);
-    assert_eq!(labels.len(), N_SAMPLES);
 
     // Diagnosis is 0..=4, and both absence (0) and presence (>0) are present.
+    let labels = table
+        .column(HeartDisease::TARGET)
+        .unwrap()
+        .as_integer()
+        .unwrap();
+    assert_eq!(labels.len(), N_SAMPLES);
     let mut has_absence = false;
     let mut has_presence = false;
     for (i, &y) in labels.iter().enumerate() {
         assert!(
-            y <= 4,
+            (0..=4).contains(&y),
             "labels[{i}] = {y} is outside the 0..=4 diagnosis range"
         );
         if y == 0 {
@@ -44,35 +82,45 @@ fn assert_heart_disease_semantics(features: &ndarray::Array2<f64>, labels: &ndar
     );
 
     // Every non-missing feature value is finite. NaN marks the source's `?` value.
-    // Only `ca` (column 11) and `thal` (column 12) can have missing values.
-    for row in 0..features.nrows() {
-        for col in 0..features.ncols() {
-            let v = features[[row, col]];
+    // Only `ca` and `thal` can have missing values.
+    for name in HeartDisease::FEATURE_NAMES {
+        let values = table.column(name).unwrap().as_numeric().unwrap();
+        for (row, &v) in values.iter().enumerate() {
             if v.is_nan() {
                 assert!(
-                    col == 11 || col == 12,
-                    "unexpected NaN at feature[{row}, {col}] (only ca/thal may be missing)"
+                    name == "ca" || name == "thal",
+                    "unexpected NaN in column {name} at row {row} (only ca/thal may be missing)"
                 );
             } else {
-                assert!(v.is_finite(), "feature[{row}, {col}] = {v} is not finite");
+                assert!(v.is_finite(), "{name}[{row}] = {v} is not finite");
             }
         }
     }
 
-    // `age` (column 0) is always present and positive.
-    for row in 0..features.nrows() {
-        let age = features[[row, 0]];
+    // `age` is always present and positive.
+    let age = table.column("age").unwrap().as_numeric().unwrap();
+    for (row, &value) in age.iter().enumerate() {
         assert!(
-            age.is_finite() && age > 0.0,
-            "age at row {row} = {age} is not a positive finite value"
+            value.is_finite() && value > 0.0,
+            "age at row {row} = {value} is not a positive finite value"
         );
     }
 
-    let ca_missing = (0..features.nrows())
-        .filter(|&row| features[[row, 11]].is_nan())
+    let ca_missing = table
+        .column("ca")
+        .unwrap()
+        .as_numeric()
+        .unwrap()
+        .iter()
+        .filter(|value| value.is_nan())
         .count();
-    let thal_missing = (0..features.nrows())
-        .filter(|&row| features[[row, 12]].is_nan())
+    let thal_missing = table
+        .column("thal")
+        .unwrap()
+        .as_numeric()
+        .unwrap()
+        .iter()
+        .filter(|value| value.is_nan())
         .count();
     assert_eq!(ca_missing, 4, "expected 4 missing `ca` values");
     assert_eq!(thal_missing, 2, "expected 2 missing `thal` values");
@@ -83,10 +131,36 @@ fn test_load_heart_disease() {
     let download_dir = "./test_load_heart_disease"; // the code creates the directory if it does not exist
 
     let dataset = HeartDisease::new(download_dir);
-    let features = dataset.features().unwrap();
-    let labels = dataset.labels().unwrap();
+    assert_heart_disease_semantics(dataset.data().unwrap());
 
-    assert_heart_disease_semantics(features, labels);
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+fn test_heart_disease_columns_agree_with_the_matrix() {
+    let download_dir = "./test_heart_disease_columns_agree_with_the_matrix";
+
+    let dataset = HeartDisease::new(download_dir);
+    let table = dataset.data().unwrap();
+    let features = table.numeric_matrix(&HeartDisease::FEATURE_NAMES).unwrap();
+
+    for (col, name) in COLUMN_NAMES[..13].iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 150, N_SAMPLES - 1] {
+            let (from_column, from_matrix) = (column[row], features[[row, col]]);
+            if from_column.is_nan() {
+                assert!(
+                    from_matrix.is_nan(),
+                    "column {name} disagrees with matrix column {col} at row {row}"
+                );
+            } else {
+                assert_eq!(
+                    from_column, from_matrix,
+                    "column {name} disagrees with matrix column {col} at row {row}"
+                );
+            }
+        }
+    }
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -107,7 +181,7 @@ fn test_heart_disease_no_need_download() {
 
     // this call uses the cached dataset instead of downloading it again
     let dataset = HeartDisease::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -125,7 +199,7 @@ fn test_heart_disease_overwrite() {
 
     // this call overwrites the fake file with the real dataset
     let dataset = HeartDisease::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -143,22 +217,31 @@ fn test_heart_disease_into_data() {
     let download_dir = "./test_heart_disease_into_data";
 
     let dataset = HeartDisease::new(download_dir);
-    let (mut features, labels) = dataset.into_data().unwrap();
-    // `into_data` consumes `dataset`. `features` and `labels` are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // `into_data` consumes `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[N_SAMPLES, 13]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 14);
 
-    for (i, &y) in labels.iter().enumerate() {
+    for (i, &y) in table
+        .column(HeartDisease::TARGET)
+        .unwrap()
+        .as_integer()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
         assert!(
-            y <= 4,
+            (0..=4).contains(&y),
             "labels[{i}] = {y} is outside the 0..=4 diagnosis range"
         );
     }
 
-    // The caller can mutate owned data directly, with no `to_owned()` clone.
-    features[[0, 0]] = 60.0;
-    assert_eq!(features[[0, 0]], 60.0);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("age").map(|c| c.data_mut()) {
+        values[0] = 60.0;
+    }
+    assert_eq!(table.column("age").unwrap().as_numeric().unwrap()[0], 60.0);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -168,16 +251,16 @@ fn test_heart_disease_take_data() {
     let download_dir = "./test_heart_disease_take_data";
 
     let mut dataset = HeartDisease::new(download_dir);
-    let (features, labels) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(features.shape(), &[N_SAMPLES, 13]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 14);
 
     // After `take_data`, the instance resets to unloaded, but remains usable. The
-    // next access reloads the data from the cached file and returns the same shapes.
-    let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
-    assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 13]);
-    assert_eq!(reloaded_labels.len(), N_SAMPLES);
+    // next access reloads the data from the cached file and returns the same table.
+    let reloaded = dataset.data().unwrap();
+    assert_eq!(reloaded.n_samples(), N_SAMPLES);
+    assert_eq!(reloaded.n_columns(), 14);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -190,11 +273,11 @@ fn test_heart_disease_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, `get_data` returns the cached references.
+    // After loading, `get_data` returns the cached table.
     dataset.data().unwrap();
-    let (features, labels) = dataset.get_data().unwrap();
-    assert_eq!(features.shape(), &[N_SAMPLES, 13]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 14);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -207,15 +290,17 @@ fn test_heart_disease_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // get_data_mut() mutates the cached features in place. It needs no clone or reload.
+    // get_data_mut() mutates the cached table in place. It needs no clone or reload.
     dataset.data().unwrap();
-    if let Some((features, _labels)) = dataset.get_data_mut() {
-        features[[0, 0]] = 42.0;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) = table.column_mut("age").map(|c| c.data_mut())
+    {
+        values[0] = 42.0;
     }
 
     // The change persists in the cache. A later access observes it.
-    let (features, _labels) = dataset.data().unwrap();
-    assert_eq!(features[[0, 0]], 42.0);
+    let table = dataset.data().unwrap();
+    assert_eq!(table.column("age").unwrap().as_numeric().unwrap()[0], 42.0);
 
     remove_dir_all(download_dir).unwrap();
 }

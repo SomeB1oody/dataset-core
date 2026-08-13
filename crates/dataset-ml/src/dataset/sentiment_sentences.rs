@@ -2,39 +2,39 @@
 //!
 //! This dataset is a set of 3,000 short sentences from three product and
 //! service review sites (Amazon, IMDb, Yelp). Human annotators hand-labeled
-//! each sentence with a binary sentiment (`positive` or `negative`). Like
-//! [`SmsSpam`](crate::SmsSpam) and [`YoutubeSpam`](crate::YoutubeSpam), this is
-//! a **text** dataset. Its document accessor is
-//! [`SentimentSentences::texts`](crate::SentimentSentences::texts) (an
-//! `Array1<String>` of raw sentences), not `features()`. Unlike those two
-//! datasets, it also carries a piece of per-sample **metadata**: the site the
-//! sentence came from, exposed through
-//! [`SentimentSentences::sources`](crate::SentimentSentences::sources).
+//! each sentence with a binary sentiment (`positive` or `negative`). Each
+//! sample is one raw sentence. Vectorize the text yourself (bag-of-words,
+//! TF-IDF, embeddings, and so on) before you use it as model input.
 //!
-//! **Documents:** `Array1<String>` of 3,000 raw review sentences
+//! **Columns (3):**
 //!
-//! **Metadata:** `source` - one of `amazon`, `imdb`, or `yelp`
+//! | Name     | Type     | Description                          |
+//! |----------|----------|--------------------------------------|
+//! | `text`   | `String` | one raw review sentence              |
+//! | `source` | `String` | `amazon`, `imdb`, or `yelp`          |
+//! | `label`  | `String` | `positive` (`1`) or `negative` (`0`) |
 //!
-//! **Target:** `label` - one of `positive` or `negative`
+//! The source designates the review text as the input
+//! ([`SentimentSentences::FEATURE_NAMES`](crate::SentimentSentences::FEATURE_NAMES)) and the sentiment as the label
+//! ([`SentimentSentences::TARGET`](crate::SentimentSentences::TARGET)).
 //!
 //! **Samples:** 3,000 total (1,500 positive, 1,500 negative, 1,000 per site,
 //! balanced)
 //! **Application:** Binary text classification / sentiment analysis
 //!
+//! **Missing values:** none.
+//!
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C57604>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
 use ndarray::Array1;
 use std::fs::File;
 use std::io::Write as _;
-
-/// Type alias for the Sentiment Labelled Sentences dataset:
-/// (sentence texts, source sites, sentiment labels).
-type SentimentSentencesData = (Array1<String>, Array1<&'static str>, Array1<&'static str>);
 
 /// The URL for the Sentiment Labelled Sentences dataset (a ZIP archive).
 const SENTIMENT_SENTENCES_DATA_URL: &str = "https://archive.ics.uci.edu/ml/machine-learning-databases/00331/sentiment%20labelled%20sentences.zip";
@@ -47,7 +47,7 @@ const SENTIMENT_SENTENCES_ZIP_FILENAME: &str = "sentiment_labelled_sentences.zip
 const SENTIMENT_SENTENCES_SUBDIR: &str = "sentiment labelled sentences";
 
 /// The three per-site source files inside the archive, paired with the
-/// `source` label each one carries, in the fixed order the loader combines
+/// `source` value each one carries, in the fixed order the loader combines
 /// them.
 const SENTIMENT_SENTENCES_SOURCE_FILES: [(&str, &str); 3] = [
     ("amazon", "amazon_cells_labelled.txt"),
@@ -99,24 +99,25 @@ const LABEL_COLUMN: usize = 2;
 /// classification and for studying cross-domain transfer between the three
 /// sources.
 ///
-/// # Documents
+/// # Columns
 ///
-/// Unlike the tabular loaders, there is no feature matrix: each sample is a raw
-/// sentence string. [`SentimentSentences::texts`] returns a `(3000,)`
-/// `Array1<String>` of the sentences. Before you feed a model, vectorize them
-/// yourself (bag-of-words, TF-IDF, embeddings, and so on).
+/// | Name     | Type     | Description                          |
+/// |----------|----------|--------------------------------------|
+/// | `text`   | `String` | one raw review sentence              |
+/// | `source` | `String` | `amazon`, `imdb`, or `yelp`          |
+/// | `label`  | `String` | `positive` (`1`) or `negative` (`0`) |
 ///
-/// # Metadata
+/// The source designates the review text as the input
+/// ([`SentimentSentences::FEATURE_NAMES`]) and the sentiment as the label
+/// ([`SentimentSentences::TARGET`]).
 ///
-/// - `source` (shape `(3000,)`): [`SentimentSentences::sources`] returns an
-///   `Array1<&'static str>`, each one of `"amazon"`, `"imdb"`, or `"yelp"`. This
-///   is the review site the sentence came from. Use it to slice the corpus by
-///   domain or to design cross-domain experiments.
+/// Missing values: none.
 ///
-/// # Labels
-///
-/// - `label` (shape `(3000,)`): the `Array1<&'static str>` is one of `"positive"`
-///   (the source label `1`) or `"negative"` (the source label `0`).
+/// The `text` column holds whole documents, not numbers. Vectorize the
+/// sentences yourself (bag-of-words, TF-IDF, embeddings, and so on) before you
+/// use them as model input. The `source` column names the review site the
+/// sentence came from. Use it to slice the corpus by domain, or to design
+/// cross-domain experiments.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/331/sentiment+labelled+sentences>.
 ///
@@ -140,47 +141,52 @@ const LABEL_COLUMN: usize = 2;
 /// let download_dir = "./sentiment_sentences";
 ///
 /// let mut dataset = SentimentSentences::new(download_dir);
-/// let texts = dataset.texts().unwrap();
-/// let sources = dataset.sources().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // `data()` also gets all three parts at once.
-/// let (texts, sources, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 3000);
+/// assert_eq!(table.n_columns(), 3);
+///
+/// // Reach one column by name.
+/// let texts = table.column(SentimentSentences::FEATURE_NAMES[0]).unwrap().as_string().unwrap();
 /// assert_eq!(texts.len(), 3000);
-/// assert_eq!(sources.len(), 3000);
-/// assert_eq!(labels.len(), 3000);
+/// let sources = table.column("source").unwrap().as_string().unwrap();
+/// assert_eq!(sources[0], "amazon");
+/// let labels = table.column(SentimentSentences::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(labels[0], "negative");
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((texts, _sources, labels)) = dataset.get_data_mut() {
-///     texts[0] = "hello world".to_string();
-///     labels[0] = "positive";
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("text") {
+///         if let dataset_ml::ColumnData::String(values) = column.data_mut() {
+///             values[0] = "hello world".to_string();
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_texts, owned_sources, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_texts.len(), 3000);
-/// assert_eq!(owned_sources.len(), 3000);
-/// assert_eq!(owned_labels.len(), 3000);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 3000);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_texts, owned_sources, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_texts.len(), 3000);
-/// assert_eq!(owned_sources.len(), 3000);
-/// assert_eq!(owned_labels.len(), 3000);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 3000);
 /// ```
 #[derive(Debug)]
 pub struct SentimentSentences {
-    dataset: Dataset<SentimentSentencesData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl SentimentSentences {
+    /// The column the source designates as the model input.
+    pub const FEATURE_NAMES: [&'static str; 1] = ["text"];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "label";
+
     /// Create a new SentimentSentences instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -200,7 +206,7 @@ impl SentimentSentences {
     }
 
     /// Get and parse the Sentiment Labelled Sentences dataset.
-    fn load_data(dir: &str) -> Result<SentimentSentencesData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // Each source file holds only `sentence<TAB>label`. The filename is
         // the only place that names the site, so the loader prepends a
         // `source` column, producing `source<TAB>sentence<TAB>label` lines.
@@ -256,8 +262,8 @@ impl SentimentSentences {
             .from_reader(file);
 
         let mut texts: Vec<String> = Vec::with_capacity(N_SAMPLES);
-        let mut sources: Vec<&'static str> = Vec::with_capacity(N_SAMPLES);
-        let mut labels: Vec<&'static str> = Vec::with_capacity(N_SAMPLES);
+        let mut sources: Vec<String> = Vec::with_capacity(N_SAMPLES);
+        let mut labels: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result
@@ -278,7 +284,7 @@ impl SentimentSentences {
                 ));
             }
 
-            // Source site, mapped to a `&'static str`.
+            // Source site.
             let source = match &record[SOURCE_COLUMN] {
                 "amazon" => "amazon",
                 "imdb" => "imdb",
@@ -293,7 +299,7 @@ impl SentimentSentences {
                 }
             };
 
-            // Sentiment label, mapping the source code to a readable `&'static str`
+            // Sentiment label, mapping the source code to a readable name
             // (`0` = negative, `1` = positive).
             let label = match &record[LABEL_COLUMN] {
                 "0" => "negative",
@@ -308,178 +314,88 @@ impl SentimentSentences {
                 }
             };
 
-            sources.push(source);
-            labels.push(label);
+            sources.push(source.to_string());
+            labels.push(label.to_string());
             texts.push(record[SENTENCE_COLUMN].to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(
-                SENTIMENT_SENTENCES_DATASET_NAME,
-            ));
-        }
-
-        let texts_array = Array1::from_vec(texts);
-        let sources_array = Array1::from_vec(sources);
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((texts_array, sources_array, labels_array))
+        Table::new(
+            SENTIMENT_SENTENCES_DATASET_NAME,
+            vec![
+                Column::new(
+                    Self::FEATURE_NAMES[0],
+                    ColumnData::String(Array1::from_vec(texts)),
+                ),
+                Column::new("source", ColumnData::String(Array1::from_vec(sources))),
+                Column::new(Self::TARGET, ColumnData::String(Array1::from_vec(labels))),
+            ],
+        )
     }
 
-    /// Get a reference to the sentence-text vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// This is the Sentiment Labelled Sentences analogue of the tabular loaders'
-    /// `features()`. Because the data is text, the "features" are the raw sentence
-    /// strings. This method returns a 1-D `Array1<String>`, not a 2-D feature
-    /// matrix.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to the sentence-text vector with shape
-    ///   `(3000,)`, each entry a raw review sentence.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, or invalid source/label)
-    /// - Dataset size does not match the expected dimensions (3,000 samples)
-    pub fn texts(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the source-site vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// This is metadata unique to this loader (the other text loaders have no such
-    /// column): each entry records which review site the sentence came from.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<&'static str>` - Reference to the source-site vector with shape
-    ///   `(3000,)`, each entry one of `"amazon"`, `"imdb"`, or `"yelp"`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, or invalid source/label)
-    /// - Dataset size does not match the expected dimensions (3,000 samples)
-    pub fn sources(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get a reference to the label vector.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array1<&'static str>` - Reference to label vector with shape `(3000,)` containing `"positive"` or `"negative"`
+    /// - `&Table` - reference to the cached table of 3,000 samples and 3 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, or invalid source/label)
-    /// - Dataset size does not match the expected dimensions (3,000 samples)
-    pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get sentence texts, source sites, and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&SentimentSentencesData` - reference to the cached `(texts, sources,
-    ///   labels)` triple: the sentence-text vector `(3000,)`, the source-site
-    ///   vector `(3000,)`, and the label vector `(3000,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, or invalid source/label)
-    /// - Dataset size does not match the expected dimensions (3,000 samples)
-    pub fn data(&self) -> Result<&SentimentSentencesData, DatasetError> {
+    /// - Data format is invalid (wrong number of columns, or an invalid source
+    ///   or label)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get texts, sources, and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`SentimentSentences::data`], which loads the dataset on first call,
-    /// this method never runs the loader. If the data has not loaded yet, it
-    /// returns `None` instead of downloading and parsing. Use this method only
-    /// when you want data that is already cached. This avoids the download and
-    /// parse cost.
+    /// Unlike [`SentimentSentences::data`], this method never runs the loader.
+    /// If the data has not loaded yet, it returns `None` instead of downloading
+    /// and parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&SentimentSentencesData)` - reference to the cached `(texts,
-    ///   sources, labels)` triple (`(3000,)` each), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&SentimentSentencesData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to texts, sources, and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize or clean
-    /// the sentence text), with no `to_owned()` clone. It does not remove them
-    /// from the cache, so the changes persist. Later [`SentimentSentences::texts`],
-    /// [`SentimentSentences::data`], or [`SentimentSentences::get_data`] calls
-    /// observe them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`SentimentSentences::data`] or
+    /// [`SentimentSentences::get_data`] see them.
     ///
-    /// Like [`SentimentSentences::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`SentimentSentences::data`]) first if you need to make sure the data
-    /// is present.
+    /// Like [`SentimentSentences::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut SentimentSentencesData)` - mutable reference to the cached
-    ///   `(texts, sources, labels)` triple (`(3000,)` each), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut SentimentSentencesData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** texts, sources, and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`SentimentSentences::data`], which borrows the cached data, this
-    /// moves it out and returns owned arrays directly. It needs no `to_owned()`
-    /// clone. The dataset loads on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`SentimentSentences::take_data`] instead. It takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`SentimentSentences::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array1<String>, Array1<&'static str>, Array1<&'static str>)` - owned
-    ///   sentence-text vector `(3000,)`, source-site vector `(3000,)`, and label
-    ///   vector `(3000,)`.
+    /// - `Table` - the owned table of 3,000 samples and 3 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if loading fails (network, file extraction, I/O,
-    /// parsing, invalid source/label, or a dimension mismatch).
-    pub fn into_data(self) -> Result<SentimentSentencesData, DatasetError> {
+    /// or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -487,29 +403,21 @@ impl SentimentSentences {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** texts, sources, and labels out of the dataset. This
-    /// leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`SentimentSentences::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state, so the next accessor call (e.g. [`SentimentSentences::texts`] or
-    /// [`SentimentSentences::data`]) loads the dataset again.
-    ///
-    /// Use [`SentimentSentences::into_data`] instead if you are done with the
-    /// instance.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array1<String>, Array1<&'static str>, Array1<&'static str>)` - owned
-    ///   sentence-text vector `(3000,)`, source-site vector `(3000,)`, and label
-    ///   vector `(3000,)`.
+    /// - `Table` - the owned table of 3,000 samples and 3 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if loading fails (network, file extraction, I/O,
-    /// parsing, invalid source/label, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<SentimentSentencesData, DatasetError> {
+    /// or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -518,8 +426,4 @@ impl SentimentSentences {
     }
 }
 
-impl_ml_dataset!(
-    SentimentSentences,
-    SentimentSentencesData,
-    "sentiment_sentences"
-);
+impl_ml_dataset!(SentimentSentences, "sentiment_sentences");

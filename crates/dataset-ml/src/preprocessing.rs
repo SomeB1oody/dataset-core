@@ -1,11 +1,12 @@
 //! Preprocessing helpers for the loaded datasets.
 //!
-//! Every loader in this crate returns raw [`ndarray`] arrays: numbers exactly as
-//! the source published them, and categorical values as strings. Model input
-//! usually needs four steps: split off an evaluation set, scale the numeric
-//! columns, encode the categorical columns, and encode the labels. This module
-//! provides those steps, so a user does not need to reimplement them or add a
-//! framework dependency just to run a baseline.
+//! Every loader in this crate returns a [`Table`](crate::table::Table) of raw
+//! [`ndarray`] columns: numbers exactly as the source published them, and
+//! categorical values as strings. Model input usually needs four steps: split
+//! off an evaluation set, scale the numeric columns, encode the categorical
+//! columns, and encode the labels. This module provides those steps, so a user
+//! does not need to reimplement them or add a framework dependency just to run a
+//! baseline.
 //!
 //! # Splitting is index-based
 //!
@@ -13,10 +14,10 @@
 //! [`stratified_split`](crate::preprocessing::stratified_split),
 //! [`k_fold_indices`](crate::preprocessing::k_fold_indices),
 //! [`shuffled_indices`](crate::preprocessing::shuffled_indices)) return **row indices**, not arrays.
-//! That is deliberate. A sample spans two or three parallel arrays (`features` +
-//! `labels`, or `categorical` + `numeric` + `labels`, or `texts` + `sources` +
-//! `labels`). One index list keeps them aligned. Convert indices to arrays with
-//! ndarray's own `select`. The example below also needs the `dataset` feature:
+//! That is deliberate. A sample spans every column of the loader's
+//! [`Table`](crate::table::Table). One index list keeps them aligned. Convert
+//! indices to arrays with ndarray's own `select`. The example below also needs the
+//! `dataset` feature:
 //!
 //! ```no_run
 //! use dataset_ml::Iris;
@@ -24,14 +25,17 @@
 //! use ndarray::Axis;
 //!
 //! let dataset = Iris::new("./data");
-//! let (features, labels) = dataset.data().unwrap();
+//! let table = dataset.data().unwrap();
+//!
+//! let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
+//! let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
 //!
 //! let (train, test) = train_test_split(features.nrows(), 0.2, 42).unwrap();
 //!
 //! let train_x = features.select(Axis(0), &train);
-//! let train_y = labels.select(Axis(0), &train);
+//! let train_y = species.select(Axis(0), &train);
 //! let test_x = features.select(Axis(0), &test);
-//! let test_y = labels.select(Axis(0), &test);
+//! let test_y = species.select(Axis(0), &test);
 //!
 //! assert_eq!(train_x.nrows(), 120);
 //! assert_eq!(test_x.nrows(), 30);
@@ -403,10 +407,10 @@ pub fn k_fold_indices(
 
 /// Map labels of any type to consecutive integer codes.
 ///
-/// Turns the label vector a loader produces (`&'static str` species names,
-/// `String` categories, `char` letters) into the `0..n_classes` codes most
-/// training code expects. It also returns the class list needed to decode a
-/// prediction. This function numbers classes in **sorted** order, so the
+/// Turns a label vector into the `0..n_classes` codes most training code
+/// expects. A loader holds its labels in an `Array1<String>`, and this function
+/// also accepts any other comparable type. It returns the class list needed to
+/// decode a prediction. This function numbers classes in **sorted** order, so the
 /// encoding depends only on the set of labels present, never on their order in
 /// the file.
 ///
@@ -704,10 +708,12 @@ pub fn apply_scaler(features: &Array2<f64>, scaler: &Scaler) -> Result<Array2<f6
 ///
 /// The mixed-type loaders (`adult`, `titanic`, `bank_marketing`, `abalone`,
 /// `kddcup99`, `palmer_penguins`) and the all-categorical ones (`mushroom`,
-/// `car_evaluation`) return their categorical columns as an `Array2<String>`. No
-/// numeric model can consume that directly. This expands each column into one
-/// indicator column per level it takes. A row gets `1.0` in the column for its own
-/// level, and `0.0` everywhere else.
+/// `car_evaluation`) keep their categorical values in
+/// [`ColumnData::String`](crate::table::ColumnData::String) columns. Read each
+/// column by name with `as_string`, then stack the columns into an
+/// `Array2<String>`. No numeric model can consume strings directly. This function
+/// expands each column into one indicator column per level it takes. A row gets
+/// `1.0` in the column for its own level, and `0.0` everywhere else.
 ///
 /// This function sorts levels within a column, so the output layout depends only
 /// on the values present. The returned names identify the columns as

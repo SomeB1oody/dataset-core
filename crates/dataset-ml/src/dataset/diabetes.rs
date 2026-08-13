@@ -13,20 +13,25 @@
 //! original tab-separated data from the "Least Angle Regression" paper (Efron et
 //! al., 2004).
 //!
-//! **Features (10):** in scikit-learn column order
-//! - `age` - age in years
-//! - `sex` - sex
-//! - `bmi` - body mass index
-//! - `bp` - average blood pressure
-//! - `s1` - tc, total serum cholesterol
-//! - `s2` - ldl, low-density lipoproteins
-//! - `s3` - hdl, high-density lipoproteins
-//! - `s4` - tch, total cholesterol / HDL
-//! - `s5` - ltg, possibly the log of the serum triglycerides level
-//! - `s6` - glu, blood sugar level
+//! **Columns (11):** in scikit-learn column order
 //!
-//! **Target:** quantitative measure of disease progression one year after
-//!   baseline (unscaled, integer-valued in the range 25–346).
+//! | Name     | Type      | Description                                                      |
+//! |----------|-----------|----------------------------------------------------------------------|
+//! | `age`    | `Numeric` | standardized age in years                                        |
+//! | `sex`    | `Numeric` | standardized sex                                                 |
+//! | `bmi`    | `Numeric` | standardized body mass index                                     |
+//! | `bp`     | `Numeric` | standardized average blood pressure                              |
+//! | `s1`     | `Numeric` | standardized tc, total serum cholesterol                         |
+//! | `s2`     | `Numeric` | standardized ldl, low-density lipoproteins                       |
+//! | `s3`     | `Numeric` | standardized hdl, high-density lipoproteins                      |
+//! | `s4`     | `Numeric` | standardized tch, total cholesterol / HDL                        |
+//! | `s5`     | `Numeric` | standardized ltg, possibly log of serum triglycerides level      |
+//! | `s6`     | `Numeric` | standardized glu, blood sugar level                              |
+//! | `target` | `Numeric` | disease progression one year after baseline, unscaled, 25 to 346 |
+//!
+//! The source designates the ten baseline variables as the inputs
+//! ([`Diabetes::FEATURE_NAMES`](crate::Diabetes::FEATURE_NAMES)) and `target` as the label
+//! ([`Diabetes::TARGET`](crate::Diabetes::TARGET)).
 //!
 //! **Samples:** 442
 //! **Application:** Regression / disease progression prediction
@@ -36,10 +41,11 @@
 //! 407–499. <https://www4.stat.ncsu.edu/~boos/var.select/diabetes.html>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use serde::Deserialize;
 use std::fs::File;
 
@@ -58,9 +64,6 @@ const DIABETES_DATASET_NAME: &str = "diabetes";
 
 /// The number of feature columns per sample.
 const N_FEATURES: usize = 10;
-
-/// Type alias for the Diabetes dataset: (features, targets).
-type DiabetesData = (Array2<f64>, Array1<f64>);
 
 /// This struct represents one tab-separated record of the Diabetes dataset. It has
 /// 10 `f64` feature columns (`age`, `sex`, `bmi`, `bp`, `s1`–`s6`), followed by the
@@ -100,32 +103,30 @@ struct DiabetesRecord {
 /// then divides the result by its L2 norm. After this step, every column has a
 /// mean of 0 and a sum of squares of 1. The target stays unscaled.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The loader standardizes all ten feature columns. It mean-centers each column,
-/// then divides it by its L2 norm. The stored values are dimensionless (mean 0,
-/// sum of squares 1). The `Unit` column below records the unit of the *original*
-/// (pre-standardization) measurement where known. The parenthetical text in
-/// `Attributes` expands each abbreviated name. By 0-based column index in the
-/// feature matrix, in scikit-learn column order:
+/// The loader standardizes all ten feature columns, so their stored values are
+/// dimensionless. The description below names the unit of the *original*
+/// (pre-standardization) measurement where the source records one. The columns
+/// keep scikit-learn column order:
 ///
-/// | Columns | Attributes                                            | Unit  |
-/// |---------|-------------------------------------------------------|-------|
-/// | `0`     | `age`                                                 | years |
-/// | `1`     | `sex`                                                 |       |
-/// | `2`     | `bmi` (body mass index)                               |       |
-/// | `3`     | `bp` (average blood pressure)                         |       |
-/// | `4`     | `s1` (tc, total serum cholesterol)                    |       |
-/// | `5`     | `s2` (ldl, low-density lipoproteins)                  |       |
-/// | `6`     | `s3` (hdl, high-density lipoproteins)                 |       |
-/// | `7`     | `s4` (tch, total cholesterol / HDL)                   |       |
-/// | `8`     | `s5` (ltg, possibly log of serum triglycerides level) |       |
-/// | `9`     | `s6` (glu, blood sugar level)                         |       |
+/// | Name     | Type      | Description                                                      |
+/// |----------|-----------|----------------------------------------------------------------------|
+/// | `age`    | `Numeric` | standardized age in years                                        |
+/// | `sex`    | `Numeric` | standardized sex                                                 |
+/// | `bmi`    | `Numeric` | standardized body mass index                                     |
+/// | `bp`     | `Numeric` | standardized average blood pressure                              |
+/// | `s1`     | `Numeric` | standardized tc, total serum cholesterol                         |
+/// | `s2`     | `Numeric` | standardized ldl, low-density lipoproteins                       |
+/// | `s3`     | `Numeric` | standardized hdl, high-density lipoproteins                      |
+/// | `s4`     | `Numeric` | standardized tch, total cholesterol / HDL                        |
+/// | `s5`     | `Numeric` | standardized ltg, possibly log of serum triglycerides level      |
+/// | `s6`     | `Numeric` | standardized glu, blood sugar level                              |
+/// | `target` | `Numeric` | disease progression one year after baseline, unscaled, 25 to 346 |
 ///
-/// # Targets
-///
-/// - quantitative measure of disease progression one year after baseline
-///   (unscaled, integer-valued in the range 25–346)
+/// The source designates the ten baseline variables as the inputs
+/// ([`Diabetes::FEATURE_NAMES`]) and `target` as the label
+/// ([`Diabetes::TARGET`]).
 ///
 /// See more information at <https://scikit-learn.org/stable/datasets/toy_dataset.html#diabetes-dataset>
 ///
@@ -144,45 +145,58 @@ struct DiabetesRecord {
 /// ```no_run
 /// use dataset_ml::Diabetes;
 ///
-/// let download_dir = "./diabetes"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./diabetes";
 ///
 /// let mut dataset = Diabetes::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 442);
+/// assert_eq!(table.n_columns(), 11);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Diabetes::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[442, 10]);
-/// assert_eq!(targets.len(), 442);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, targets)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 0.05;
-///     targets[0] = 200.0;
+/// // Reach one column by name.
+/// let target = table.column(Diabetes::TARGET).unwrap().as_numeric().unwrap();
+/// assert_eq!(target.len(), 442);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("age") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.05;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[442, 10]);
-/// assert_eq!(owned_targets.len(), 442);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 442);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[442, 10]);
-/// assert_eq!(owned_targets.len(), 442);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 442);
 /// ```
 #[derive(Debug)]
 pub struct Diabetes {
-    dataset: Dataset<DiabetesData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Diabetes {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "target";
+
     /// Create a new Diabetes instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -202,7 +216,7 @@ impl Diabetes {
     }
 
     /// Get and parse the Diabetes dataset.
-    fn load_data(dir: &str) -> Result<DiabetesData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             DIABETES_FILENAME,
@@ -251,9 +265,6 @@ impl Diabetes {
         }
 
         let n_samples = targets.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(DIABETES_DATASET_NAME));
-        }
 
         // This step reproduces scikit-learn's standardization. For each column, it
         // subtracts the mean, then divides the result by the L2 norm of the
@@ -282,31 +293,35 @@ impl Diabetes {
             *norm = norm.sqrt();
         }
 
-        let mut features = Vec::with_capacity(n_samples * N_FEATURES);
+        let mut features: [Vec<f64>; N_FEATURES] =
+            std::array::from_fn(|_| Vec::with_capacity(n_samples));
         for row in &raw {
             for (j, &v) in row.iter().enumerate() {
-                features.push((v - means[j]) / norms[j]);
+                features[j].push((v - means[j]) / norms[j]);
             }
         }
 
-        // Diabetes has a fixed schema of 10 standardized features per sample.
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(DIABETES_DATASET_NAME, "features", e))?;
-        let targets_array = Array1::from_vec(targets);
+        let mut columns: Vec<Column> = Self::FEATURE_NAMES
+            .iter()
+            .zip(features)
+            .map(|(&name, values)| Column::new(name, ColumnData::Numeric(Array1::from_vec(values))))
+            .collect();
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::Numeric(Array1::from_vec(targets)),
+        ));
 
-        Ok((features_array, targets_array))
+        Table::new(DIABETES_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(442, 10)`
-    ///   containing the standardized scikit-learn features (`age`, `sex`, `bmi`,
-    ///   `bp`, `s1`–`s6`). Each column has mean 0 and a sum of squares of 1.
+    /// - `&Table` - reference to the cached table of 442 samples and 11 columns.
     ///
     /// # Errors
     ///
@@ -314,115 +329,53 @@ impl Diabetes {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (442 samples, 10 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the target vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<f64>` - Reference to target vector with shape `(442,)`
-    ///   containing the unscaled measure of disease progression one year after
-    ///   baseline (integer-valued in the range 25–346).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (442 samples)
-    pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&DiabetesData` - reference to the cached `(features, targets)` tuple.
-    ///   The feature matrix has shape `(442, 10)` (standardized `age`, `sex`,
-    ///   `bmi`, `bp`, `s1`–`s6`). The target vector has shape `(442,)` (unscaled
-    ///   disease progression).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (442 samples, 10 features)
-    pub fn data(&self) -> Result<&DiabetesData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and targets as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Diabetes::data`], this method never runs the loader. If the
-    /// dataset has not loaded yet, it returns `None` instead of downloading and
-    /// parsing the data. Use this method when you want the data only if it is
-    /// already cached. This choice avoids the download and parse cost.
+    /// Unlike [`Diabetes::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&DiabetesData)` - reference to the cached `(features, targets)` tuple
-    ///   (feature matrix `(442, 10)`, target vector `(442,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&DiabetesData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and targets for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (for example, re-scale
-    /// features or clip outliers) with no `to_owned()` clone. The changes stay in
-    /// the cache: later calls to [`Diabetes::features`], [`Diabetes::data`], or
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Diabetes::data`] or
     /// [`Diabetes::get_data`] see them.
     ///
-    /// Like [`Diabetes::get_data`], this method does **not** trigger loading. It
-    /// returns `None` if the dataset has not loaded. If you need to make sure the
-    /// data is present, call a loading accessor first (for example,
-    /// [`Diabetes::data`]).
+    /// Like [`Diabetes::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut DiabetesData)` - a mutable reference to the cached
-    ///   `(features, targets)` tuple (feature matrix `(442, 10)`, target vector
-    ///   `(442,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut DiabetesData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Diabetes::data`], which borrows the cached data, this method moves
-    /// the data out and returns owned arrays. It needs no `to_owned()` clone. The
-    /// dataset loads on the first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`, so you cannot use the instance afterward. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Diabetes::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Diabetes::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - an owned feature matrix with shape
-    ///   `(442, 10)` and an owned target vector with shape `(442,)`.
+    /// - `Table` - the owned table of 442 samples and 11 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<DiabetesData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -430,27 +383,20 @@ impl Diabetes {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Diabetes::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call (for example, [`Diabetes::features`] or
-    /// [`Diabetes::data`]) loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Diabetes::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - an owned feature matrix with shape
-    ///   `(442, 10)` and an owned target vector with shape `(442,)`.
+    /// - `Table` - the owned table of 442 samples and 11 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<DiabetesData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -459,4 +405,4 @@ impl Diabetes {
     }
 }
 
-impl_ml_dataset!(Diabetes, DiabetesData, "diabetes");
+impl_ml_dataset!(Diabetes, "diabetes");

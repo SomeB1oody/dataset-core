@@ -5,6 +5,7 @@ mod common;
 use common::file_sha256_matches;
 use dataset_core::utils::{download_to, unzip};
 use dataset_ml::dataset::banknote_authentication::*;
+use dataset_ml::table::{ColumnData, Table};
 use std::fs::{File, copy, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -18,17 +19,50 @@ const BANKNOTE_AUTHENTICATION_SHA256: &str =
 /// The Banknote Authentication dataset has this many samples.
 const N_SAMPLES: usize = 1372;
 
+/// The five column names, in source order.
+const COLUMN_NAMES: [&str; 5] = ["variance", "skewness", "curtosis", "entropy", "class"];
+
+/// Assert the column layout the documentation claims: the names and the column
+/// types.
+fn assert_banknote_authentication_schema(table: &Table) {
+    assert_eq!(table.n_columns(), 5);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    // The named constants agree with the source column order.
+    assert_eq!(BanknoteAuthentication::FEATURE_NAMES, COLUMN_NAMES[..4]);
+    assert_eq!(BanknoteAuthentication::TARGET, COLUMN_NAMES[4]);
+
+    for name in &COLUMN_NAMES[..4] {
+        let column = table.column(name).unwrap();
+        assert!(
+            matches!(column.data(), ColumnData::Numeric(_)),
+            "feature {name} should be numeric"
+        );
+    }
+
+    let class = table.column(BanknoteAuthentication::TARGET).unwrap();
+    assert!(matches!(class.data(), ColumnData::Integer(_)));
+}
+
 /// Assert the Banknote Authentication dataset invariants: the schema shape, the
 /// two `class` codes with their exact counts, and the finite numeric features.
-fn assert_banknote_authentication_semantics(
-    features: &ndarray::Array2<f64>,
-    labels: &ndarray::Array1<u8>,
-) {
+fn assert_banknote_authentication_semantics(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_banknote_authentication_schema(table);
+
+    let features = table
+        .numeric_matrix(&BanknoteAuthentication::FEATURE_NAMES)
+        .unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, 4]);
-    assert_eq!(labels.len(), N_SAMPLES);
 
     // Labels are the raw `0`/`1` codes, and both classes are present with the
     // documented per-class counts.
+    let labels = table
+        .column(BanknoteAuthentication::TARGET)
+        .unwrap()
+        .as_integer()
+        .unwrap();
+    assert_eq!(labels.len(), N_SAMPLES);
     let mut zeros = 0usize;
     let mut ones = 0usize;
     for (i, &label) in labels.iter().enumerate() {
@@ -60,10 +94,31 @@ fn test_load_banknote_authentication() {
     let download_dir = "./test_load_banknote_authentication"; // the loader creates the directory if it does not exist
 
     let dataset = BanknoteAuthentication::new(download_dir);
-    let features = dataset.features().unwrap();
-    let labels = dataset.labels().unwrap();
+    assert_banknote_authentication_semantics(dataset.data().unwrap());
 
-    assert_banknote_authentication_semantics(features, labels);
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+fn test_banknote_authentication_columns_agree_with_the_matrix() {
+    let download_dir = "./test_banknote_authentication_columns_agree_with_the_matrix";
+
+    let dataset = BanknoteAuthentication::new(download_dir);
+    let table = dataset.data().unwrap();
+    let features = table
+        .numeric_matrix(&BanknoteAuthentication::FEATURE_NAMES)
+        .unwrap();
+
+    for (col, name) in COLUMN_NAMES[..4].iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 685, N_SAMPLES - 1] {
+            assert_eq!(
+                column[row],
+                features[[row, col]],
+                "column {name} disagrees with matrix column {col} at row {row}"
+            );
+        }
+    }
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -100,7 +155,7 @@ fn test_banknote_authentication_no_need_download() {
 
     // this call uses the cached dataset instead of downloading it again
     let dataset = BanknoteAuthentication::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -118,7 +173,7 @@ fn test_banknote_authentication_overwrite() {
 
     // this call replaces the fake file with the real dataset
     let dataset = BanknoteAuthentication::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -136,14 +191,21 @@ fn test_banknote_authentication_into_data() {
     let download_dir = "./test_banknote_authentication_into_data";
 
     let dataset = BanknoteAuthentication::new(download_dir);
-    let (mut features, labels) = dataset.into_data().unwrap();
-    // `into_data` consumes `dataset`. `features` and `labels` are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // `into_data` consumes `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[N_SAMPLES, 4]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 5);
 
     // Owned labels are correct: one of the two known class codes.
-    for (i, &label) in labels.iter().enumerate() {
+    for (i, &label) in table
+        .column("class")
+        .unwrap()
+        .as_integer()
+        .unwrap()
+        .iter()
+        .enumerate()
+    {
         assert!(
             label == 0 || label == 1,
             "labels[{}] = {} is not a known class",
@@ -152,9 +214,14 @@ fn test_banknote_authentication_into_data() {
         );
     }
 
-    // The caller can mutate the owned data directly, with no `to_owned()` clone.
-    features[[0, 0]] = 0.5;
-    assert_eq!(features[[0, 0]], 0.5);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("variance").map(|c| c.data_mut()) {
+        values[0] = 0.5;
+    }
+    assert_eq!(
+        table.column("variance").unwrap().as_numeric().unwrap()[0],
+        0.5
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -164,16 +231,16 @@ fn test_banknote_authentication_take_data() {
     let download_dir = "./test_banknote_authentication_take_data";
 
     let mut dataset = BanknoteAuthentication::new(download_dir);
-    let (features, labels) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(features.shape(), &[N_SAMPLES, 4]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 5);
 
     // After `take_data`, the instance resets to unloaded, but remains usable. The
-    // next access reloads the data from the cached file and returns the same shapes.
-    let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
-    assert_eq!(reloaded_features.shape(), &[N_SAMPLES, 4]);
-    assert_eq!(reloaded_labels.len(), N_SAMPLES);
+    // next access reloads the data from the cached file and returns the same table.
+    let reloaded = dataset.data().unwrap();
+    assert_eq!(reloaded.n_samples(), N_SAMPLES);
+    assert_eq!(reloaded.n_columns(), 5);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -186,11 +253,11 @@ fn test_banknote_authentication_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, `get_data` returns the cached references.
+    // After loading, `get_data` returns the cached table.
     dataset.data().unwrap();
-    let (features, labels) = dataset.get_data().unwrap();
-    assert_eq!(features.shape(), &[N_SAMPLES, 4]);
-    assert_eq!(labels.len(), N_SAMPLES);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 5);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -203,16 +270,22 @@ fn test_banknote_authentication_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset, then mutates the cached features in place. No clone
+    // This loads the dataset, then mutates the cached table in place. No clone
     // or reload occurs.
     dataset.data().unwrap();
-    if let Some((features, _labels)) = dataset.get_data_mut() {
-        features[[0, 0]] = 0.25;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) =
+            table.column_mut("variance").map(|c| c.data_mut())
+    {
+        values[0] = 0.25;
     }
 
     // The change persists in the cache. A later access observes it.
-    let (features, _labels) = dataset.data().unwrap();
-    assert_eq!(features[[0, 0]], 0.25);
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("variance").unwrap().as_numeric().unwrap()[0],
+        0.25
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

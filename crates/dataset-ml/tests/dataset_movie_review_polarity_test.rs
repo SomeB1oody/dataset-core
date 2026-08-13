@@ -4,6 +4,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_ml::dataset::movie_review_polarity::*;
+use dataset_ml::table::{ColumnData, Table};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
@@ -15,21 +16,66 @@ const MOVIE_REVIEW_POLARITY_SHA256: &str =
 /// The Movie Review Polarity dataset has this many samples.
 const N_SAMPLES: usize = 2_000;
 
-/// Checks the Movie Review Polarity invariants: the sample count, the two label
-/// classes with their exact balanced counts, and non-empty reviews. It also checks
-/// the pinned first document, which the deterministic neg-then-pos lexicographic
-/// walk fixes.
-fn assert_movie_review_polarity_semantics(
-    texts: &ndarray::Array1<String>,
-    labels: &ndarray::Array1<&'static str>,
-) {
+/// The two column names, in source order.
+const COLUMN_NAMES: [&str; 2] = ["text", "label"];
+
+/// Assert the column layout the documentation states: two columns, one text
+/// feature and one string target.
+fn assert_movie_review_polarity_schema(table: &Table) {
+    // Every name in the loader's constants reaches a real column.
+    for name in MovieReviewPolarity::FEATURE_NAMES {
+        assert!(
+            table.column(name).is_some(),
+            "FEATURE_NAMES entry `{name}` names no column"
+        );
+    }
+    assert!(
+        table.column(MovieReviewPolarity::TARGET).is_some(),
+        "TARGET `{}` names no column",
+        MovieReviewPolarity::TARGET
+    );
+    assert!(
+        !MovieReviewPolarity::FEATURE_NAMES.contains(&MovieReviewPolarity::TARGET),
+        "the target must not also be a feature"
+    );
+    assert_eq!(table.n_columns(), 2);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    assert_eq!(MovieReviewPolarity::FEATURE_NAMES, ["text"]);
+    assert_eq!(MovieReviewPolarity::TARGET, "label");
+
+    let text = table.column(MovieReviewPolarity::FEATURE_NAMES[0]).unwrap();
+    assert!(matches!(text.data(), ColumnData::String(_)));
+
+    let label = table.column(MovieReviewPolarity::TARGET).unwrap();
+    assert!(matches!(label.data(), ColumnData::String(_)));
+}
+
+/// Checks the Movie Review Polarity invariants: the column layout, the sample
+/// count, the two label classes with their exact balanced counts, and non-empty
+/// reviews. It also checks the pinned first document, which the deterministic
+/// neg-then-pos lexicographic walk fixes.
+fn assert_movie_review_polarity_semantics(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_movie_review_polarity_schema(table);
+
+    let texts = table
+        .column(MovieReviewPolarity::FEATURE_NAMES[0])
+        .unwrap()
+        .as_string()
+        .unwrap();
+    let labels = table
+        .column(MovieReviewPolarity::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
     assert_eq!(texts.len(), N_SAMPLES);
     assert_eq!(labels.len(), N_SAMPLES);
 
     let mut positive = 0usize;
     let mut negative = 0usize;
-    for (i, &label) in labels.iter().enumerate() {
-        match label {
+    for (i, label) in labels.iter().enumerate() {
+        match label.as_str() {
             "positive" => positive += 1,
             "negative" => negative += 1,
             other => panic!("labels[{i}] = {other:?} is not `positive` or `negative`"),
@@ -53,15 +99,13 @@ fn assert_movie_review_polarity_semantics(
 }
 
 #[test]
-// Verifies that the Movie Review Polarity dataset loads with the correct sample
-// count, label classes, and non-empty reviews.
+// Verifies that the Movie Review Polarity dataset loads with the correct column
+// layout, sample count, label classes, and non-empty reviews.
 fn test_load_movie_review_polarity() {
     let download_dir = "./test_load_movie_review_polarity"; // the loader creates the directory if it does not exist
 
     let dataset = MovieReviewPolarity::new(download_dir);
-    let (texts, labels) = dataset.data().unwrap();
-
-    assert_movie_review_polarity_semantics(texts, labels);
+    assert_movie_review_polarity_semantics(dataset.data().unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -84,7 +128,7 @@ fn test_movie_review_polarity_no_need_download() {
     );
 
     let dataset = MovieReviewPolarity::new(download_dir);
-    let (_texts, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -102,7 +146,7 @@ fn test_movie_review_polarity_overwrite() {
     }
 
     let dataset = MovieReviewPolarity::new(download_dir);
-    let (_texts, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -116,46 +160,47 @@ fn test_movie_review_polarity_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays and consumes the dataset.
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_movie_review_polarity_into_data() {
     let download_dir = "./test_movie_review_polarity_into_data";
 
     let dataset = MovieReviewPolarity::new(download_dir);
-    let (mut texts, labels) = dataset.into_data().unwrap();
-    // into_data() consumes `dataset`. The returned arrays are fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumes `dataset`. The returned table is fully owned.
 
-    assert_eq!(texts.len(), N_SAMPLES);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_movie_review_polarity_schema(&table);
 
-    // The caller can mutate owned data directly, with no `to_owned()` clone.
-    texts[0] = "cleaned text".to_string();
-    assert_eq!(texts[0], "cleaned text");
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::String(values)) = table.column_mut("text").map(|c| c.data_mut()) {
+        values[0] = "cleaned text".to_string();
+    }
+    assert_eq!(
+        table.column("text").unwrap().as_string().unwrap()[0],
+        "cleaned text"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
+// Verifies that take_data() returns the owned table and leaves the dataset reusable.
 fn test_movie_review_polarity_take_data() {
     let download_dir = "./test_movie_review_polarity_take_data";
 
     let mut dataset = MovieReviewPolarity::new(download_dir);
-    let (texts, labels) = dataset.take_data().unwrap();
-
-    assert_eq!(texts.len(), N_SAMPLES);
-    assert_eq!(labels.len(), N_SAMPLES);
+    let table = dataset.take_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
 
     // take_data() resets the instance to unloaded, but it stays usable. The next
-    // access reloads it (from the cached archive) and yields the same shapes.
-    let (reloaded_texts, reloaded_labels) = dataset.data().unwrap();
-    assert_eq!(reloaded_texts.len(), N_SAMPLES);
-    assert_eq!(reloaded_labels.len(), N_SAMPLES);
+    // access reloads it (from the cached archive) and yields the same shape.
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_movie_review_polarity_get_data() {
     let download_dir = "./test_movie_review_polarity_get_data";
 
@@ -163,17 +208,15 @@ fn test_movie_review_polarity_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, get_data() returns the cached references.
+    // After loading, get_data() returns the cached reference.
     dataset.data().unwrap();
-    let (texts, labels) = dataset.get_data().unwrap();
-    assert_eq!(texts.len(), N_SAMPLES);
-    assert_eq!(labels.len(), N_SAMPLES);
+    assert_eq!(dataset.get_data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
+// Verifies that get_data_mut() edits the cached table in place and the change persists.
 fn test_movie_review_polarity_get_data_mut() {
     let download_dir = "./test_movie_review_polarity_get_data_mut";
 
@@ -183,13 +226,23 @@ fn test_movie_review_polarity_get_data_mut() {
 
     // The mutation happens in place. It needs no clone and no reload.
     dataset.data().unwrap();
-    if let Some((texts, _labels)) = dataset.get_data_mut() {
-        texts[0] = "normalized".to_string();
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::String(values)) = table.column_mut("text").map(|c| c.data_mut())
+    {
+        values[0] = "normalized".to_string();
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (texts, _labels) = dataset.data().unwrap();
-    assert_eq!(texts[0], "normalized");
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("text").unwrap().as_string().unwrap()[0],
+        "normalized"
+    );
+    assert_eq!(
+        table.column("label").unwrap().as_string().unwrap()[0],
+        "negative",
+        "the other columns should stay untouched"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

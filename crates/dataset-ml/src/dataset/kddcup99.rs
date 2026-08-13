@@ -11,23 +11,63 @@
 //! - [`Kddcup99::new_full`](crate::Kddcup99::new_full): the **full set**
 //!   (4,898,431 samples), `fetch_kddcup99(percent10=False)`.
 //!
-//! Both partitions share the same 41-feature schema and the same 23 connection
+//! Both partitions share the same 42 columns and the same 23 connection
 //! classes. They differ only in sample count and in the upstream source file.
 //!
-//! **Features (41, mixed):**
-//! - String features (3): `protocol_type` (`tcp`/`udp`/`icmp`), `service` (about
-//!   70 network services, e.g. `http`, `smtp`), `flag` (11 connection-status
-//!   flags, e.g. `SF`, `S0`, `REJ`)
-//! - Numeric features (38): `duration`, `src_bytes`, `dst_bytes`, the various
-//!   per-connection counters and rates (see the struct docs for the full list)
+//! **Columns (42):**
 //!
-//! **Target:** `label` - the connection class, one of 23 values. Each value
-//! includes the trailing period exactly as the source distributes it (e.g.
-//! `normal.`, `smurf.`, `neptune.`), matching scikit-learn's `fetch_kddcup99`
-//! target.
+//! | Name | Type | Description |
+//! |------|------|-------------|
+//! | `duration` | `Numeric` | length of the connection in seconds |
+//! | `protocol_type` | `String` | `tcp`, `udp`, or `icmp` |
+//! | `service` | `String` | destination service, such as `http` or `smtp` |
+//! | `flag` | `String` | connection status flag, such as `SF`, `S0`, or `REJ` |
+//! | `src_bytes` | `Numeric` | bytes sent from the source to the destination |
+//! | `dst_bytes` | `Numeric` | bytes sent from the destination to the source |
+//! | `land` | `Numeric` | `1` if the source and destination address and port are equal |
+//! | `wrong_fragment` | `Numeric` | number of wrong fragments |
+//! | `urgent` | `Numeric` | number of urgent packets |
+//! | `hot` | `Numeric` | number of hot indicators |
+//! | `num_failed_logins` | `Numeric` | number of failed login attempts |
+//! | `logged_in` | `Numeric` | `1` if the login succeeded |
+//! | `num_compromised` | `Numeric` | number of compromised conditions |
+//! | `root_shell` | `Numeric` | `1` if the connection obtained a root shell |
+//! | `su_attempted` | `Numeric` | `1` if the connection attempted the `su root` command |
+//! | `num_root` | `Numeric` | number of root accesses |
+//! | `num_file_creations` | `Numeric` | number of file creation operations |
+//! | `num_shells` | `Numeric` | number of shell prompts |
+//! | `num_access_files` | `Numeric` | number of operations on access control files |
+//! | `num_outbound_cmds` | `Numeric` | number of outbound commands in an FTP session |
+//! | `is_host_login` | `Numeric` | `1` if the login belongs to the host list |
+//! | `is_guest_login` | `Numeric` | `1` if the login is a guest login |
+//! | `count` | `Numeric` | connections to the same host in the past two seconds |
+//! | `srv_count` | `Numeric` | connections to the same service in the past two seconds |
+//! | `serror_rate` | `Numeric` | fraction of those connections with a SYN error |
+//! | `srv_serror_rate` | `Numeric` | fraction of the same-service connections with a SYN error |
+//! | `rerror_rate` | `Numeric` | fraction of those connections with a REJ error |
+//! | `srv_rerror_rate` | `Numeric` | fraction of the same-service connections with a REJ error |
+//! | `same_srv_rate` | `Numeric` | fraction of those connections to the same service |
+//! | `diff_srv_rate` | `Numeric` | fraction of those connections to a different service |
+//! | `srv_diff_host_rate` | `Numeric` | fraction of the same-service connections to a different host |
+//! | `dst_host_count` | `Numeric` | connections to the same destination host |
+//! | `dst_host_srv_count` | `Numeric` | connections to the same destination host and service |
+//! | `dst_host_same_srv_rate` | `Numeric` | fraction of the destination-host connections to the same service |
+//! | `dst_host_diff_srv_rate` | `Numeric` | fraction of the destination-host connections to a different service |
+//! | `dst_host_same_src_port_rate` | `Numeric` | fraction of the destination-host connections from the same source port |
+//! | `dst_host_srv_diff_host_rate` | `Numeric` | fraction of the same-service connections to a different host |
+//! | `dst_host_serror_rate` | `Numeric` | fraction of the destination-host connections with a SYN error |
+//! | `dst_host_srv_serror_rate` | `Numeric` | fraction of the same-service connections with a SYN error |
+//! | `dst_host_rerror_rate` | `Numeric` | fraction of the destination-host connections with a REJ error |
+//! | `dst_host_srv_rerror_rate` | `Numeric` | fraction of the same-service connections with a REJ error |
+//! | `label` | `String` | connection class, with the trailing period, such as `normal.` |
+//!
+//! The source designates the 41 connection features as the inputs
+//! ([`Kddcup99::FEATURE_NAMES`](crate::Kddcup99::FEATURE_NAMES)) and `label` as the label ([`Kddcup99::TARGET`](crate::Kddcup99::TARGET)).
 //!
 //! **Samples:** 494,021 (10% subset, default) or 4,898,431 (full set)
 //! **Application:** Multi-class classification / network-intrusion detection
+//!
+//! **Missing values:** none.
 //!
 //! **Source:** UCI KDD Archive, via the gzip-compressed mirrors that
 //! scikit-learn's `fetch_kddcup99` downloads (`kddcup.data_10_percent.gz` for the
@@ -35,16 +75,16 @@
 //! <https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html>
 //!
 //! **Note on size:** the full set is large. Its decompressed source file is about
-//! 743 MB. The parsed in-memory representation is several gigabytes: the
-//! `(4898431, 38)` numeric matrix alone is about 1.5 GB. Loading it with
-//! [`Kddcup99::new_full`](crate::Kddcup99::new_full) takes noticeable time and memory. The default 10%
-//! subset is about 10 times smaller.
+//! 743 MB. The parsed table takes several gigabytes of memory. Loading it with
+//! [`Kddcup99::new_full`](crate::Kddcup99::new_full) takes noticeable time and
+//! memory. The default 10% subset is about 10 times smaller.
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, gunzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 /// Which KDD Cup 1999 partition to load.
@@ -116,26 +156,27 @@ impl Kddcup99Subset {
 /// The name of the dataset.
 const KDDCUP99_DATASET_NAME: &str = "kddcup99";
 
-/// The number of string (categorical) features per sample (`protocol_type`,
-/// `service`, `flag`).
+/// The number of categorical columns (`protocol_type`, `service`, `flag`).
 const N_STRING_FEATURES: usize = 3;
 
-/// The number of numeric features per sample.
+/// The number of numeric columns.
 const N_NUMERIC_FEATURES: usize = 38;
 
 /// The number of columns per CSV record (41 features + 1 label).
 const N_COLUMNS: usize = N_STRING_FEATURES + N_NUMERIC_FEATURES + 1;
 
-/// The 0-based source-column indices of the three string (categorical) features,
-/// in output column order: `protocol_type`, `service`, `flag`.
-const STRING_COLUMNS: [usize; N_STRING_FEATURES] = [1, 2, 3];
+/// The categorical columns, as `(source column index, name)`.
+const STRING_COLUMNS: [(usize, &str); N_STRING_FEATURES] =
+    [(1, "protocol_type"), (2, "service"), (3, "flag")];
+
+/// The number of feature columns (3 string features and 38 numeric features).
+const N_FEATURES: usize = N_STRING_FEATURES + N_NUMERIC_FEATURES;
 
 /// The 0-based source-column index of the label.
 const LABEL_COLUMN: usize = 41;
 
-/// The 0-based source-column index and name of each numeric feature, in output
-/// column order. These are every column except the three categorical ones
-/// (indices 1, 2, 3) and the label (index 41).
+/// The numeric columns, as `(source column index, name)`. These are every column
+/// except the three categorical ones (indices 1, 2, 3) and the label (index 41).
 const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (0, "duration"),
     (4, "src_bytes"),
@@ -177,9 +218,6 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (40, "dst_host_srv_rerror_rate"),
 ];
 
-/// Type alias for the KDD Cup 1999 dataset: (string features, numeric features, labels).
-type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
-
 /// A struct that represents the KDD Cup 1999 dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
@@ -187,8 +225,8 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 ///
 /// Construct it with [`Kddcup99::new`] for scikit-learn's default 10% subset
 /// (494,021 samples), or with [`Kddcup99::new_full`] for the full set
-/// (4,898,431 samples). Both share the schema below and differ only in sample
-/// count. The shapes in this documentation use `n_samples` for that row count.
+/// (4,898,431 samples). Both share the columns below and differ only in sample
+/// count.
 ///
 /// # About Dataset
 ///
@@ -198,43 +236,63 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 /// attack types fall into four categories: DoS, R2L, U2R, and probing. This is
 /// the same data scikit-learn exposes through `fetch_kddcup99`.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The 41 features are mixed-type. The loader splits them across two
-/// matrices: a string (categorical) matrix of shape `(n_samples, 3)` and a
-/// numeric matrix of shape `(n_samples, 38)`. The dataset has no missing
-/// values.
+/// | Name | Type | Description |
+/// |------|------|-------------|
+/// | `duration` | `Numeric` | length of the connection in seconds |
+/// | `protocol_type` | `String` | `tcp`, `udp`, or `icmp` |
+/// | `service` | `String` | destination service, one of about 70 values, such as `http` |
+/// | `flag` | `String` | connection status flag, one of 11 values, such as `SF` |
+/// | `src_bytes` | `Numeric` | bytes sent from the source to the destination |
+/// | `dst_bytes` | `Numeric` | bytes sent from the destination to the source |
+/// | `land` | `Numeric` | `1` if the source and destination address and port are equal |
+/// | `wrong_fragment` | `Numeric` | number of wrong fragments |
+/// | `urgent` | `Numeric` | number of urgent packets |
+/// | `hot` | `Numeric` | number of hot indicators |
+/// | `num_failed_logins` | `Numeric` | number of failed login attempts |
+/// | `logged_in` | `Numeric` | `1` if the login succeeded |
+/// | `num_compromised` | `Numeric` | number of compromised conditions |
+/// | `root_shell` | `Numeric` | `1` if the connection obtained a root shell |
+/// | `su_attempted` | `Numeric` | `1` if the connection attempted the `su root` command |
+/// | `num_root` | `Numeric` | number of root accesses |
+/// | `num_file_creations` | `Numeric` | number of file creation operations |
+/// | `num_shells` | `Numeric` | number of shell prompts |
+/// | `num_access_files` | `Numeric` | number of operations on access control files |
+/// | `num_outbound_cmds` | `Numeric` | number of outbound commands in an FTP session |
+/// | `is_host_login` | `Numeric` | `1` if the login belongs to the host list |
+/// | `is_guest_login` | `Numeric` | `1` if the login is a guest login |
+/// | `count` | `Numeric` | connections to the same host in the past two seconds |
+/// | `srv_count` | `Numeric` | connections to the same service in the past two seconds |
+/// | `serror_rate` | `Numeric` | fraction of those connections with a SYN error |
+/// | `srv_serror_rate` | `Numeric` | fraction of the same-service connections with a SYN error |
+/// | `rerror_rate` | `Numeric` | fraction of those connections with a REJ error |
+/// | `srv_rerror_rate` | `Numeric` | fraction of the same-service connections with a REJ error |
+/// | `same_srv_rate` | `Numeric` | fraction of those connections to the same service |
+/// | `diff_srv_rate` | `Numeric` | fraction of those connections to a different service |
+/// | `srv_diff_host_rate` | `Numeric` | fraction of the same-service connections to a different host |
+/// | `dst_host_count` | `Numeric` | connections to the same destination host |
+/// | `dst_host_srv_count` | `Numeric` | connections to the same destination host and service |
+/// | `dst_host_same_srv_rate` | `Numeric` | fraction of the destination-host connections to the same service |
+/// | `dst_host_diff_srv_rate` | `Numeric` | fraction of the destination-host connections to a different service |
+/// | `dst_host_same_src_port_rate` | `Numeric` | fraction of the destination-host connections from the same source port |
+/// | `dst_host_srv_diff_host_rate` | `Numeric` | fraction of the same-service connections to a different host |
+/// | `dst_host_serror_rate` | `Numeric` | fraction of the destination-host connections with a SYN error |
+/// | `dst_host_srv_serror_rate` | `Numeric` | fraction of the same-service connections with a SYN error |
+/// | `dst_host_rerror_rate` | `Numeric` | fraction of the destination-host connections with a REJ error |
+/// | `dst_host_srv_rerror_rate` | `Numeric` | fraction of the same-service connections with a REJ error |
+/// | `label` | `String` | connection class, with the trailing period, such as `normal.` |
 ///
-/// String features (`Array2<String>`), by 0-based column:
+/// The source designates the 41 connection features as the inputs
+/// ([`Kddcup99::FEATURE_NAMES`]) and `label` as the label ([`Kddcup99::TARGET`]).
 ///
-/// | Column | Attribute       | Values                                            |
-/// |--------|-----------------|---------------------------------------------------|
-/// | `0`    | `protocol_type` | `tcp`, `udp`, `icmp`                               |
-/// | `1`    | `service`       | about 70 network services (e.g. `http`, `smtp`, `ftp`) |
-/// | `2`    | `flag`          | 11 status flags (e.g. `SF`, `S0`, `REJ`, `RSTR`)  |
+/// The columns keep the source column order. The `label` column holds the class
+/// exactly as the source distributes it, **including the trailing period** (for
+/// example `"normal."`, `"smurf."`, `"neptune."`). This matches scikit-learn's
+/// `fetch_kddcup99` target. There are 23 distinct values (`normal.` plus 22
+/// attack types).
 ///
-/// Numeric features (`Array2<f64>`), by 0-based column:
-///
-/// | Columns   | Attributes                                                        |
-/// |-----------|-------------------------------------------------------------------|
-/// | `0`       | `duration`                                                        |
-/// | `1..=2`   | `src_bytes`, `dst_bytes`                                          |
-/// | `3..=5`   | `land`, `wrong_fragment`, `urgent`                               |
-/// | `6..=18`  | `hot`, `num_failed_logins`, `logged_in`, `num_compromised`, `root_shell`, `su_attempted`, `num_root`, `num_file_creations`, `num_shells`, `num_access_files`, `num_outbound_cmds`, `is_host_login`, `is_guest_login` |
-/// | `19..=27` | `count`, `srv_count`, `serror_rate`, `srv_serror_rate`, `rerror_rate`, `srv_rerror_rate`, `same_srv_rate`, `diff_srv_rate`, `srv_diff_host_rate` |
-/// | `28..=37` | `dst_host_count`, `dst_host_srv_count`, `dst_host_same_srv_rate`, `dst_host_diff_srv_rate`, `dst_host_same_src_port_rate`, `dst_host_srv_diff_host_rate`, `dst_host_serror_rate`, `dst_host_srv_serror_rate`, `dst_host_rerror_rate`, `dst_host_srv_rerror_rate` |
-///
-/// The numeric columns are the 38 source columns that are neither categorical
-/// (`protocol_type`, `service`, `flag`) nor the label, kept in their original
-/// source order.
-///
-/// # Labels
-///
-/// - `label` (shape `(n_samples,)`, in `String`): the connection class, kept
-///   exactly as distributed, **including the trailing period** (e.g.
-///   `"normal."`, `"smurf."`, `"neptune."`). This matches scikit-learn's
-///   `fetch_kddcup99` target. There are 23 distinct values (`normal.` plus 22
-///   attack types).
+/// Missing values: none.
 ///
 /// See more information at
 /// <https://kdd.ics.uci.edu/databases/kddcup99/kddcup99.html>
@@ -257,48 +315,98 @@ type Kddcup99Data = (Array2<String>, Array2<f64>, Array1<String>);
 /// let download_dir = "./kddcup99"; // the loader creates the directory if it does not exist
 ///
 /// // `new` loads the 10% subset (494,021 samples). Use `new_full` for the
-/// // full 4,898,431-sample set with the same schema.
+/// // full 4,898,431-sample set with the same columns.
 /// let mut dataset = Kddcup99::new(download_dir);
-/// let (string_features, numeric_features) = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // `data()` also returns all three parts at once.
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
-/// assert_eq!(string_features.shape(), &[494021, 3]);
-/// assert_eq!(numeric_features.shape(), &[494021, 38]);
-/// assert_eq!(labels.len(), 494021);
+/// assert_eq!(table.n_samples(), 494021);
+/// assert_eq!(table.n_columns(), 42);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
-///     numerics[[0, 0]] = 0.0;
-///     labels[0] = "normal.".to_string();
+/// // The 41 features mix types. Read a string feature by name.
+/// let protocol_type = table.column("protocol_type").unwrap().as_string().unwrap();
+/// assert_eq!(protocol_type.len(), 494021);
+///
+/// // Reach one column by name.
+/// let duration = table.column("duration").unwrap().as_numeric().unwrap();
+/// assert_eq!(duration.len(), 494021);
+/// let label = table.column(Kddcup99::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(label.len(), 494021);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("duration") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[494021, 3]);
-/// assert_eq!(owned_numerics.shape(), &[494021, 38]);
-/// assert_eq!(owned_labels.len(), 494021);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 494021);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[494021, 3]);
-/// assert_eq!(owned_numerics.shape(), &[494021, 38]);
-/// assert_eq!(owned_labels.len(), 494021);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 494021);
 /// ```
 #[derive(Debug)]
 pub struct Kddcup99 {
-    dataset: Dataset<Kddcup99Data, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Kddcup99 {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "duration",
+        "protocol_type",
+        "service",
+        "flag",
+        "src_bytes",
+        "dst_bytes",
+        "land",
+        "wrong_fragment",
+        "urgent",
+        "hot",
+        "num_failed_logins",
+        "logged_in",
+        "num_compromised",
+        "root_shell",
+        "su_attempted",
+        "num_root",
+        "num_file_creations",
+        "num_shells",
+        "num_access_files",
+        "num_outbound_cmds",
+        "is_host_login",
+        "is_guest_login",
+        "count",
+        "srv_count",
+        "serror_rate",
+        "srv_serror_rate",
+        "rerror_rate",
+        "srv_rerror_rate",
+        "same_srv_rate",
+        "diff_srv_rate",
+        "srv_diff_host_rate",
+        "dst_host_count",
+        "dst_host_srv_count",
+        "dst_host_same_srv_rate",
+        "dst_host_diff_srv_rate",
+        "dst_host_same_src_port_rate",
+        "dst_host_srv_diff_host_rate",
+        "dst_host_serror_rate",
+        "dst_host_srv_serror_rate",
+        "dst_host_rerror_rate",
+        "dst_host_srv_rerror_rate",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "label";
+
     /// Create a new Kddcup99 instance for the **10% subset** without loading data.
     ///
     /// This matches scikit-learn's default `fetch_kddcup99(percent10=True)`: the
@@ -328,8 +436,8 @@ impl Kddcup99 {
     /// This is a lightweight operation that only stores the storage directory.
     ///
     /// **Note:** the full set is large. The decompressed source is about 743 MB.
-    /// The parsed in-memory arrays take several GB: the `(4898431, 38)` numeric
-    /// matrix alone is about 1.5 GB. Loading it takes noticeable time and memory.
+    /// The parsed table takes several gigabytes of memory. Loading it takes
+    /// noticeable time and memory.
     ///
     /// # Parameters
     ///
@@ -352,7 +460,7 @@ impl Kddcup99 {
     }
 
     /// Get and parse the chosen KDD Cup 1999 partition.
-    fn load_data(dir: &str, subset: Kddcup99Subset) -> Result<Kddcup99Data, DatasetError> {
+    fn load_data(dir: &str, subset: Kddcup99Subset) -> Result<Table, DatasetError> {
         let gz_filename = subset.gz_filename();
         let filename = subset.filename();
 
@@ -387,9 +495,15 @@ impl Kddcup99 {
         // The code pre-allocates the buffers for the known sample count to avoid
         // repeated growth. Parsing still works for any actual row count.
         let n_expected = subset.n_samples();
-        let mut string_features = Vec::with_capacity(n_expected * N_STRING_FEATURES);
-        let mut numeric_features = Vec::with_capacity(n_expected * N_NUMERIC_FEATURES);
-        let mut labels = Vec::with_capacity(n_expected);
+        let mut string_values: Vec<Vec<String>> = STRING_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(n_expected))
+            .collect();
+        let mut numeric_values: Vec<Vec<f64>> = NUMERIC_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(n_expected))
+            .collect();
+        let mut labels: Vec<String> = Vec::with_capacity(n_expected);
 
         for (idx, result) in rdr.records().enumerate() {
             let record =
@@ -405,17 +519,17 @@ impl Kddcup99 {
                 ));
             }
 
-            // String (categorical) features, in output column order.
-            for &col in STRING_COLUMNS.iter() {
-                string_features.push(record[col].trim().to_string());
+            // Categorical columns.
+            for (values, &(col, _name)) in string_values.iter_mut().zip(STRING_COLUMNS.iter()) {
+                values.push(record[col].trim().to_string());
             }
 
-            // Numeric features, in output column order.
-            for &(col, name) in NUMERIC_COLUMNS.iter() {
+            // Numeric columns.
+            for (values, &(col, name)) in numeric_values.iter_mut().zip(NUMERIC_COLUMNS.iter()) {
                 let value: f64 = record[col].trim().parse().map_err(|e| {
                     DatasetError::parse_failed(KDDCUP99_DATASET_NAME, name, line_num, e)
                 })?;
-                numeric_features.push(value);
+                values.push(value);
             }
 
             // Label: kept verbatim (including the trailing period).
@@ -431,42 +545,42 @@ impl Kddcup99 {
             labels.push(raw_label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(KDDCUP99_DATASET_NAME));
+        // Each entry keeps its source column index. The sort then restores the
+        // source column order.
+        let mut columns: Vec<(usize, Column)> = Vec::with_capacity(N_COLUMNS);
+        for (values, &(col, name)) in string_values.into_iter().zip(STRING_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::String(Array1::from_vec(values))),
+            ));
         }
+        for (values, &(col, name)) in numeric_values.into_iter().zip(NUMERIC_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::Numeric(Array1::from_vec(values))),
+            ));
+        }
+        columns.push((
+            LABEL_COLUMN,
+            Column::new(Self::TARGET, ColumnData::String(Array1::from_vec(labels))),
+        ));
+        columns.sort_by_key(|entry| entry.0);
 
-        // KDD Cup 1999 has a fixed schema of 3 string and 38 numeric features per sample.
-        let string_array = Array2::from_shape_vec((n_samples, N_STRING_FEATURES), string_features)
-            .map_err(|e| {
-                DatasetError::array_shape_error(KDDCUP99_DATASET_NAME, "string_features", e)
-            })?;
-
-        let numeric_array =
-            Array2::from_shape_vec((n_samples, N_NUMERIC_FEATURES), numeric_features).map_err(
-                |e| DatasetError::array_shape_error(KDDCUP99_DATASET_NAME, "numeric_features", e),
-            )?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((string_array, numeric_array, labels_array))
+        Table::new(
+            KDDCUP99_DATASET_NAME,
+            columns.into_iter().map(|(_, column)| column).collect(),
+        )
     }
 
-    /// Get a reference to both string and numeric feature matrices.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to string feature matrix with shape `(n_samples, 3)` containing:
-    ///     - `protocol_type`
-    ///     - `service`
-    ///     - `flag`
-    ///
-    /// - `&Array2<f64>` - Reference to numeric feature matrix with shape `(n_samples, 38)` containing
-    ///   the 38 numeric connection features (`duration`, `src_bytes`, …,
-    ///   `dst_host_srv_rerror_rate`) in source order.
+    /// - `&Table` - reference to the cached table of 42 columns. It holds 494,021
+    ///   samples for the 10% subset, or 4,898,431 samples for the full set.
     ///
     /// # Errors
     ///
@@ -474,122 +588,54 @@ impl Kddcup99 {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size does not match the expected dimensions (n_samples samples)
-    pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load()?;
-        Ok((&data.0, &data.1))
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(n_samples,)`
-    ///   containing the connection class kept verbatim including the trailing period
-    ///   (e.g. `"normal."`, `"smurf."`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File decompression or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size does not match the expected dimensions (n_samples samples)
-    pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get string features, numeric features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Kddcup99Data` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple: string feature matrix `(n_samples, 3)`
-    ///   (protocol_type, service, flag), numeric feature matrix `(n_samples, 38)`,
-    ///   and label vector `(n_samples,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File decompression or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or empty label)
-    /// - Dataset size does not match the expected dimensions (n_samples samples)
-    pub fn data(&self) -> Result<&Kddcup99Data, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and labels as references
-    /// **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Kddcup99::data`], which loads the dataset on first call, this method
-    /// never runs the loader. If the data has not loaded yet, it returns
-    /// `None` instead of downloading and parsing. If you want data only when
-    /// it is already cached, use this method. It avoids the download and
-    /// parse cost.
+    /// Unlike [`Kddcup99::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&Kddcup99Data)` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple (`(n_samples, 3)`, `(n_samples, 38)`, `(n_samples,)`),
-    ///   if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&Kddcup99Data> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to string features, numeric features, and labels
-    /// for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize numeric
-    /// features, encode categorical columns), with no `to_owned()` clone. It does
-    /// not remove them from the cache, so the changes persist. Later
-    /// [`Kddcup99::features`], [`Kddcup99::data`], or [`Kddcup99::get_data`] calls
-    /// observe them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Kddcup99::data`] or
+    /// [`Kddcup99::get_data`] see them.
     ///
-    /// Like [`Kddcup99::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not been loaded. If you need to make sure the
-    /// data is present, call a loading accessor first (e.g. [`Kddcup99::data`]).
+    /// Like [`Kddcup99::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut Kddcup99Data)` - mutable reference to the cached `(string
-    ///   features, numeric features, labels)` tuple (`(n_samples, 3)`,
-    ///   `(n_samples, 38)`, `(n_samples,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut Kddcup99Data> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** string features, numeric features,
-    /// and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Kddcup99::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly. It needs no `to_owned()` clone. If it
-    /// has not loaded yet, the dataset loads on first access.
-    ///
-    /// This **consumes** `self`, so the instance cannot be used afterward. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Kddcup99::take_data`] instead. It takes `&mut self` and leaves the instance
-    /// reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Kddcup99::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature
-    ///   matrix `(n_samples, 3)`, owned numeric feature matrix `(n_samples, 38)`, and
-    ///   owned label vector `(n_samples,)`.
+    /// - `Table` - the owned table of 42 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, empty
-    /// label, or a dimension mismatch).
-    pub fn into_data(self) -> Result<Kddcup99Data, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or an
+    /// empty label).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -597,28 +643,21 @@ impl Kddcup99 {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset. This leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Kddcup99::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Instead of consuming the instance, it takes `&mut self` and moves the
-    /// cached data out. This resets the instance to its unloaded state, so the
-    /// next accessor call (e.g. [`Kddcup99::features`] or [`Kddcup99::data`]) loads
-    /// the dataset again.
-    ///
-    /// If you are done with the instance, use [`Kddcup99::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature
-    ///   matrix `(n_samples, 3)`, owned numeric feature matrix `(n_samples, 38)`, and
-    ///   owned label vector `(n_samples,)`.
+    /// - `Table` - the owned table of 42 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, empty
-    /// label, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<Kddcup99Data, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or an
+    /// empty label).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -627,4 +666,4 @@ impl Kddcup99 {
     }
 }
 
-impl_ml_dataset!(Kddcup99, Kddcup99Data, "kddcup99");
+impl_ml_dataset!(Kddcup99, "kddcup99");

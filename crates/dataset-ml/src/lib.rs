@@ -8,7 +8,7 @@
 //! 1. Download from a URL.
 //! 2. Verify a SHA-256 hash.
 //! 3. Parse the source: CSV records, raw documents from an archive, or binary IDX images.
-//! 4. Expose typed accessors backed by [`ndarray`].
+//! 4. Return a [`Table`] of named, typed columns.
 //!
 //! # Feature flags
 //!
@@ -19,9 +19,9 @@
 //! | `dataset`       | The `dataset` module and its loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`. It adds the `csv`, `serde`, and `tempfile` dependencies. |
 //! | `preprocessing` | The `preprocessing` module: seeded train/test and k-fold splits, feature scaling, one-hot encoding, and label encoding. It adds no dependencies. |
 //!
-//! The `traits` module is always available, whichever features you pick. It holds
-//! [`MlDataset`] and [`NumSamples`], so you can write a loader of your own against
-//! the same interface with both features off.
+//! The `table` and `traits` modules are always available, whichever features you
+//! pick. They hold [`Table`] and [`MlDataset`], so you can write a loader of your
+//! own against the same interface with both features off.
 //!
 //! The `dataset` module lists every built-in dataset with its sample count,
 //! feature count, and task type.
@@ -34,8 +34,15 @@
 //! use dataset_ml::Iris;
 //!
 //! let iris = Iris::new("./data");
-//! let (features, labels) = iris.data().unwrap();
+//! let table = iris.data().unwrap();
+//!
+//! // Every loader returns a `Table`. Name the columns you want in the matrix.
+//! let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
 //! assert_eq!(features.shape(), &[150, 4]);
+//!
+//! // Or reach one column by name.
+//! let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
+//! assert_eq!(species.len(), 150);
 //! ```
 //!
 //! The crate root re-exports every loader struct, so `dataset_ml::Iris` and
@@ -54,6 +61,8 @@
 //!   class-stratified), feature scaling, one-hot encoding, and label encoding. You
 //!   can feed the arrays a loader returns straight to a model, without writing
 //!   that glue code by hand.
+//! - [`table`]: the [`Table`] every loader returns, and the `Column` and
+//!   `ColumnData` types it holds.
 //! - [`traits`]: the [`MlDataset`] trait every loader implements. It lets you
 //!   write code generically over "some dataset": cache inspection and
 //!   invalidation, plus a uniform `n_samples()`.
@@ -61,16 +70,19 @@
 //! This example needs the `dataset` and `preprocessing` features.
 //!
 //! ```no_run
-//! use dataset_ml::preprocessing::{stratified_split, standardize};
+//! use dataset_ml::preprocessing::{standardize, stratified_split};
 //! use dataset_ml::traits::MlDataset;
 //! use dataset_ml::Iris;
 //! use ndarray::Axis;
 //!
 //! let iris = Iris::new("./data");
-//! let (features, labels) = iris.data().unwrap();
+//! let table = iris.data().unwrap();
+//!
+//! let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
+//! let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
 //!
 //! // Split with each species proportionally represented on both sides.
-//! let (train, test) = stratified_split(labels.as_slice().unwrap(), 0.2, 42).unwrap();
+//! let (train, test) = stratified_split(species.as_slice().unwrap(), 0.2, 42).unwrap();
 //! let (scaled_train, scaler) = standardize(&features.select(Axis(0), &train)).unwrap();
 //!
 //! assert_eq!(scaled_train.nrows(), 120);
@@ -116,6 +128,14 @@ pub mod dataset;
 #[cfg(feature = "preprocessing")]
 pub mod preprocessing;
 
+/// The [`Table`](table::Table) every loader parses into.
+///
+/// A `Table` holds one named, typed `Column` per source column. It materializes
+/// a matrix out of the columns the caller names.
+///
+/// This module is always available, whichever features you pick.
+pub mod table;
+
 /// The [`traits::MlDataset`] trait implemented by every loader in this crate.
 ///
 /// Provides the container operations that stay the same whatever a loader parses
@@ -142,4 +162,5 @@ pub use dataset::{
     wine_quality::white_wine_quality::WhiteWineQuality, wine_recognition::WineRecognition,
     youtube_spam::YoutubeSpam,
 };
-pub use traits::{MlDataset, NumSamples};
+pub use table::{Column, ColumnData, Table};
+pub use traits::MlDataset;

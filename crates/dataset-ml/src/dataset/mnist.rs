@@ -6,12 +6,15 @@
 //! entry benchmark for image classification.
 //! [`digits`](crate::dataset::digits) holds the same task at 8×8.
 //!
-//! **Images:** an `Array2<u8>` of shape `(n_samples, 784)`. Each row is one 28×28
-//! image, flattened in row-major order. Each value is a pixel intensity in
-//! `0..=255`, where `0` is the background. [`Mnist::images`](crate::Mnist::images)
-//! returns the same buffer as a `(n_samples, 28, 28)` view, at no copy.
+//! **Columns (2):**
 //!
-//! **Labels:** an `Array1<u8>`, the digit each image shows, one of `0`-`9`.
+//! | Name     | Type      | Description                                                                        |
+//! |----------|-----------|------------------------------------------------------------------------------------|
+//! | `pixels` | `Bytes`   | 784 pixel intensities per image, one 28×28 image flattened in row-major order, each value in `0..=255` |
+//! | `digit`  | `Integer` | the digit the image shows, one of `0`-`9`                                          |
+//!
+//! The source designates `pixels` as the input ([`Mnist::FEATURE_NAMES`](crate::Mnist::FEATURE_NAMES)) and
+//! `digit` as the label ([`Mnist::TARGET`](crate::Mnist::TARGET)).
 //!
 //! **Samples:**
 //! - Training partition: 60,000
@@ -27,12 +30,9 @@
 //! `ossci-datasets` mirror. <http://yann.lecun.com/exdb/mnist/>
 
 use super::idx::{self, Partition};
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError};
-use ndarray::{Array1, Array2, ArrayView3};
-
-/// Type alias for the MNIST dataset: (images, labels).
-pub type MnistData = (Array2<u8>, Array1<u8>);
 
 /// The name of the dataset.
 const MNIST_DATASET_NAME: &str = "mnist";
@@ -101,24 +101,24 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 /// Each partition caches its own two files, so an instance downloads only what
 /// its subset needs.
 ///
-/// # Images
+/// # Columns
 ///
-/// [`Mnist::features`] returns an `Array2<u8>` of shape `(n_samples, 784)`. Each
-/// row is one image, flattened in row-major order, and each value is a pixel
-/// intensity in `0..=255`. `0` is the background and 255 is the darkest ink.
+/// | Name     | Type      | Description                                                                        |
+/// |----------|-----------|------------------------------------------------------------------------------------|
+/// | `pixels` | `Bytes`   | 784 pixel intensities per image, one 28×28 image flattened in row-major order, each value in `0..=255` |
+/// | `digit`  | `Integer` | the digit the image shows, one of `0`-`9`                                          |
 ///
-/// [`Mnist::images`] returns the same buffer shaped `(n_samples, 28, 28)`. It is
-/// a view over that buffer, not a second copy.
+/// The source designates `pixels` as the input ([`Mnist::FEATURE_NAMES`]) and
+/// `digit` as the label ([`Mnist::TARGET`]).
 ///
-/// [`preprocessing`](crate::preprocessing) takes `&Array2<f64>`. Convert the
-/// pixels with `features.mapv(f64::from)`. To scale them to `[0, 1]` in the same
-/// pass, use `features.mapv(|p| f64::from(p) / 255.0)`.
+/// Missing values: none.
 ///
-/// # Labels
+/// In the `pixels` column, `0` is the background and `255` is the darkest ink.
+/// The column holds one row of 784 bytes per image. A view of that row shaped
+/// `(28, 28)` reads the same bytes, at no copy.
 ///
-/// [`Mnist::labels`] returns an `Array1<u8>`, the digit each image shows, one of
-/// `0`-`9`. The classes are close to balanced. The training partition ranges
-/// from 5,421 images of `5` to 6,742 images of `1`.
+/// The `digit` classes are close to balanced. The training partition ranges from
+/// 5,421 images of `5` to 6,742 images of `1`.
 ///
 /// # Source format
 ///
@@ -149,47 +149,64 @@ const SUBSET_ALL: &[&Partition] = &[&TRAIN_PARTITION, &TEST_PARTITION];
 /// let download_dir = "./mnist";
 ///
 /// let mut dataset = Mnist::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // data() also returns both at once
-/// let (features, labels) = dataset.data().unwrap();
-/// assert_eq!(features.shape(), &[60000, 784]);
-/// assert_eq!(labels.len(), 60000);
+/// assert_eq!(table.n_samples(), 60000);
+/// assert_eq!(table.n_columns(), 2);
 ///
-/// // images() reshapes the same buffer to 28x28, with no copy.
-/// let images = dataset.images().unwrap();
+/// // The `pixels` column holds one 784-byte row per image.
+/// let pixels = table.column("pixels").unwrap().as_bytes().unwrap();
+/// assert_eq!(pixels.shape(), &[60000, 784]);
+///
+/// // A (n_samples, 28, 28) view reads the same bytes, at no copy.
+/// let images = pixels.view().into_shape_with_order((60000, 28, 28)).unwrap();
 /// assert_eq!(images.shape(), &[60000, 28, 28]);
 ///
+/// // Ask for the feature matrix when you want it. The pixels become `f64`.
+/// let features = table.numeric_matrix(&Mnist::FEATURE_NAMES).unwrap();
+/// assert_eq!(features.shape(), &[60000, 784]);
+///
 /// // Scale the pixels to [0, 1] for a model.
-/// let scaled = features.mapv(|pixel| f64::from(pixel) / 255.0);
+/// let scaled = features.mapv(|pixel| pixel / 255.0);
 /// assert_eq!(scaled.shape(), &[60000, 784]);
 ///
-/// // `get_data_mut()` edits the arrays in place. This needs no clone and no
+/// // The `digit` column holds the label of each image.
+/// let digits = table.column(Mnist::TARGET).unwrap().as_integer().unwrap();
+/// assert_eq!(digits.len(), 60000);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
 /// // reload. The change stays cached.
-/// if let Some((features, _labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 255;
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("pixels") {
+///         if let dataset_ml::ColumnData::Bytes(values) = column.data_mut() {
+///             values[[0, 0]] = 255;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[60000, 784]);
-/// assert_eq!(owned_labels.len(), 60000);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 60000);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[60000, 784]);
-/// assert_eq!(owned_labels.len(), 60000);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 60000);
 /// ```
 #[derive(Debug)]
 pub struct Mnist {
-    dataset: Dataset<MnistData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Mnist {
+    /// The column the source designates as the model input.
+    pub const FEATURE_NAMES: [&'static str; 1] = ["pixels"];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "digit";
+
     /// Create a new Mnist instance for the **training** partition (60,000
     /// images) without loading data.
     ///
@@ -247,28 +264,27 @@ impl Mnist {
     }
 
     /// Get and parse the MNIST dataset for the requested subset.
-    fn load_data(
-        dir: &str,
-        subset: &'static [&'static Partition],
-    ) -> Result<MnistData, DatasetError> {
-        idx::load_partitions(dir, MNIST_DATASET_NAME, subset)
+    fn load_data(dir: &str, subset: &'static [&'static Partition]) -> Result<Table, DatasetError> {
+        let (pixels, labels) = idx::load_partitions(dir, MNIST_DATASET_NAME, subset)?;
+
+        Table::new(
+            MNIST_DATASET_NAME,
+            vec![
+                Column::new(Self::FEATURE_NAMES[0], ColumnData::Bytes(pixels)),
+                Column::new(Self::TARGET, ColumnData::Integer(labels.mapv(i64::from))),
+            ],
+        )
     }
 
-    /// Get a reference to the flattened image matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<u8>` - Reference to the image matrix with shape
-    ///   `(n_samples, 784)`. Each row is one 28×28 image, flattened in row-major
-    ///   order. Each value is a pixel intensity in `0..=255`. `n_samples` is
-    ///   60,000, 10,000, or 70,000, by the constructor you used.
-    ///
-    /// For the 28×28 shape, use [`Mnist::images`]. For
-    /// [`preprocessing`](crate::preprocessing), convert with
-    /// `features.mapv(f64::from)`.
+    /// - `&Table` - reference to the cached table of 2 columns. It holds 60,000,
+    ///   10,000, or 70,000 samples, by the constructor you used.
     ///
     /// # Errors
     ///
@@ -276,79 +292,14 @@ impl Mnist {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - The IDX header holds an unexpected magic number or image size
-    /// - The file holds a different number of images or pixels than its header states
-    pub fn features(&self) -> Result<&Array2<u8>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get the images as a `(n_samples, 28, 28)` view.
-    ///
-    /// This reshapes the buffer that [`Mnist::features`] returns. It is a view
-    /// over the same memory, not a second copy. Use it when a model wants the
-    /// spatial layout instead of a flat row.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `ArrayView3<u8>` - View of the images with shape `(n_samples, 28, 28)`,
-    ///   indexed as `[image, row, column]`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, or a header
-    /// or length check), or if the cached matrix does not reshape to 28×28.
-    pub fn images(&self) -> Result<ArrayView3<'_, u8>, DatasetError> {
-        let features = &self.dataset.load()?.0;
-        let n_samples = features.nrows();
-        features
-            .view()
-            .into_shape_with_order((n_samples, idx::IMAGE_ROWS, idx::IMAGE_COLS))
-            .map_err(|e| DatasetError::array_shape_error(MNIST_DATASET_NAME, "images", e))
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<u8>` - Reference to the label vector with shape `(n_samples,)`.
-    ///   Each value is the digit the matching image shows, one of `0`-`9`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File decompression or I/O operations fail
-    /// - The IDX header holds an unexpected magic number
-    /// - The file holds a different number of labels than its header states
+    /// - The file holds a different number of images, pixels, or labels than its
+    ///   header states
     /// - A label falls outside `0..=9`
-    pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get images and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&MnistData` - reference to the cached `(images, labels)` tuple: image
-    ///   matrix `(n_samples, 784)` and label vector `(n_samples,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, or a header
-    /// or length check).
-    pub fn data(&self) -> Result<&MnistData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get images and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`Mnist::data`], this method never runs the loader. If the data has
     /// not loaded yet, it returns `None` instead of downloading and parsing it.
@@ -357,55 +308,42 @@ impl Mnist {
     ///
     /// # Returns
     ///
-    /// - `Some(&MnistData)` - reference to the cached `(images, labels)` tuple,
-    ///   if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&MnistData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to images and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly. For example, you can
-    /// binarize the pixels. This needs no `.to_owned()` clone, and it does not
-    /// remove the data from the cache. The changes stay in the cache. Later calls
-    /// to [`Mnist::features`], [`Mnist::data`], or [`Mnist::get_data`] see the
-    /// changes.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Mnist::data`] or
+    /// [`Mnist::get_data`] see them.
     ///
-    /// Like [`Mnist::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not loaded yet. If you need the data to be
-    /// present, call a loading accessor first, for example [`Mnist::data`].
+    /// Like [`Mnist::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut MnistData)` - mutable reference to the cached
-    ///   `(images, labels)` tuple, if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut MnistData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** images and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Mnist::data`], which borrows the cached data, this moves the data
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset has not loaded yet, the first access loads it.
-    ///
-    /// This **consumes** `self`. After the call, you cannot use the instance
-    /// again. If you want owned data but need to keep using the instance, use
-    /// [`Mnist::take_data`] instead. It takes `&mut self` and leaves the instance
-    /// reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Mnist::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<u8>, Array1<u8>)` - owned image matrix `(n_samples, 784)` and
-    ///   owned label vector `(n_samples,)`.
+    /// - `Table` - the owned table of 2 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, or a header or
-    /// length check).
-    pub fn into_data(self) -> Result<MnistData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or a header
+    /// or length check).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -413,27 +351,21 @@ impl Mnist {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** images and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Mnist::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call, for example [`Mnist::features`] or [`Mnist::data`],
+    /// This resets the instance to its unloaded state. The next accessor call
     /// loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Mnist::into_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<u8>, Array1<u8>)` - owned image matrix `(n_samples, 784)` and
-    ///   owned label vector `(n_samples,)`.
+    /// - `Table` - the owned table of 2 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, or a header or
-    /// length check).
-    pub fn take_data(&mut self) -> Result<MnistData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or a header
+    /// or length check).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -442,4 +374,4 @@ impl Mnist {
     }
 }
 
-impl_ml_dataset!(Mnist, MnistData, "mnist");
+impl_ml_dataset!(Mnist, "mnist");

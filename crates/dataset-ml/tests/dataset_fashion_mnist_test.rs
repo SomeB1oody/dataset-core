@@ -5,6 +5,7 @@ mod common;
 use common::file_sha256_matches;
 use dataset_ml::Mnist;
 use dataset_ml::dataset::fashion_mnist::FashionMnist;
+use dataset_ml::table::{ColumnData, Table};
 use ndarray::{Array1, Array2};
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
@@ -31,6 +32,9 @@ const N_ALL: usize = 70_000;
 /// Number of pixels per image (28 × 28).
 const N_PIXELS: usize = 784;
 
+/// The two column names, in source order.
+const COLUMN_NAMES: [&str; 2] = ["pixels", "class"];
+
 /// Images per class in the training partition. The source balances the classes
 /// exactly.
 const N_TRAIN_PER_CLASS: usize = 6_000;
@@ -44,32 +48,69 @@ const TRAIN_PIXEL_SUM: u64 = 3_431_114_169;
 /// Sum of every pixel of the test partition.
 const TEST_PIXEL_SUM: u64 = 573_469_082;
 
+/// Borrow the `pixels` column of the table.
+fn pixels_of(table: &Table) -> &Array2<u8> {
+    table.column("pixels").unwrap().as_bytes().unwrap()
+}
+
+/// Borrow the `class` column of the table.
+fn classes_of(table: &Table) -> &Array1<i64> {
+    table.column("class").unwrap().as_integer().unwrap()
+}
+
 /// Count the images of each garment class.
-fn class_counts(labels: &Array1<u8>) -> [usize; 10] {
+fn class_counts(classes: &Array1<i64>) -> [usize; 10] {
     let mut counts = [0usize; 10];
-    for &label in labels.iter() {
-        counts[label as usize] += 1;
+    for &class in classes.iter() {
+        counts[class as usize] += 1;
     }
     counts
 }
 
 /// Sum every pixel of the image matrix.
-fn pixel_sum(features: &Array2<u8>) -> u64 {
-    features.iter().map(|&pixel| u64::from(pixel)).sum()
+fn pixel_sum(pixels: &Array2<u8>) -> u64 {
+    pixels.iter().map(|&pixel| u64::from(pixel)).sum()
+}
+
+/// Assert the column layout the documentation claims: the names, the named
+/// constants, and the column types.
+fn assert_fashion_columns(table: &Table) {
+    assert_eq!(table.n_columns(), 2);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    assert_eq!(FashionMnist::FEATURE_NAMES, ["pixels"]);
+    assert_eq!(FashionMnist::TARGET, "class");
+
+    let pixels = table.column(FashionMnist::FEATURE_NAMES[0]).unwrap();
+    assert!(
+        matches!(pixels.data(), ColumnData::Bytes(_)),
+        "pixels should be a bytes column"
+    );
+
+    let class = table.column(FashionMnist::TARGET).unwrap();
+    assert!(
+        matches!(class.data(), ColumnData::Integer(_)),
+        "class should be an integer column"
+    );
 }
 
 /// Assert the invariants that hold for every Fashion-MNIST subset: the shapes
 /// and the label domain.
-fn assert_fashion_shape(features: &Array2<u8>, labels: &Array1<u8>, n_samples: usize) {
-    assert_eq!(features.shape(), &[n_samples, N_PIXELS]);
-    assert_eq!(labels.len(), n_samples);
+fn assert_fashion_shape(table: &Table, n_samples: usize) {
+    assert_fashion_columns(table);
+    assert_eq!(table.n_samples(), n_samples);
 
-    for (row, &label) in labels.iter().enumerate() {
+    let pixels = pixels_of(table);
+    let classes = classes_of(table);
+    assert_eq!(pixels.shape(), &[n_samples, N_PIXELS]);
+    assert_eq!(classes.len(), n_samples);
+
+    for (row, &class) in classes.iter().enumerate() {
         assert!(
-            (label as usize) < FashionMnist::CLASS_NAMES.len(),
-            "label[{}] = {} names no class",
+            (0..FashionMnist::CLASS_NAMES.len() as i64).contains(&class),
+            "class[{}] = {} names no class",
             row,
-            label
+            class
         );
     }
 }
@@ -97,34 +138,38 @@ fn test_fashion_mnist_class_names() {
 
 #[test]
 // Verifies that the Fashion-MNIST training partition loads with the correct
-// shapes, exact class balance, and pinned pixel values.
+// column layout, shapes, exact class balance, and pinned pixel values.
 fn test_load_fashion_mnist() {
     let download_dir = "./test_load_fashion_mnist"; // the loader creates this directory if it is missing
 
     let dataset = FashionMnist::new(download_dir);
-    let (features, labels) = dataset.data().unwrap();
+    let table = dataset.data().unwrap();
 
-    assert_fashion_shape(features, labels, N_TRAIN);
+    assert_fashion_shape(table, N_TRAIN);
+
+    let pixels = pixels_of(table);
+    let classes = classes_of(table);
+
     assert_eq!(
-        class_counts(labels),
+        class_counts(classes),
         [N_TRAIN_PER_CLASS; 10],
         "the training partition should hold exactly 6,000 images per class"
     );
     assert_eq!(
-        pixel_sum(features),
+        pixel_sum(pixels),
         TRAIN_PIXEL_SUM,
         "the training pixel sum should match"
     );
 
     // The partition keeps its source order: the first image is an ankle boot and
     // the last a sandal.
-    assert_eq!(labels[0], 9);
-    assert_eq!(FashionMnist::CLASS_NAMES[labels[0] as usize], "Ankle boot");
-    assert_eq!(labels[N_TRAIN - 1], 5);
+    assert_eq!(classes[0], 9);
+    assert_eq!(FashionMnist::CLASS_NAMES[classes[0] as usize], "Ankle boot");
+    assert_eq!(classes[N_TRAIN - 1], 5);
 
     // The first image, pinned. It holds 433 inked pixels that sum to 76,247, and
     // its first inked pixel is at flat index 96.
-    let first = features.row(0);
+    let first = pixels.row(0);
     assert_eq!(first.iter().filter(|&&pixel| pixel != 0).count(), 433);
     assert_eq!(first.iter().map(|&p| u64::from(p)).sum::<u64>(), 76_247);
     assert_eq!(
@@ -135,21 +180,26 @@ fn test_load_fashion_mnist() {
     assert_eq!(first[96], 1);
 
     // Pixels use the full 0..=255 range.
-    assert_eq!(*features.iter().min().unwrap(), 0);
-    assert_eq!(*features.iter().max().unwrap(), 255);
+    assert_eq!(*pixels.iter().min().unwrap(), 0);
+    assert_eq!(*pixels.iter().max().unwrap(), 255);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that images() reshapes the same buffer to 28x28 without copying.
+// Verifies that a 28x28 view of the pixels column reads the same bytes as the
+// flat rows, and that the feature matrix holds the same pixels as `f64`.
 fn test_fashion_mnist_images_view() {
     let download_dir = "./test_fashion_mnist_images_view";
 
     let dataset = FashionMnist::new_test(download_dir);
-    let images = dataset.images().unwrap();
-    let features = dataset.features().unwrap();
+    let table = dataset.data().unwrap();
+    let pixels = pixels_of(table);
 
+    let images = pixels
+        .view()
+        .into_shape_with_order((N_TEST, 28, 28))
+        .unwrap();
     assert_eq!(images.shape(), &[N_TEST, 28, 28]);
 
     // The view indexes the same bytes as the flat matrix: `[image, row, col]`
@@ -159,13 +209,22 @@ fn test_fashion_mnist_images_view() {
             for col in [0usize, 12, 27] {
                 assert_eq!(
                     images[[image, row, col]],
-                    features[[image, row * 28 + col]],
+                    pixels[[image, row * 28 + col]],
                     "image {} pixel ({}, {}) disagrees between the two shapes",
                     image,
                     row,
                     col
                 );
             }
+        }
+    }
+
+    // The bytes column contributes its full width to the feature matrix.
+    let features = table.numeric_matrix(&FashionMnist::FEATURE_NAMES).unwrap();
+    assert_eq!(features.shape(), &[N_TEST, N_PIXELS]);
+    for image in [0usize, 1, N_TEST - 1] {
+        for col in [0usize, 96, N_PIXELS - 1] {
+            assert_eq!(features[[image, col]], f64::from(pixels[[image, col]]));
         }
     }
 
@@ -178,25 +237,29 @@ fn test_fashion_mnist_test_subset() {
     let download_dir = "./test_fashion_mnist_test_subset";
 
     let dataset = FashionMnist::new_test(download_dir);
-    let (features, labels) = dataset.data().unwrap();
+    let table = dataset.data().unwrap();
 
-    assert_fashion_shape(features, labels, N_TEST);
+    assert_fashion_shape(table, N_TEST);
+
+    let pixels = pixels_of(table);
+    let classes = classes_of(table);
+
     assert_eq!(
-        class_counts(labels),
+        class_counts(classes),
         [N_TEST_PER_CLASS; 10],
         "the test partition should hold exactly 1,000 images per class"
     );
     assert_eq!(
-        pixel_sum(features),
+        pixel_sum(pixels),
         TEST_PIXEL_SUM,
         "the test pixel sum should match"
     );
 
-    assert_eq!(labels[0], 9);
-    assert_eq!(labels[N_TEST - 1], 5);
+    assert_eq!(classes[0], 9);
+    assert_eq!(classes[N_TEST - 1], 5);
 
     // The first image, pinned.
-    let first = features.row(0);
+    let first = pixels.row(0);
     assert_eq!(first.iter().filter(|&&pixel| pixel != 0).count(), 267);
     assert_eq!(first.iter().map(|&p| u64::from(p)).sum::<u64>(), 33_456);
 
@@ -210,21 +273,24 @@ fn test_fashion_mnist_all_subset() {
     let download_dir = "./test_fashion_mnist_all_subset";
 
     let dataset = FashionMnist::new_all(download_dir);
-    let (features, labels) = dataset.data().unwrap();
+    let table = dataset.data().unwrap();
 
-    assert_fashion_shape(features, labels, N_ALL);
+    assert_fashion_shape(table, N_ALL);
+
+    let pixels = pixels_of(table);
+    let classes = classes_of(table);
 
     // Train comes first, then test. The boundary sits at index 60,000.
-    assert_eq!(labels[N_TRAIN - 1], 5);
-    assert_eq!(labels[N_TRAIN], 9);
-    assert_eq!(labels[N_ALL - 1], 5);
+    assert_eq!(classes[N_TRAIN - 1], 5);
+    assert_eq!(classes[N_TRAIN], 9);
+    assert_eq!(classes[N_ALL - 1], 5);
 
     // Both partitions are exactly balanced, so their sum is too.
     assert_eq!(
-        class_counts(labels),
+        class_counts(classes),
         [N_TRAIN_PER_CLASS + N_TEST_PER_CLASS; 10]
     );
-    assert_eq!(pixel_sum(features), TRAIN_PIXEL_SUM + TEST_PIXEL_SUM);
+    assert_eq!(pixel_sum(pixels), TRAIN_PIXEL_SUM + TEST_PIXEL_SUM);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -238,24 +304,31 @@ fn test_fashion_mnist_shares_dir_with_mnist() {
     let download_dir_path = Path::new(download_dir);
 
     let fashion = FashionMnist::new_test(download_dir);
-    let (fashion_features, fashion_labels) = fashion.data().unwrap();
+    let fashion_table = fashion.data().unwrap();
 
     let mnist = Mnist::new_test(download_dir);
-    let (mnist_features, mnist_labels) = mnist.data().unwrap();
+    let mnist_table = mnist.data().unwrap();
 
     // Both cache files sit in the one directory, under different names.
     assert!(download_dir_path.join(TEST_IMAGES_FILENAME).exists());
     assert!(download_dir_path.join("t10k-images-idx3-ubyte").exists());
 
     // Neither load overwrote the other: the two datasets hold different bytes.
-    assert_eq!(pixel_sum(fashion_features), TEST_PIXEL_SUM);
-    assert_ne!(pixel_sum(mnist_features), TEST_PIXEL_SUM);
-    assert_eq!(fashion_labels[0], 9);
-    assert_eq!(mnist_labels[0], 7);
+    let mnist_pixels = mnist_table.column("pixels").unwrap().as_bytes().unwrap();
+    assert_eq!(pixel_sum(pixels_of(fashion_table)), TEST_PIXEL_SUM);
+    assert_ne!(pixel_sum(mnist_pixels), TEST_PIXEL_SUM);
+    assert_eq!(classes_of(fashion_table)[0], 9);
+    assert_eq!(
+        mnist_table.column("digit").unwrap().as_integer().unwrap()[0],
+        7
+    );
 
     // A reload of the first dataset still reads its own cached file.
     let fashion_again = FashionMnist::new_test(download_dir);
-    assert_eq!(pixel_sum(fashion_again.features().unwrap()), TEST_PIXEL_SUM);
+    assert_eq!(
+        pixel_sum(pixels_of(fashion_again.data().unwrap())),
+        TEST_PIXEL_SUM
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -279,8 +352,7 @@ fn test_fashion_mnist_no_need_download() {
     );
 
     let dataset = FashionMnist::new_test(download_dir);
-    let (_features, labels) = dataset.data().unwrap();
-    assert_eq!(labels.len(), N_TEST);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_TEST);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -302,8 +374,7 @@ fn test_fashion_mnist_overwrite() {
     }
 
     let dataset = FashionMnist::new_test(download_dir);
-    let (_features, labels) = dataset.data().unwrap();
-    assert_eq!(labels.len(), N_TEST);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_TEST);
 
     assert!(
         file_sha256_matches(
@@ -317,46 +388,50 @@ fn test_fashion_mnist_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays and consumes the dataset.
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_fashion_mnist_into_data() {
     let download_dir = "./test_fashion_mnist_into_data";
 
     let dataset = FashionMnist::new_test(download_dir);
-    let (mut features, labels) = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. Both arrays are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[N_TEST, N_PIXELS]);
-    assert_eq!(labels.len(), N_TEST);
+    assert_fashion_columns(&table);
+    assert_eq!(table.n_samples(), N_TEST);
+    assert_eq!(pixels_of(&table).shape(), &[N_TEST, N_PIXELS]);
+    assert_eq!(classes_of(&table).len(), N_TEST);
 
-    // The caller can mutate the owned data directly, with no `to_owned()` clone.
-    features[[0, 0]] = 255;
-    assert_eq!(features[[0, 0]], 255);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Bytes(values)) = table.column_mut("pixels").map(|c| c.data_mut()) {
+        values[[0, 0]] = 255;
+    }
+    assert_eq!(pixels_of(&table)[[0, 0]], 255);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned arrays and leaves the instance reusable.
+// Verifies that take_data() returns the owned table and leaves the instance reusable.
 fn test_fashion_mnist_take_data() {
     let download_dir = "./test_fashion_mnist_take_data";
 
     let mut dataset = FashionMnist::new_test(download_dir);
-    let (features, labels) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(features.shape(), &[N_TEST, N_PIXELS]);
-    assert_eq!(labels.len(), N_TEST);
+    assert_eq!(pixels_of(&table).shape(), &[N_TEST, N_PIXELS]);
+    assert_eq!(classes_of(&table).len(), N_TEST);
 
     // After take_data, the instance resets to unloaded but stays usable. The next
     // access reloads it from the cached file and yields the same shapes.
-    let (features, labels) = dataset.data().unwrap();
-    assert_eq!(features.shape(), &[N_TEST, N_PIXELS]);
-    assert_eq!(labels.len(), N_TEST);
+    let table = dataset.data().unwrap();
+    assert_eq!(pixels_of(table).shape(), &[N_TEST, N_PIXELS]);
+    assert_eq!(classes_of(table).len(), N_TEST);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_fashion_mnist_get_data() {
     let download_dir = "./test_fashion_mnist_get_data";
 
@@ -365,15 +440,15 @@ fn test_fashion_mnist_get_data() {
     assert!(dataset.get_data().is_none());
 
     dataset.data().unwrap();
-    let (features, labels) = dataset.get_data().unwrap();
-    assert_eq!(features.shape(), &[N_TEST, N_PIXELS]);
-    assert_eq!(labels.len(), N_TEST);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(pixels_of(table).shape(), &[N_TEST, N_PIXELS]);
+    assert_eq!(classes_of(table).len(), N_TEST);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached arrays in place.
+// Verifies that get_data_mut() edits the cached table in place.
 fn test_fashion_mnist_get_data_mut() {
     let download_dir = "./test_fashion_mnist_get_data_mut";
 
@@ -384,20 +459,22 @@ fn test_fashion_mnist_get_data_mut() {
     // get_data_mut() binarizes the first image in place, with no clone and no
     // reload.
     dataset.data().unwrap();
-    if let Some((features, _labels)) = dataset.get_data_mut() {
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Bytes(values)) = table.column_mut("pixels").map(|c| c.data_mut())
+    {
         for col in 0..N_PIXELS {
-            features[[0, col]] = u8::from(features[[0, col]] > 127);
+            values[[0, col]] = u8::from(values[[0, col]] > 127);
         }
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (features, _labels) = dataset.data().unwrap();
+    let pixels = pixels_of(dataset.data().unwrap());
     assert!(
-        features.row(0).iter().all(|&pixel| pixel <= 1),
+        pixels.row(0).iter().all(|&pixel| pixel <= 1),
         "the first image should hold only 0 and 1 after binarization"
     );
     assert!(
-        features.row(1).iter().any(|&pixel| pixel > 1),
+        pixels.row(1).iter().any(|&pixel| pixel > 1),
         "the second image should stay untouched"
     );
 

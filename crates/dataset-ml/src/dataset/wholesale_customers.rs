@@ -6,11 +6,23 @@
 //! clients by their spending, then compare the clusters against the channel and
 //! the region.
 //!
-//! **Features (8, all numeric):** `Channel`, `Region`, `Fresh`, `Milk`,
-//! `Grocery`, `Frozen`, `Detergents_Paper`, `Delicassen`
+//! **Columns (8):**
 //!
-//! `Channel` and `Region` are categorical codes. The other six columns are the
-//! annual spending on that product category, in monetary units.
+//! | Name               | Type      | Description                   |
+//! |--------------------|-----------|---------------------------------|
+//! | `Channel`          | `Numeric` | `1` = Horeca (hotel, restaurant, or cafe), `2` = Retail |
+//! | `Region`           | `Numeric` | `1` = Lisbon, `2` = Oporto, `3` = other |
+//! | `Fresh`            | `Numeric` | annual spending on fresh products |
+//! | `Milk`             | `Numeric` | annual spending on milk products |
+//! | `Grocery`          | `Numeric` | annual spending on grocery products |
+//! | `Frozen`           | `Numeric` | annual spending on frozen products |
+//! | `Detergents_Paper` | `Numeric` | annual spending on detergents and paper |
+//! | `Delicassen`       | `Numeric` | annual spending on delicatessen products |
+//!
+//! `Channel` and `Region` are categorical codes, stored as `Numeric`. The other
+//! six columns are the annual spending on that product category, in monetary
+//! units. The source has no label column. The eight columns above are the
+//! model inputs ([`WholesaleCustomers::COLUMN_NAMES`](crate::WholesaleCustomers::COLUMN_NAMES)).
 //!
 //! **Samples:** 440
 //! **Application:** Clustering / customer segmentation
@@ -21,15 +33,12 @@
 //! <https://doi.org/10.24432/C5030X>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::Array2;
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for the Wholesale Customers dataset: one feature matrix, with no
-/// target.
-pub type WholesaleCustomersData = Array2<f64>;
 
 /// The URL for the Wholesale Customers dataset.
 ///
@@ -65,34 +74,32 @@ const N_FEATURES: usize = 8;
 /// a wholesale distributor in Portugal, across six product categories. It also
 /// records the sales channel and the region of each client.
 ///
-/// The dataset has **no target column**, so this loader offers `features()` and
-/// no `labels()` or `targets()`. The usual task is to cluster the clients by
-/// their spending, then compare the clusters against `Channel` and `Region`.
+/// The dataset has **no target column**, so every column is a model input. The
+/// usual task is to cluster the clients by their spending, then compare the
+/// clusters against `Channel` and `Region`.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// Features (`Array2<f64>`), by 0-based column:
-///
-/// | Column | Attribute          | Domain                                        |
-/// |--------|--------------------|-----------------------------------------------|
-/// | `0`    | `Channel`          | `1` = Horeca (hotel, restaurant, or cafe), `2` = Retail |
-/// | `1`    | `Region`           | `1` = Lisbon, `2` = Oporto, `3` = other        |
-/// | `2`    | `Fresh`            | annual spending on fresh products              |
-/// | `3`    | `Milk`             | annual spending on milk products               |
-/// | `4`    | `Grocery`          | annual spending on grocery products            |
-/// | `5`    | `Frozen`           | annual spending on frozen products             |
-/// | `6`    | `Detergents_Paper` | annual spending on detergents and paper        |
-/// | `7`    | `Delicassen`       | annual spending on delicatessen products       |
+/// | Name               | Type      | Description                   |
+/// |--------------------|-----------|---------------------------------|
+/// | `Channel`          | `Numeric` | `1` = Horeca (hotel, restaurant, or cafe), `2` = Retail |
+/// | `Region`           | `Numeric` | `1` = Lisbon, `2` = Oporto, `3` = other |
+/// | `Fresh`            | `Numeric` | annual spending on fresh products |
+/// | `Milk`             | `Numeric` | annual spending on milk products |
+/// | `Grocery`          | `Numeric` | annual spending on grocery products |
+/// | `Frozen`           | `Numeric` | annual spending on frozen products |
+/// | `Detergents_Paper` | `Numeric` | annual spending on detergents and paper |
+/// | `Delicassen`       | `Numeric` | annual spending on delicatessen products |
 ///
 /// [`WholesaleCustomers::COLUMN_NAMES`] holds these names in the same order.
 ///
-/// Columns `2` to `7` are the spending, in monetary units. Every value is a
-/// whole number in the source, and the loader stores all 8 columns as `f64`.
+/// The six spending columns hold monetary units. Every value is a whole number
+/// in the source, and the loader stores all 8 columns as `Numeric`.
 ///
-/// Columns `0` and `1` are categorical codes, not amounts. A distance-based
+/// `Channel` and `Region` are categorical codes, not amounts. A distance-based
 /// method reads them as numbers and treats `Region` `3` as three times `Region`
-/// `1`. Cluster on columns `2` to `7` with `features.slice(s![.., 2..])`, and
-/// keep the two codes to check the result.
+/// `1`. Cluster on the six spending columns, and keep the two codes to check the
+/// result.
 ///
 /// The six spending columns have a long right tail. `Fresh` runs from `3` to
 /// `112,151` around a mean of `12,000`. Consider a log transform or
@@ -131,47 +138,52 @@ const N_FEATURES: usize = 8;
 /// # Example
 /// ```no_run
 /// use dataset_ml::WholesaleCustomers;
-/// use ndarray::s;
 ///
 /// // the loader creates the directory if it does not exist
 /// let download_dir = "./wholesale_customers";
 ///
 /// let mut dataset = WholesaleCustomers::new(download_dir);
-/// let features = dataset.features().unwrap();
+/// let table = dataset.data().unwrap();
+///
+/// assert_eq!(table.n_samples(), 440);
+/// assert_eq!(table.n_columns(), 8);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&WholesaleCustomers::COLUMN_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[440, 8]);
 ///
-/// // This dataset has no target, so data() returns the same matrix as features().
-/// let data = dataset.data().unwrap();
-/// assert_eq!(data.shape(), &[440, 8]);
+/// // Reach one spending column by name.
+/// let fresh = table.column("Fresh").unwrap().as_numeric().unwrap();
+/// assert_eq!(fresh.len(), 440);
 ///
-/// // Cluster on the six spending columns and leave the two codes out.
-/// let spending = features.slice(s![.., 2..]);
-/// assert_eq!(spending.shape(), &[440, 6]);
-///
-/// // `get_data_mut()` edits the matrix in place. This needs no clone and no
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
 /// // reload. The change stays cached.
-/// if let Some(features) = dataset.get_data_mut() {
-///     features[[0, 2]] = 0.0;
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("Fresh") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = values[0].ln();
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned matrix out with no `to_owned()` clone. This
-/// // leaves the instance reusable.
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
 /// let owned = dataset.take_data().unwrap();
-/// assert_eq!(owned.shape(), &[440, 8]);
+/// assert_eq!(owned.n_samples(), 440);
 ///
-/// // `into_data()` also returns the owned matrix with no clone, but it
-/// // consumes the instance.
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
 /// let owned = dataset.into_data().unwrap();
-/// assert_eq!(owned.shape(), &[440, 8]);
+/// assert_eq!(owned.n_samples(), 440);
 /// ```
 #[derive(Debug)]
 pub struct WholesaleCustomers {
-    dataset: Dataset<WholesaleCustomersData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl WholesaleCustomers {
-    /// The feature column names, in the order the matrix holds them.
+    /// The column names, in the order the source lists them.
     ///
     /// A column index of `4` names `COLUMN_NAMES[4]`, which is `"Grocery"`.
     ///
@@ -212,7 +224,7 @@ impl WholesaleCustomers {
     }
 
     /// Get and parse the Wholesale Customers dataset.
-    fn load_data(dir: &str) -> Result<WholesaleCustomersData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             WHOLESALE_FILENAME,
@@ -236,7 +248,9 @@ impl WholesaleCustomers {
             .has_headers(true)
             .from_reader(file);
 
-        let mut features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
+        let mut values: Vec<Vec<f64>> = (0..N_FEATURES)
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
 
         for (idx, result) in rdr.records().enumerate() {
             let record =
@@ -261,35 +275,28 @@ impl WholesaleCustomers {
                 let value: f64 = record[col].trim().parse().map_err(|e| {
                     DatasetError::parse_failed(WHOLESALE_DATASET_NAME, name, line_num, e)
                 })?;
-                features.push(value);
+                values[col].push(value);
             }
         }
 
-        let n_samples = features.len() / N_FEATURES;
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(WHOLESALE_DATASET_NAME));
-        }
+        let columns = Self::COLUMN_NAMES
+            .iter()
+            .copied()
+            .zip(values)
+            .map(|(name, column)| Column::new(name, ColumnData::Numeric(Array1::from_vec(column))))
+            .collect();
 
-        Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(WHOLESALE_DATASET_NAME, "features", e))
+        Table::new(WHOLESALE_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(440, 8)` containing:
-    ///     - `Channel`
-    ///     - `Region`
-    ///     - `Fresh`
-    ///     - `Milk`
-    ///     - `Grocery`
-    ///     - `Frozen`
-    ///     - `Detergents_Paper`
-    ///     - `Delicassen`
+    /// - `&Table` - reference to the cached table of 440 samples and 8 columns.
     ///
     /// # Errors
     ///
@@ -297,94 +304,53 @@ impl WholesaleCustomers {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (440 samples)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get the feature matrix as a reference.
-    ///
-    /// This dataset has no target, so it returns the same matrix as
-    /// [`WholesaleCustomers::features`].
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&WholesaleCustomersData` - reference to the cached feature matrix
-    ///   `(440, 8)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (440 samples)
-    pub fn data(&self) -> Result<&WholesaleCustomersData, DatasetError> {
-        self.dataset.load()
-    }
-
-    /// Get the feature matrix as a reference **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`WholesaleCustomers::data`], this method never runs the loader. If
     /// the data has not loaded yet, it returns `None` instead of downloading and
-    /// parsing it. Use this method when you want the data only if it is already
-    /// cached. This skips the cost of a download and a parse.
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&WholesaleCustomersData)` - reference to the cached feature matrix
-    ///   `(440, 8)`, if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&WholesaleCustomersData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get a mutable reference to the feature matrix for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached matrix directly. For example, you can take
-    /// the logarithm of the spending columns. This needs no `.to_owned()` clone,
-    /// and it does not remove the data from the cache. The changes stay in the
-    /// cache. Later calls to [`WholesaleCustomers::features`],
-    /// [`WholesaleCustomers::data`], or [`WholesaleCustomers::get_data`] see the
-    /// changes.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`WholesaleCustomers::data`] or
+    /// [`WholesaleCustomers::get_data`] see them.
     ///
     /// Like [`WholesaleCustomers::get_data`], this does **not** trigger loading.
-    /// It returns `None` if the dataset has not loaded yet. If you need the data
-    /// to be present, call a loading accessor first, for example
-    /// [`WholesaleCustomers::data`].
     ///
     /// # Returns
     ///
-    /// - `Some(&mut WholesaleCustomersData)` - mutable reference to the cached
-    ///   feature matrix `(440, 8)`, if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut WholesaleCustomersData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return the **owned** feature matrix.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`WholesaleCustomers::data`], which borrows the cached data, this
-    /// moves the data out and returns the owned matrix directly. It needs no
-    /// `to_owned()` clone. If the dataset has not loaded yet, the first access
-    /// loads it.
-    ///
-    /// This **consumes** `self`. After the call, you cannot use the instance
-    /// again. If you want owned data but need to keep using the instance, use
-    /// [`WholesaleCustomers::take_data`] instead. It takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`WholesaleCustomers::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `Array2<f64>` - owned feature matrix `(440, 8)`.
+    /// - `Table` - the owned table of 440 samples and 8 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
-    pub fn into_data(self) -> Result<WholesaleCustomersData, DatasetError> {
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -392,27 +358,20 @@ impl WholesaleCustomers {
             .expect("data is present after a successful load"))
     }
 
-    /// Take the **owned** feature matrix out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`WholesaleCustomers::into_data`], this returns the owned matrix with
-    /// no `to_owned()` clone. Instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out. This resets the instance to its
-    /// unloaded state. The next accessor call, for example
-    /// [`WholesaleCustomers::features`] or [`WholesaleCustomers::data`], loads the
-    /// dataset again.
-    ///
-    /// If you are done with the instance, use [`WholesaleCustomers::into_data`]
-    /// instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `Array2<f64>` - owned feature matrix `(440, 8)`.
+    /// - `Table` - the owned table of 440 samples and 8 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
-    pub fn take_data(&mut self) -> Result<WholesaleCustomersData, DatasetError> {
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -421,8 +380,4 @@ impl WholesaleCustomers {
     }
 }
 
-impl_ml_dataset!(
-    WholesaleCustomers,
-    WholesaleCustomersData,
-    "wholesale_customers"
-);
+impl_ml_dataset!(WholesaleCustomers, "wholesale_customers");

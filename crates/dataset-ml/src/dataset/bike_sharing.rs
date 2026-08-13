@@ -12,17 +12,34 @@
 //! - `bike_sharing_hourly::BikeSharingHourly` - 17,379 hourly records
 //! - `bike_sharing_daily::BikeSharingDaily` - 731 daily records
 //!
-//! **Dates:** `dteday`, the calendar date of the record, as `YYYY-MM-DD`. Both
-//! subsets span `2011-01-01` to `2012-12-31`.
+//! **Columns (16 hourly, 15 daily):**
 //!
-//! **Features:** 12 for the hourly subset, 11 for the daily subset. The daily
-//! subset has no `hr` column. Every feature is numeric. The source normalizes
-//! the weather readings `temp`, `atemp`, `hum`, and `windspeed` to `[0, 1]`.
-//! The calendar attributes are integer codes.
+//! | Name         | Type      | Description                     |
+//! |--------------|-----------|----------------------------------|
+//! | `dteday`     | `String`  | calendar date as `YYYY-MM-DD`   |
+//! | `season`     | `Numeric` | `1` = winter, `2` = spring, `3` = summer, `4` = fall |
+//! | `yr`         | `Numeric` | `0` = 2011, `1` = 2012          |
+//! | `mnth`       | `Numeric` | month, `1` to `12`              |
+//! | `hr`         | `Numeric` | hour, `0` to `23`. The hourly subset alone holds it |
+//! | `holiday`    | `Numeric` | `1` on a holiday, else `0`      |
+//! | `weekday`    | `Numeric` | `0` = Sunday to `6` = Saturday  |
+//! | `workingday` | `Numeric` | `1` on a day that is neither a weekend nor a holiday, else `0` |
+//! | `weathersit` | `Numeric` | `1` = clear, `2` = mist, `3` = light rain or snow, `4` = heavy rain or snow |
+//! | `temp`       | `Numeric` | temperature in Celsius, divided by 41 |
+//! | `atemp`      | `Numeric` | apparent temperature in Celsius, divided by 50 |
+//! | `hum`        | `Numeric` | humidity, divided by 100        |
+//! | `windspeed`  | `Numeric` | wind speed, divided by 67       |
+//! | `casual`     | `Numeric` | rentals by users without a membership |
+//! | `registered` | `Numeric` | rentals by members              |
+//! | `cnt`        | `Numeric` | total rentals, the sum of `casual` and `registered` |
 //!
-//! **Targets (3, multi-output):** `casual`, `registered`, and `cnt`. The count
-//! `cnt` is the sum of `casual` and `registered`. Use `casual` and `registered`
-//! to model the two rider groups apart.
+//! The source designates the weather and calendar columns as the inputs
+//! (`FEATURE_NAMES` on each loader) and `casual`, `registered`, and `cnt` as
+//! the labels (`TARGET_NAMES` on each loader).
+//!
+//! Both subsets span `2011-01-01` to `2012-12-31`. The source normalizes
+//! `temp`, `atemp`, `hum`, and `windspeed` to `[0, 1]`. The three targets make
+//! a multi-output target.
 //!
 //! **Samples:**
 //! - Hourly subset: 17,379
@@ -42,14 +59,12 @@ pub mod bike_sharing_daily;
 pub mod bike_sharing_hourly;
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use csv::ReaderBuilder;
 use dataset_core::{DatasetError, acquire_dataset, download_to_with_retries, unzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 use std::path::PathBuf;
-
-/// Type alias shared by both Bike Sharing subsets: (dates, features, targets).
-pub type BikeSharingData = (Array1<String>, Array2<f64>, Array2<f64>);
 
 /// The URL for the Bike Sharing dataset (the ZIP archive that holds both
 /// `hour.csv` and `day.csv`).
@@ -70,6 +85,9 @@ const DATE_COLUMN: usize = 1;
 
 /// Number of target columns (`casual`, `registered`, `cnt`), in source order.
 const N_TARGETS: usize = 3;
+
+/// The names of the target columns, in source order.
+const TARGET_NAMES: [&str; N_TARGETS] = ["casual", "registered", "cnt"];
 
 /// Number of columns that come before the features (`instant` and `dteday`).
 const N_LEADING_COLUMNS: usize = 2;
@@ -122,12 +140,12 @@ fn acquire_bike_csv(
     )
 }
 
-/// Parse one Bike Sharing CSV (hourly or daily) into `(dates, features, targets)`.
+/// Parse one Bike Sharing CSV (hourly or daily) into a [`Table`].
 ///
 /// The two subsets share one column layout: `instant`, `dteday`, the feature
-/// columns, then `casual`, `registered`, and `cnt`. Only the feature count
-/// differs, so `n_features` selects the subset. The file is comma-separated and
-/// starts with a header row.
+/// columns, then `casual`, `registered`, and `cnt`. Only the feature list
+/// differs, so `feature_names` selects the subset. The file is comma-separated
+/// and starts with a header row.
 ///
 /// The parser drops `instant`, a 1-based row counter. It keeps `dteday`
 /// verbatim as a `YYYY-MM-DD` string.
@@ -136,14 +154,13 @@ fn acquire_bike_csv(
 ///
 /// - `dataset_name` - The dataset name for error messages.
 /// - `file_path` - Path to the CSV file.
-/// - `n_features` - Number of feature columns (12 hourly, 11 daily).
+/// - `feature_names` - The feature column names, in source order.
 /// - `n_samples` - Expected number of records, used to reserve capacity.
 ///
 /// # Returns
 ///
-/// - `Array1<String>` - Date vector with length `n_samples`.
-/// - `Array2<f64>` - Feature matrix with shape `(n_samples, n_features)`.
-/// - `Array2<f64>` - Target matrix with shape `(n_samples, 3)`.
+/// - `Table` - One `dteday` column, one column per feature name, and the three
+///   target columns.
 ///
 /// # Errors
 ///
@@ -154,12 +171,14 @@ fn acquire_bike_csv(
 /// - A feature or target value does not parse as `f64`
 /// - The file holds no records
 fn parse_bike_data(
-    dataset_name: &str,
+    dataset_name: &'static str,
     file_path: &std::path::Path,
-    n_features: usize,
+    feature_names: &[&'static str],
     n_samples: usize,
-) -> Result<BikeSharingData, DatasetError> {
+) -> Result<Table, DatasetError> {
+    let n_features = feature_names.len();
     let n_columns = N_LEADING_COLUMNS + n_features + N_TARGETS;
+    let first_target_column = n_columns - N_TARGETS;
 
     let file = File::open(file_path)?;
     let mut rdr = ReaderBuilder::new()
@@ -168,8 +187,12 @@ fn parse_bike_data(
         .from_reader(file);
 
     let mut dates: Vec<String> = Vec::with_capacity(n_samples);
-    let mut features: Vec<f64> = Vec::with_capacity(n_samples * n_features);
-    let mut targets: Vec<f64> = Vec::with_capacity(n_samples * N_TARGETS);
+    let mut features: Vec<Vec<f64>> = (0..n_features)
+        .map(|_| Vec::with_capacity(n_samples))
+        .collect();
+    let mut targets: Vec<Vec<f64>> = (0..N_TARGETS)
+        .map(|_| Vec::with_capacity(n_samples))
+        .collect();
 
     for (idx, result) in rdr.records().enumerate() {
         let record = result.map_err(|e| DatasetError::csv_read_error(dataset_name, e))?;
@@ -204,29 +227,34 @@ fn parse_bike_data(
             let value: f64 = record[col]
                 .parse()
                 .map_err(|e| DatasetError::parse_failed(dataset_name, "features", line_num, e))?;
-            features.push(value);
+            features[col - N_LEADING_COLUMNS].push(value);
         }
 
-        for col in n_columns - N_TARGETS..n_columns {
+        for col in first_target_column..n_columns {
             let value: f64 = record[col]
                 .parse()
                 .map_err(|e| DatasetError::parse_failed(dataset_name, "targets", line_num, e))?;
-            targets.push(value);
+            targets[col - first_target_column].push(value);
         }
     }
 
-    let parsed_samples = dates.len();
-    if parsed_samples == 0 {
-        return Err(DatasetError::empty_dataset(dataset_name));
+    let mut columns: Vec<Column> = Vec::with_capacity(1 + n_features + N_TARGETS);
+    columns.push(Column::new(
+        "dteday",
+        ColumnData::String(Array1::from_vec(dates)),
+    ));
+    for (name, values) in feature_names.iter().copied().zip(features) {
+        columns.push(Column::new(
+            name,
+            ColumnData::Numeric(Array1::from_vec(values)),
+        ));
+    }
+    for (name, values) in TARGET_NAMES.iter().copied().zip(targets) {
+        columns.push(Column::new(
+            name,
+            ColumnData::Numeric(Array1::from_vec(values)),
+        ));
     }
 
-    let dates_array = Array1::from_vec(dates);
-
-    let features_array = Array2::from_shape_vec((parsed_samples, n_features), features)
-        .map_err(|e| DatasetError::array_shape_error(dataset_name, "features", e))?;
-
-    let targets_array = Array2::from_shape_vec((parsed_samples, N_TARGETS), targets)
-        .map_err(|e| DatasetError::array_shape_error(dataset_name, "targets", e))?;
-
-    Ok((dates_array, features_array, targets_array))
+    Table::new(dataset_name, columns)
 }

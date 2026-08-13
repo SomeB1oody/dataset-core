@@ -6,22 +6,24 @@
 //! task is to predict the three physiological measurements from the three
 //! exercise measurements (multi-output regression).
 //!
-//! This loader reproduces scikit-learn's `load_linnerud()` output. The
-//! **features** are the three exercise variables, and the **targets** are the
-//! three physiological variables, so both are `Array2<f64>` with shape
-//! `(20, 3)`. Scikit-learn distributes the two underlying files: the
-//! whitespace-separated `linnerud_exercise.csv` and
-//! `linnerud_physiological.csv`.
+//! This loader reproduces scikit-learn's `load_linnerud()` output. Scikit-learn
+//! distributes the two underlying files: the whitespace-separated
+//! `linnerud_exercise.csv` and `linnerud_physiological.csv`.
 //!
-//! **Features (3):** the exercise variables, in scikit-learn column order
-//! - `Chins` - number of chin-ups
-//! - `Situps` - number of sit-ups
-//! - `Jumps` - number of jumping jacks
+//! **Columns (6):** in scikit-learn column order
 //!
-//! **Targets (3):** the physiological variables, in scikit-learn column order
-//! - `Weight` - body weight
-//! - `Waist` - waist circumference
-//! - `Pulse` - resting pulse
+//! | Name     | Type      | Description             |
+//! |----------|-----------|-------------------------|
+//! | `Chins`  | `Numeric` | number of chin-ups      |
+//! | `Situps` | `Numeric` | number of sit-ups       |
+//! | `Jumps`  | `Numeric` | number of jumping jacks |
+//! | `Weight` | `Numeric` | body weight             |
+//! | `Waist`  | `Numeric` | waist circumference     |
+//! | `Pulse`  | `Numeric` | resting pulse           |
+//!
+//! The source designates the three exercise measurements as the inputs
+//! ([`Linnerud::FEATURE_NAMES`](crate::Linnerud::FEATURE_NAMES)) and the three physiological measurements as
+//! the labels ([`Linnerud::TARGET_NAMES`](crate::Linnerud::TARGET_NAMES)).
 //!
 //! **Samples:** 20
 //! **Application:** Multi-output regression / fitness modeling
@@ -31,9 +33,10 @@
 //! `linnerud_exercise.csv` and `linnerud_physiological.csv`.
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::Array2;
+use ndarray::Array1;
 use std::path::Path;
 
 /// The URL for the Linnerud exercise (feature) file that scikit-learn distributes.
@@ -62,19 +65,25 @@ const LINNERUD_DATASET_NAME: &str = "linnerud";
 /// The number of columns in each of the two files (exercise: 3, physiological: 3).
 const N_COLUMNS: usize = 3;
 
-/// Type alias for the Linnerud dataset: (exercise features, physiological targets).
-type LinnerudData = (Array2<f64>, Array2<f64>);
-
-/// Parse one of the Linnerud whitespace-separated files into an `Array2<f64>`.
+/// Parse one of the Linnerud whitespace-separated files into named columns.
 ///
 /// The files have a single header row (column names) followed by 20 data rows,
 /// each holding exactly [`N_COLUMNS`] whitespace-separated numeric values. The
 /// function skips the header and splits every data row on arbitrary whitespace.
-fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>, DatasetError> {
+///
+/// # Parameters
+///
+/// - `file_path` - The file to read.
+/// - `array_name` - The name this file carries in error messages.
+/// - `names` - The column names, in file column order.
+fn parse_linnerud_file(
+    file_path: &Path,
+    array_name: &str,
+    names: [&'static str; N_COLUMNS],
+) -> Result<Vec<Column>, DatasetError> {
     let content = std::fs::read_to_string(file_path)?;
 
-    let mut values: Vec<f64> = Vec::new();
-    let mut n_rows = 0usize;
+    let mut values: Vec<Vec<f64>> = vec![Vec::new(); N_COLUMNS];
 
     // `enumerate` gives 0-based indices. The header is line 1, so data starts at
     // index 1. Its 1-based line number is `idx + 1`.
@@ -84,32 +93,33 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
             continue;
         }
 
-        let mut count = 0usize;
+        let mut row: Vec<f64> = Vec::new();
         for token in line.split_whitespace() {
             let value: f64 = token.parse().map_err(|e| {
                 DatasetError::parse_failed(LINNERUD_DATASET_NAME, array_name, line_num, e)
             })?;
-            values.push(value);
-            count += 1;
+            row.push(value);
         }
 
-        if count != N_COLUMNS {
+        if row.len() != N_COLUMNS {
             return Err(DatasetError::invalid_column_count(
                 LINNERUD_DATASET_NAME,
                 N_COLUMNS,
-                count,
+                row.len(),
                 line_num,
             ));
         }
-        n_rows += 1;
+
+        for (column, value) in values.iter_mut().zip(row) {
+            column.push(value);
+        }
     }
 
-    if n_rows == 0 {
-        return Err(DatasetError::empty_dataset(LINNERUD_DATASET_NAME));
-    }
-
-    Array2::from_shape_vec((n_rows, N_COLUMNS), values)
-        .map_err(|e| DatasetError::array_shape_error(LINNERUD_DATASET_NAME, array_name, e))
+    Ok(names
+        .iter()
+        .zip(values)
+        .map(|(&name, column)| Column::new(name, ColumnData::Numeric(Array1::from_vec(column))))
+        .collect())
 }
 
 /// A struct that represents the Linnerud dataset with lazy loading.
@@ -121,32 +131,23 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
 ///
 /// The Linnerud dataset records three exercise variables and three physiological
 /// variables, measured on 20 middle-aged men in a fitness club. This loader
-/// reproduces scikit-learn's `load_linnerud()` output. The features are the
-/// three exercise variables, and the targets are the three physiological
-/// variables. Both are `Array2<f64>` with shape `(20, 3)` (multi-output
-/// regression).
+/// reproduces scikit-learn's `load_linnerud()` output. Three target columns
+/// make this a multi-output regression task.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The exercise variables, in scikit-learn column order. By 0-based column index
-/// in the feature matrix:
+/// | Name     | Type      | Description             |
+/// |----------|-----------|-------------------------|
+/// | `Chins`  | `Numeric` | number of chin-ups      |
+/// | `Situps` | `Numeric` | number of sit-ups       |
+/// | `Jumps`  | `Numeric` | number of jumping jacks |
+/// | `Weight` | `Numeric` | body weight             |
+/// | `Waist`  | `Numeric` | waist circumference     |
+/// | `Pulse`  | `Numeric` | resting pulse           |
 ///
-/// | Columns | Attributes | Unit  |
-/// |---------|------------|-------|
-/// | `0`     | `Chins`    | count |
-/// | `1`     | `Situps`   | count |
-/// | `2`     | `Jumps`    | count |
-///
-/// # Target columns
-///
-/// The physiological variables, in scikit-learn column order. By 0-based column
-/// index in the target matrix:
-///
-/// | Columns | Attributes | Unit |
-/// |---------|------------|------|
-/// | `0`     | `Weight`   |      |
-/// | `1`     | `Waist`    |      |
-/// | `2`     | `Pulse`    |      |
+/// The source designates the three exercise measurements as the inputs
+/// ([`Linnerud::FEATURE_NAMES`]) and the three physiological measurements as
+/// the labels ([`Linnerud::TARGET_NAMES`]).
 ///
 /// See more information at <https://scikit-learn.org/stable/datasets/toy_dataset.html#linnerrud-dataset>
 ///
@@ -166,45 +167,60 @@ fn parse_linnerud_file(file_path: &Path, array_name: &str) -> Result<Array2<f64>
 /// ```no_run
 /// use dataset_ml::Linnerud;
 ///
-/// let download_dir = "./linnerud"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./linnerud";
 ///
 /// let mut dataset = Linnerud::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 20);
+/// assert_eq!(table.n_columns(), 6);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Linnerud::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[20, 3]);
+///
+/// // The three target columns form the multi-output target matrix.
+/// let targets = table.numeric_matrix(&Linnerud::TARGET_NAMES).unwrap();
 /// assert_eq!(targets.shape(), &[20, 3]);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, targets)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 6.0;
-///     targets[[0, 0]] = 190.0;
+/// // Reach one column by name.
+/// let weight = table.column("Weight").unwrap().as_numeric().unwrap();
+/// assert_eq!(weight.len(), 20);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("Chins") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 6.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[20, 3]);
-/// assert_eq!(owned_targets.shape(), &[20, 3]);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 20);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[20, 3]);
-/// assert_eq!(owned_targets.shape(), &[20, 3]);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 20);
 /// ```
 #[derive(Debug)]
 pub struct Linnerud {
-    dataset: Dataset<LinnerudData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Linnerud {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_COLUMNS] = ["Chins", "Situps", "Jumps"];
+
+    /// The columns the source designates as the labels, in source order.
+    pub const TARGET_NAMES: [&'static str; N_COLUMNS] = ["Weight", "Waist", "Pulse"];
+
     /// Create a new Linnerud instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -224,7 +240,7 @@ impl Linnerud {
     }
 
     /// Get and parse the Linnerud dataset.
-    fn load_data(dir: &str) -> Result<LinnerudData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // The exercise and physiological measurements live in two separate files.
         // The loader gets and verifies each file independently with SHA-256.
         let exercise_path = acquire_dataset(
@@ -259,31 +275,24 @@ impl Linnerud {
             },
         )?;
 
-        let features = parse_linnerud_file(&exercise_path, "features")?;
-        let targets = parse_linnerud_file(&physiological_path, "targets")?;
+        let mut columns = parse_linnerud_file(&exercise_path, "features", Self::FEATURE_NAMES)?;
+        columns.extend(parse_linnerud_file(
+            &physiological_path,
+            "targets",
+            Self::TARGET_NAMES,
+        )?);
 
-        // The two files must describe the same 20 men, so their row counts must match.
-        if features.nrows() != targets.nrows() {
-            return Err(DatasetError::length_mismatch(
-                LINNERUD_DATASET_NAME,
-                "targets",
-                features.nrows(),
-                targets.nrows(),
-            ));
-        }
-
-        Ok((features, targets))
+        Table::new(LINNERUD_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix (the exercise variables).
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to the feature matrix with shape `(20, 3)`
-    ///   containing the exercise variables (`Chins`, `Situps`, `Jumps`).
+    /// - `&Table` - reference to the cached table of 20 samples and 6 columns.
     ///
     /// # Errors
     ///
@@ -291,114 +300,53 @@ impl Linnerud {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20 samples, 3 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the target matrix (the physiological variables).
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array2<f64>` - Reference to the target matrix with shape `(20, 3)`
-    ///   containing the physiological variables (`Weight`, `Waist`, `Pulse`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20 samples, 3 targets)
-    pub fn targets(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&LinnerudData` - reference to the cached `(features, targets)` tuple.
-    ///   The feature matrix has shape `(20, 3)` (`Chins`, `Situps`, `Jumps`).
-    ///   The target matrix has shape `(20, 3)` (`Weight`, `Waist`, `Pulse`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20 samples, 3 features, 3 targets)
-    pub fn data(&self) -> Result<&LinnerudData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and targets as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Linnerud::data`], which loads the dataset on the first call, this
-    /// method never runs the loader. If the data has not loaded yet, this method
-    /// returns `None` instead of downloading and parsing it. Use this method only
-    /// when you want data that is already cached. This avoids the download and
-    /// parse cost if the dataset is not cached yet.
+    /// Unlike [`Linnerud::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&LinnerudData)` - reference to the cached `(features, targets)` tuple
-    ///   (feature matrix `(20, 3)`, target matrix `(20, 3)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&LinnerudData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and targets for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This method lets you change the cached arrays in place (for example, to
-    /// re-scale features or clip outliers). It needs no `to_owned()` clone, and
-    /// it does not remove the data from the cache. The changes persist, so later
-    /// calls to [`Linnerud::features`], [`Linnerud::data`], or
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Linnerud::data`] or
     /// [`Linnerud::get_data`] see them.
     ///
-    /// Like [`Linnerud::get_data`], this method does **not** trigger loading. It
-    /// returns `None` if the dataset has not loaded yet. If you need the data to
-    /// be present, call a loading accessor first, for example [`Linnerud::data`].
+    /// Like [`Linnerud::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut LinnerudData)` - mutable reference to the cached
-    ///   `(features, targets)` tuple (feature matrix `(20, 3)`, target matrix
-    ///   `(20, 3)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut LinnerudData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Linnerud::data`], which borrows the cached data, this method moves
-    /// the data out and returns owned arrays directly, with no `to_owned()` clone
-    /// needed. The dataset loads on the first access if it has not loaded yet.
-    ///
-    /// This method **consumes** `self`, so you cannot use the instance afterward.
-    /// If you want owned data but need to keep using the instance, use
-    /// [`Linnerud::take_data`] instead. That method takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Linnerud::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array2<f64>)` - owned feature matrix with shape `(20, 3)`
-    ///   and owned target matrix with shape `(20, 3)`.
+    /// - `Table` - the owned table of 20 samples and 6 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<LinnerudData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -406,27 +354,20 @@ impl Linnerud {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Linnerud::into_data`], this method returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state. The next accessor call, for example [`Linnerud::features`] or
-    /// [`Linnerud::data`], loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Linnerud::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array2<f64>)` - owned feature matrix with shape `(20, 3)`
-    ///   and owned target matrix with shape `(20, 3)`.
+    /// - `Table` - the owned table of 20 samples and 6 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<LinnerudData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -435,4 +376,4 @@ impl Linnerud {
     }
 }
 
-impl_ml_dataset!(Linnerud, LinnerudData, "linnerud");
+impl_ml_dataset!(Linnerud, "linnerud");

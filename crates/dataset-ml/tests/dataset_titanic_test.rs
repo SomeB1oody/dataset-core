@@ -4,83 +4,269 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
-use dataset_ml::dataset::titanic::*;
+use dataset_ml::table::{ColumnData, Table};
+use dataset_ml::{MlDataset, Titanic};
+use ndarray::Array1;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
 
+/// SHA256 of the cached Titanic dataset file.
+const TITANIC_SHA256: &str = "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7";
+
+/// The URL the loader downloads from.
+const TITANIC_URL: &str =
+    "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv";
+
+/// Number of samples.
+const N_SAMPLES: usize = 891;
+
+/// The twelve column names, in source order.
+const COLUMN_NAMES: [&str; 12] = [
+    "PassengerId",
+    "Survived",
+    "Pclass",
+    "Name",
+    "Sex",
+    "Age",
+    "SibSp",
+    "Parch",
+    "Ticket",
+    "Fare",
+    "Cabin",
+    "Embarked",
+];
+
+/// The numeric columns, in source order.
+const NUMERIC_NAMES: [&str; 7] = [
+    "PassengerId",
+    "Survived",
+    "Pclass",
+    "Age",
+    "SibSp",
+    "Parch",
+    "Fare",
+];
+
+/// The text columns, in source order.
+const STRING_NAMES: [&str; 5] = ["Name", "Sex", "Ticket", "Cabin", "Embarked"];
+
+/// Read one numeric column by name.
+fn numeric<'a>(table: &'a Table, name: &str) -> &'a Array1<f64> {
+    table.column(name).unwrap().as_numeric().unwrap()
+}
+
+/// Read one text column by name.
+fn text<'a>(table: &'a Table, name: &str) -> &'a Array1<String> {
+    table.column(name).unwrap().as_string().unwrap()
+}
+
+/// Assert the Titanic invariants: the column layout, the types, the domains,
+/// the missing-value counts, and the pinned first and last records.
+fn assert_titanic_semantics(table: &Table) {
+    // Every name in the loader's constants reaches a real column.
+    for name in Titanic::FEATURE_NAMES {
+        assert!(
+            table.column(name).is_some(),
+            "FEATURE_NAMES entry `{name}` names no column"
+        );
+    }
+    assert!(
+        table.column(Titanic::TARGET).is_some(),
+        "TARGET `{}` names no column",
+        Titanic::TARGET
+    );
+    assert!(
+        !Titanic::FEATURE_NAMES.contains(&Titanic::TARGET),
+        "the target must not also be a feature"
+    );
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    // The names and the types match the documented layout.
+    for (index, column) in table.columns().iter().enumerate() {
+        assert_eq!(column.name(), COLUMN_NAMES[index]);
+        if NUMERIC_NAMES.contains(&column.name()) {
+            assert!(
+                matches!(column.data(), ColumnData::Numeric(_)),
+                "column {} should be numeric",
+                column.name()
+            );
+        } else {
+            assert!(
+                STRING_NAMES.contains(&column.name()),
+                "column {} is neither numeric nor text",
+                column.name()
+            );
+            assert!(
+                matches!(column.data(), ColumnData::String(_)),
+                "column {} should be text",
+                column.name()
+            );
+        }
+    }
+
+    // One identifier, one target, and ten features.
+    assert_eq!(Titanic::FEATURE_NAMES.len(), 10);
+    let non_feature_names: Vec<&str> = COLUMN_NAMES
+        .iter()
+        .copied()
+        .filter(|name| !Titanic::FEATURE_NAMES.contains(name))
+        .collect();
+    assert_eq!(non_feature_names, vec!["PassengerId", Titanic::TARGET]);
+
+    // Five of the ten features are text.
+    assert_eq!(
+        STRING_NAMES.len(),
+        5,
+        "five of the ten features should be text"
+    );
+    for name in STRING_NAMES {
+        assert_eq!(text(table, name).len(), N_SAMPLES);
+    }
+
+    // Every numeric value is finite or NaN. NaN marks a missing value.
+    for name in NUMERIC_NAMES {
+        let values = numeric(table, name);
+        for (row, &value) in values.iter().enumerate() {
+            assert!(
+                value.is_finite() || value.is_nan(),
+                "{}[{}] = {} is not finite or NaN",
+                name,
+                row,
+                value
+            );
+        }
+    }
+
+    // The target is binary. NaN marks a missing value.
+    let survived = numeric(table, "Survived");
+    let mut died = 0usize;
+    let mut lived = 0usize;
+    for (row, &value) in survived.iter().enumerate() {
+        if value.is_nan() {
+            continue;
+        }
+        assert!(
+            value == 0.0 || value == 1.0,
+            "Survived[{}] = {} is not a binary value (expected 0.0 or 1.0, or NaN)",
+            row,
+            value
+        );
+        if value == 0.0 {
+            died += 1;
+        } else {
+            lived += 1;
+        }
+    }
+    assert_eq!(died, 549, "549 passengers should carry Survived = 0.0");
+    assert_eq!(lived, 342, "342 passengers should carry Survived = 1.0");
+
+    // The Titanic dataset is known to have missing values.
+    let nan_count: usize = Titanic::FEATURE_NAMES
+        .iter()
+        .filter_map(|name| table.column(name).unwrap().as_numeric())
+        .map(|values| values.iter().filter(|value| value.is_nan()).count())
+        .sum();
+    assert!(
+        nan_count > 0,
+        "the numeric features should contain at least one NaN (missing Age values)"
+    );
+
+    let empty_string_count: usize = STRING_NAMES
+        .iter()
+        .map(|name| text(table, name).iter().filter(|v| v.is_empty()).count())
+        .sum();
+    assert!(
+        empty_string_count > 0,
+        "the text features should contain at least one empty string (missing Cabin and Embarked values)"
+    );
+
+    // The exact missing-value counts of the source.
+    assert_eq!(
+        numeric(table, "Age").iter().filter(|v| v.is_nan()).count(),
+        177,
+        "Age should have 177 missing values"
+    );
+    assert_eq!(nan_count, 177, "Age holds the only missing numeric feature");
+    assert_eq!(
+        text(table, "Cabin").iter().filter(|v| v.is_empty()).count(),
+        687,
+        "Cabin should have 687 missing values"
+    );
+    assert_eq!(
+        text(table, "Embarked")
+            .iter()
+            .filter(|v| v.is_empty())
+            .count(),
+        2,
+        "Embarked should have 2 missing values"
+    );
+    assert_eq!(empty_string_count, 687 + 2);
+
+    // The identifier runs from 1 to 891.
+    let passenger_id = numeric(table, "PassengerId");
+    assert_eq!(passenger_id[0], 1.0);
+    assert_eq!(passenger_id[N_SAMPLES - 1], 891.0);
+
+    // The first record of the source, pinned value by value.
+    assert_eq!(numeric(table, "Pclass")[0], 3.0);
+    assert_eq!(text(table, "Name")[0], "Braund, Mr. Owen Harris");
+    assert_eq!(text(table, "Sex")[0], "male");
+    assert_eq!(numeric(table, "Age")[0], 22.0);
+    assert_eq!(numeric(table, "SibSp")[0], 1.0);
+    assert_eq!(numeric(table, "Parch")[0], 0.0);
+    assert_eq!(text(table, "Ticket")[0], "A/5 21171");
+    assert_eq!(numeric(table, "Fare")[0], 7.25);
+    assert_eq!(text(table, "Cabin")[0], "");
+    assert_eq!(text(table, "Embarked")[0], "S");
+    assert_eq!(survived[0], 0.0);
+
+    // The last record of the source, pinned value by value.
+    let last = N_SAMPLES - 1;
+    assert_eq!(numeric(table, "Pclass")[last], 3.0);
+    assert_eq!(text(table, "Name")[last], "Dooley, Mr. Patrick");
+    assert_eq!(text(table, "Sex")[last], "male");
+    assert_eq!(numeric(table, "Age")[last], 32.0);
+    assert_eq!(numeric(table, "SibSp")[last], 0.0);
+    assert_eq!(numeric(table, "Parch")[last], 0.0);
+    assert_eq!(text(table, "Ticket")[last], "370376");
+    assert_eq!(numeric(table, "Fare")[last], 7.75);
+    assert_eq!(text(table, "Cabin")[last], "");
+    assert_eq!(text(table, "Embarked")[last], "Q");
+    assert_eq!(survived[last], 0.0);
+}
+
 #[test]
+// Verifies that the Titanic dataset loads with the correct column layout,
+// types, and missing-value counts.
 fn test_load_titanic() {
     let download_dir = "./test_load_titanic"; // the code creates the directory if it does not exist
 
     let dataset = Titanic::new(download_dir);
-    let (string_features, numeric_features) = dataset.features().unwrap();
-    let labels = dataset.labels().unwrap();
-
-    assert_eq!(string_features.shape(), &[891, 5]);
-    assert_eq!(numeric_features.shape(), &[891, 6]);
-    assert_eq!(labels.len(), 891);
-    assert_eq!(string_features.nrows(), numeric_features.nrows());
-    assert_eq!(numeric_features.nrows(), labels.len());
-
-    let (string_features, numeric_features, labels) = dataset.data().unwrap();
-    let mut string_features_owned = string_features.to_owned();
-    let mut numeric_features_owned = numeric_features.to_owned();
-    let mut labels_owned = labels.to_owned();
-
-    // NaN marks a missing value.
-    for i in 0..labels.len() {
-        let val = labels[i];
-        if !val.is_nan() {
-            assert!(
-                val == 0.0 || val == 1.0,
-                "labels[{}] = {} is not a binary value (expected 0.0 or 1.0, or NaN)",
-                i,
-                val
-            );
-        }
-    }
-
-    for row in 0..numeric_features.nrows() {
-        for col in 0..numeric_features.ncols() {
-            let val = numeric_features[[row, col]];
-            assert!(
-                val.is_finite() || val.is_nan(),
-                "numeric_feature[{}, {}] = {} is not finite or NaN",
-                row,
-                col,
-                val
-            );
-        }
-    }
-
-    // The Titanic dataset is known to have missing values.
-    let nan_count: usize = numeric_features
-        .iter()
-        .map(|&v| if v.is_nan() { 1 } else { 0 })
-        .sum();
-    assert!(
-        nan_count > 0,
-        "numeric features should contain at least one NaN (missing Age values)"
-    );
-
-    let empty_string_count: usize = string_features
-        .iter()
-        .map(|s| if s.is_empty() { 1 } else { 0 })
-        .sum();
-    assert!(
-        empty_string_count > 0,
-        "string features should contain at least one empty string (missing Cabin/Embarked values)"
-    );
-
-    string_features_owned[[0, 0]] = "test".to_string();
-    numeric_features_owned[[0, 0]] = 1.0;
-    labels_owned[0] = 1.0;
+    assert_titanic_semantics(dataset.data().unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that n_samples() reads the table without a per-loader accessor.
+fn test_titanic_n_samples() {
+    let download_dir = "./test_titanic_n_samples";
+
+    let dataset = Titanic::new(download_dir);
+    assert_eq!(Titanic::NAME, "titanic");
+    assert!(!dataset.is_loaded());
+    assert_eq!(dataset.n_samples().unwrap(), N_SAMPLES);
+    assert!(dataset.is_loaded());
+
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that the loader detects a corrupt or fake data file and overwrites it
+// with the real dataset.
 fn test_titanic_overwrite() {
     let download_dir = "./test_titanic_overwrite";
     let download_dir_path = Path::new(download_dir);
@@ -92,91 +278,68 @@ fn test_titanic_overwrite() {
     }
 
     let dataset = Titanic::new(download_dir);
-    let (_string_features, _numeric_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
-    assert!(
-        file_sha256_matches(
-            &download_dir_path.join("titanic.csv"),
-            "4a437fde05fe5264e1701a7387ac6fb75393772ba38bb2c9c566405af5af4bd7"
-        )
-        .unwrap()
-    );
+    assert!(file_sha256_matches(&download_dir_path.join("titanic.csv"), TITANIC_SHA256).unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that Titanic reuses a cached file instead of a new download.
 fn test_titanic_no_need_download() {
     let download_dir = "./test_titanic_no_need_download";
     let download_dir_path = Path::new(download_dir);
     create_dir_all(download_dir_path).unwrap();
 
-    {
-        download_to(
-            "https://raw.githubusercontent.com/datasciencedojo/datasets/master/titanic.csv",
-            download_dir_path,
-            None,
-        )
-        .unwrap();
-    }
+    download_to(TITANIC_URL, download_dir_path, None).unwrap();
 
     let dataset = Titanic::new(download_dir);
-    let (_string_features, _numeric_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_titanic_into_data() {
     let download_dir = "./test_titanic_into_data";
 
     let dataset = Titanic::new(download_dir);
-    let (string_features, mut numeric_features, labels) = dataset.into_data().unwrap();
-    // `into_data` consumes `dataset`. All three arrays are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(string_features.shape(), &[891, 5]);
-    assert_eq!(numeric_features.shape(), &[891, 6]);
-    assert_eq!(labels.len(), 891);
+    assert_titanic_semantics(&table);
 
-    for i in 0..labels.len() {
-        let val = labels[i];
-        assert!(
-            val.is_nan() || val == 0.0 || val == 1.0,
-            "labels[{}] = {} is not binary or NaN",
-            i,
-            val
-        );
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("Age").map(|c| c.data_mut()) {
+        values[0] = 999.0;
     }
-
-    // The caller can mutate owned data directly, with no `to_owned()` clone.
-    numeric_features[[0, 0]] = 999.0;
-    assert_eq!(numeric_features[[0, 0]], 999.0);
+    assert_eq!(table.column("Age").unwrap().as_numeric().unwrap()[0], 999.0);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that take_data() returns the owned table and leaves the instance reusable.
 fn test_titanic_take_data() {
     let download_dir = "./test_titanic_take_data";
 
     let mut dataset = Titanic::new(download_dir);
-    let (string_features, numeric_features, labels) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
 
-    assert_eq!(string_features.shape(), &[891, 5]);
-    assert_eq!(numeric_features.shape(), &[891, 6]);
-    assert_eq!(labels.len(), 891);
-
-    // After `take_data`, the instance resets to unloaded, but remains usable. The
-    // next access reloads the data from the cached file and returns the same shapes.
-    let (re_string, re_numeric, re_labels) = dataset.data().unwrap();
-    assert_eq!(re_string.shape(), &[891, 5]);
-    assert_eq!(re_numeric.shape(), &[891, 6]);
-    assert_eq!(re_labels.len(), 891);
+    // After take_data, the instance resets to unloaded but stays usable. The next
+    // access reloads it from the cached file.
+    assert!(!dataset.is_loaded());
+    assert_titanic_semantics(dataset.data().unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_titanic_get_data() {
     let download_dir = "./test_titanic_get_data";
 
@@ -184,17 +347,16 @@ fn test_titanic_get_data() {
     // Before loading, get_data() returns None and triggers no download.
     assert!(dataset.get_data().is_none());
 
-    // After loading, `get_data` returns the cached references.
     dataset.data().unwrap();
-    let (string_features, numeric_features, labels) = dataset.get_data().unwrap();
-    assert_eq!(string_features.shape(), &[891, 5]);
-    assert_eq!(numeric_features.shape(), &[891, 6]);
-    assert_eq!(labels.len(), 891);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), 12);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
+// Verifies that get_data_mut() edits the cached table in place.
 fn test_titanic_get_data_mut() {
     let download_dir = "./test_titanic_get_data_mut";
 
@@ -202,16 +364,21 @@ fn test_titanic_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // This loads the dataset, then mutates the cached numeric features in place. No
-    // clone or reload occurs.
     dataset.data().unwrap();
-    if let Some((_strings, numerics, _labels)) = dataset.get_data_mut() {
-        numerics[[0, 0]] = 999.0;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) = table.column_mut("Age").map(|c| c.data_mut())
+    {
+        values[0] = 999.0;
     }
 
-    // The change persists in the cache. A later access observes it.
-    let (_strings, numerics, _labels) = dataset.data().unwrap();
-    assert_eq!(numerics[[0, 0]], 999.0);
+    // The change persisted in the cache: a later access observes it.
+    let table = dataset.data().unwrap();
+    assert_eq!(table.column("Age").unwrap().as_numeric().unwrap()[0], 999.0);
+    assert_eq!(
+        table.column("Fare").unwrap().as_numeric().unwrap()[0],
+        7.25,
+        "the other columns should stay untouched"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

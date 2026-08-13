@@ -4,7 +4,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_ml::dataset::bike_sharing::bike_sharing_daily::BikeSharingDaily;
-use ndarray::{Array1, Array2};
+use dataset_ml::table::{ColumnData, Table};
 use std::collections::HashSet;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
@@ -22,18 +22,91 @@ const N_FEATURES: usize = 11;
 /// Number of target columns (`casual`, `registered`, `cnt`).
 const N_TARGETS: usize = 3;
 
+/// Number of columns in the table: the date, the features, and the targets.
+const N_COLUMNS: usize = 1 + N_FEATURES + N_TARGETS;
+
 /// Sum of the `cnt` column over the whole subset. The hourly subset sums to the
 /// same total, because both aggregate one rental log.
 const TOTAL_CNT: f64 = 3_292_679.0;
 
+/// The 15 column names, in source order.
+const COLUMN_NAMES: [&str; N_COLUMNS] = [
+    "dteday",
+    "season",
+    "yr",
+    "mnth",
+    "holiday",
+    "weekday",
+    "workingday",
+    "weathersit",
+    "temp",
+    "atemp",
+    "hum",
+    "windspeed",
+    "casual",
+    "registered",
+    "cnt",
+];
+
+/// The feature column names, in source order.
+const FEATURE_NAMES: [&str; N_FEATURES] = [
+    "season",
+    "yr",
+    "mnth",
+    "holiday",
+    "weekday",
+    "workingday",
+    "weathersit",
+    "temp",
+    "atemp",
+    "hum",
+    "windspeed",
+];
+
+/// The target column names, in source order.
+const TARGET_NAMES: [&str; N_TARGETS] = ["casual", "registered", "cnt"];
+
+/// Assert that the table names and types its columns as the docs claim.
+fn assert_bike_daily_layout(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_COLUMNS);
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    // The named constants agree with the source column order.
+    assert_eq!(BikeSharingDaily::FEATURE_NAMES, FEATURE_NAMES);
+    assert_eq!(BikeSharingDaily::TARGET_NAMES, TARGET_NAMES);
+
+    // `dteday` holds a date string.
+    let date_column = table.column("dteday").unwrap();
+    assert!(matches!(date_column.data(), ColumnData::String(_)));
+
+    // The 11 features and the 3 targets are numeric, in source order.
+    for name in FEATURE_NAMES.iter().chain(TARGET_NAMES.iter()) {
+        let column = table.column(name).unwrap();
+        assert!(
+            matches!(column.data(), ColumnData::Numeric(_)),
+            "column {name} should be numeric"
+        );
+    }
+
+    // The daily subset drops the `hr` column of the hourly subset.
+    assert!(table.column("hr").is_none());
+}
+
 /// Assert the daily Bike Sharing invariants: the shapes, the gap-free date
 /// range, the per-feature domains, and the target identity
 /// `cnt = casual + registered`.
-fn assert_bike_daily_semantics(
-    dates: &Array1<String>,
-    features: &Array2<f64>,
-    targets: &Array2<f64>,
-) {
+fn assert_bike_daily_semantics(table: &Table) {
+    assert_bike_daily_layout(table);
+
+    let dates = table.column("dteday").unwrap().as_string().unwrap();
+    let features = table
+        .numeric_matrix(&BikeSharingDaily::FEATURE_NAMES)
+        .unwrap();
+    let targets = table
+        .numeric_matrix(&BikeSharingDaily::TARGET_NAMES)
+        .unwrap();
+
     assert_eq!(dates.len(), N_SAMPLES);
     assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
     assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
@@ -143,7 +216,8 @@ fn assert_bike_daily_semantics(
     }
 
     // Exactly 21 days carry the light rain or snow code.
-    let rainy_days = features.column(6).iter().filter(|&&v| v == 3.0).count();
+    let weathersit = table.column("weathersit").unwrap().as_numeric().unwrap();
+    let rainy_days = weathersit.iter().filter(|&&v| v == 3.0).count();
     assert_eq!(
         rainy_days, 21,
         "exactly 21 days should carry weathersit = 3"
@@ -199,6 +273,18 @@ fn assert_bike_daily_semantics(
         targets.row(N_SAMPLES - 1).to_vec(),
         vec![439.0, 2290.0, 2729.0]
     );
+
+    // A column reached by name agrees with its position in the feature matrix.
+    for (col, name) in FEATURE_NAMES.iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 365, N_SAMPLES - 1] {
+            assert_eq!(
+                column[row],
+                features[[row, col]],
+                "column {name} disagrees with matrix column {col} at row {row}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -208,17 +294,9 @@ fn test_load_bike_sharing_daily() {
     let download_dir = "./test_load_bike_sharing_daily"; // the loader creates this directory if it is missing
 
     let dataset = BikeSharingDaily::new(download_dir);
-    let dates = dataset.dates().unwrap();
-    let features = dataset.features().unwrap();
-    let targets = dataset.targets().unwrap();
+    let table = dataset.data().unwrap();
 
-    assert_bike_daily_semantics(dates, features, targets);
-
-    // `data()` returns the same three arrays at once.
-    let (dates, features, targets) = dataset.data().unwrap();
-    assert_eq!(dates.len(), N_SAMPLES);
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
-    assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
+    assert_bike_daily_semantics(table);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -242,8 +320,7 @@ fn test_bike_sharing_daily_no_need_download() {
     );
 
     let dataset = BikeSharingDaily::new(download_dir);
-    let (dates, _features, _targets) = dataset.data().unwrap();
-    assert_eq!(dates.len(), N_SAMPLES);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -262,8 +339,7 @@ fn test_bike_sharing_daily_overwrite() {
     }
 
     let dataset = BikeSharingDaily::new(download_dir);
-    let (dates, _features, _targets) = dataset.data().unwrap();
-    assert_eq!(dates.len(), N_SAMPLES);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -277,49 +353,51 @@ fn test_bike_sharing_daily_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned arrays and consumes the dataset.
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_bike_sharing_daily_into_data() {
     let download_dir = "./test_bike_sharing_daily_into_data";
 
     let dataset = BikeSharingDaily::new(download_dir);
-    let (dates, mut features, targets) = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. The three arrays are now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(dates.len(), N_SAMPLES);
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
-    assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_COLUMNS);
 
-    // The caller can mutate the owned data directly, with no `to_owned()` clone.
-    features[[0, 0]] = 4.0;
-    assert_eq!(features[[0, 0]], 4.0);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("season").map(|c| c.data_mut()) {
+        values[0] = 4.0;
+    }
+    assert_eq!(
+        table.column("season").unwrap().as_numeric().unwrap()[0],
+        4.0
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned arrays and leaves the instance reusable.
+// Verifies that take_data() returns the owned table and leaves the instance reusable.
 fn test_bike_sharing_daily_take_data() {
     let download_dir = "./test_bike_sharing_daily_take_data";
 
     let mut dataset = BikeSharingDaily::new(download_dir);
-    let (dates, features, targets) = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(dates.len(), N_SAMPLES);
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
-    assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_COLUMNS);
 
     // After take_data, the instance resets to unloaded but stays usable. The next
-    // access reloads it from the cached file and yields the same shapes.
-    let (dates, features, targets) = dataset.data().unwrap();
-    assert_eq!(dates.len(), N_SAMPLES);
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
-    assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
+    // access reloads it from the cached file and yields the same shape.
+    let table = dataset.data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_COLUMNS);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_bike_sharing_daily_get_data() {
     let download_dir = "./test_bike_sharing_daily_get_data";
 
@@ -328,16 +406,15 @@ fn test_bike_sharing_daily_get_data() {
     assert!(dataset.get_data().is_none());
 
     dataset.data().unwrap();
-    let (dates, features, targets) = dataset.get_data().unwrap();
-    assert_eq!(dates.len(), N_SAMPLES);
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
-    assert_eq!(targets.shape(), &[N_SAMPLES, N_TARGETS]);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_COLUMNS);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached arrays in place.
+// Verifies that get_data_mut() edits the cached table in place.
 fn test_bike_sharing_daily_get_data_mut() {
     let download_dir = "./test_bike_sharing_daily_get_data_mut";
 
@@ -345,16 +422,26 @@ fn test_bike_sharing_daily_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // get_data_mut() scales `temp` (column 7) back to degrees Celsius in place,
-    // with no clone and no reload.
+    // get_data_mut() scales `temp` back to degrees Celsius in place, with no
+    // clone and no reload.
     dataset.data().unwrap();
-    if let Some((_dates, features, _targets)) = dataset.get_data_mut() {
-        features[[0, 7]] *= 41.0;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) = table.column_mut("temp").map(|c| c.data_mut())
+    {
+        values[0] *= 41.0;
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (_dates, features, _targets) = dataset.data().unwrap();
-    assert_eq!(features[[0, 7]], 0.344167 * 41.0);
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("temp").unwrap().as_numeric().unwrap()[0],
+        0.344167 * 41.0
+    );
+    assert_eq!(
+        table.column("atemp").unwrap().as_numeric().unwrap()[0],
+        0.363625,
+        "the other columns should stay untouched"
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

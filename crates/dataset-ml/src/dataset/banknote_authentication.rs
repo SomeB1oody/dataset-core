@@ -7,21 +7,35 @@
 //! image. The task is to predict the class of a specimen from those four
 //! features.
 //!
-//! **Features (4, all numeric):** `variance`, `skewness`, `curtosis`, and
-//! `entropy` of the Wavelet-Transformed image, all continuous `f64` values.
+//! **Columns (5):**
 //!
-//! **Target:** `class`, the raw integer code from the source, `0` or `1`
+//! | Name       | Type      | Description                               |
+//! |------------|-----------|--------------------------------------------|
+//! | `variance` | `Numeric` | variance of the Wavelet-Transformed image |
+//! | `skewness` | `Numeric` | skewness of the Wavelet-Transformed image |
+//! | `curtosis` | `Numeric` | curtosis of the Wavelet-Transformed image |
+//! | `entropy`  | `Numeric` | entropy of the image                      |
+//! | `class`    | `Integer` | raw class code, `0` or `1`                |
+//!
+//! `curtosis` keeps the source's spelling. UCI names the attribute that way.
+//!
+//! The source designates the four statistics as the inputs
+//! ([`BanknoteAuthentication::FEATURE_NAMES`](crate::BanknoteAuthentication::FEATURE_NAMES)) and `class` as the label
+//! ([`BanknoteAuthentication::TARGET`](crate::BanknoteAuthentication::TARGET)).
 //!
 //! **Samples:** 1372 total (762 of class `0`, 610 of class `1`)
 //! **Application:** Binary classification / banknote authentication
+//!
+//! **Missing values:** none.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C55P57>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 use csv::ReaderBuilder;
@@ -64,13 +78,6 @@ const N_FEATURES: usize = 4;
 /// The number of columns per CSV record (4 features + 1 label).
 const N_COLUMNS: usize = N_FEATURES + 1;
 
-/// The names of the four feature columns, in source order. `curtosis` keeps the
-/// (misspelled) UCI attribute name so the schema matches the source exactly.
-const FEATURE_NAMES: [&str; N_FEATURES] = ["variance", "skewness", "curtosis", "entropy"];
-
-/// Type alias for the Banknote Authentication dataset: (features, labels).
-type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
-
 /// A struct that represents the Banknote Authentication dataset with lazy
 /// loading.
 ///
@@ -85,29 +92,28 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 /// pixel grayscale images at a resolution of about 660 dpi. Researchers then
 /// used a Wavelet Transform tool to extract four continuous statistics from
 /// each image. These statistics are the variance, skewness, curtosis, and
-/// entropy of the transformed image. Together they form a compact,
-/// pure-numeric feature matrix over 1372 specimens.
+/// entropy of the transformed image. They cover 1372 specimens.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// All 4 features are quantitative, stored in one `(1372, 4)` `Array2<f64>`
-/// matrix. By 0-based column index:
+/// | Name       | Type      | Description                               |
+/// |------------|-----------|--------------------------------------------|
+/// | `variance` | `Numeric` | variance of the Wavelet-Transformed image |
+/// | `skewness` | `Numeric` | skewness of the Wavelet-Transformed image |
+/// | `curtosis` | `Numeric` | curtosis of the Wavelet-Transformed image |
+/// | `entropy`  | `Numeric` | entropy of the image                      |
+/// | `class`    | `Integer` | raw class code, `0` or `1`                |
 ///
-/// | Column | Attribute  | Description                                          |
-/// |--------|------------|------------------------------------------------------|
-/// | `0`    | `variance` | variance of the Wavelet-Transformed image            |
-/// | `1`    | `skewness` | skewness of the Wavelet-Transformed image            |
-/// | `2`    | `curtosis` | curtosis of the Wavelet-Transformed image            |
-/// | `3`    | `entropy`  | entropy of the image                                 |
+/// `curtosis` keeps the source's spelling. UCI names the attribute that way.
 ///
-/// `curtosis` keeps the source's spelling (UCI names the attribute that way)
-/// so the schema matches the source exactly.
+/// The source designates the four statistics as the inputs
+/// ([`BanknoteAuthentication::FEATURE_NAMES`]) and `class` as the label
+/// ([`BanknoteAuthentication::TARGET`]).
 ///
-/// # Labels
+/// UCI does not document which `class` code marks a genuine note and which one
+/// marks a forged note. The loader keeps the code verbatim.
 ///
-/// - `class` (shape `(1372,)`): the `Array1<u8>` holds the raw integer code from
-///   the source (`0` or `1`). UCI does not document which code corresponds to
-///   genuine vs forged notes, so the loader exposes it verbatim.
+/// Missing values: none.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/267/banknote+authentication>.
@@ -127,45 +133,57 @@ type BanknoteAuthenticationData = (Array2<f64>, Array1<u8>);
 /// ```no_run
 /// use dataset_ml::BanknoteAuthentication;
 ///
-/// let download_dir = "./banknote_authentication"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./banknote_authentication";
 ///
 /// let mut dataset = BanknoteAuthentication::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 1372);
+/// assert_eq!(table.n_columns(), 5);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&BanknoteAuthentication::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[1372, 4]);
-/// assert_eq!(labels.len(), 1372);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 0.5;
-///     labels[0] = 1;
+/// // Reach one column by name.
+/// let class = table.column(BanknoteAuthentication::TARGET).unwrap().as_integer().unwrap();
+/// assert_eq!(class.len(), 1372);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("variance") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.5;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1372, 4]);
-/// assert_eq!(owned_labels.len(), 1372);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1372);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1372, 4]);
-/// assert_eq!(owned_labels.len(), 1372);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1372);
 /// ```
 #[derive(Debug)]
 pub struct BanknoteAuthentication {
-    dataset: Dataset<BanknoteAuthenticationData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl BanknoteAuthentication {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] =
+        ["variance", "skewness", "curtosis", "entropy"];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new BanknoteAuthentication instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -185,7 +203,7 @@ impl BanknoteAuthentication {
     }
 
     /// Get and parse the Banknote Authentication dataset.
-    fn load_data(dir: &str) -> Result<BanknoteAuthenticationData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             BANKNOTE_AUTHENTICATION_FILENAME,
@@ -211,8 +229,10 @@ impl BanknoteAuthentication {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
-        let mut labels: Vec<u8> = Vec::with_capacity(N_SAMPLES);
+        let mut features: Vec<Vec<f64>> = (0..N_FEATURES)
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
+        let mut labels: Vec<i64> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
             let record = result.map_err(|e| {
@@ -235,7 +255,7 @@ impl BanknoteAuthentication {
             }
 
             // 4 numeric features.
-            for (col, name) in FEATURE_NAMES.iter().enumerate() {
+            for (col, name) in Self::FEATURE_NAMES.iter().enumerate() {
                 let value: f64 = record[col].trim().parse().map_err(|e| {
                     DatasetError::parse_failed(
                         BANKNOTE_AUTHENTICATION_DATASET_NAME,
@@ -244,7 +264,7 @@ impl BanknoteAuthentication {
                         e,
                     )
                 })?;
-                features.push(value);
+                features[col].push(value);
             }
 
             // Label, kept as the raw `0`/`1` code the source records.
@@ -265,37 +285,32 @@ impl BanknoteAuthentication {
                     line_num,
                 ));
             }
-            labels.push(label);
+            labels.push(i64::from(label));
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(
-                BANKNOTE_AUTHENTICATION_DATASET_NAME,
+        let mut columns: Vec<Column> = Vec::with_capacity(N_COLUMNS);
+        for (name, values) in Self::FEATURE_NAMES.into_iter().zip(features) {
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
             ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::Integer(Array1::from_vec(labels)),
+        ));
 
-        // Banknote Authentication has a fixed schema of 4 numeric features per sample.
-        let features_array =
-            Array2::from_shape_vec((n_samples, N_FEATURES), features).map_err(|e| {
-                DatasetError::array_shape_error(BANKNOTE_AUTHENTICATION_DATASET_NAME, "features", e)
-            })?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(BANKNOTE_AUTHENTICATION_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to the numeric feature matrix with shape
-    ///   `(1372, 4)`: the `variance`, `skewness`, `curtosis`, and `entropy` of
-    ///   each Wavelet-Transformed image.
+    /// - `&Table` - reference to the cached table of 1372 samples and 5 columns.
     ///
     /// # Errors
     ///
@@ -303,120 +318,55 @@ impl BanknoteAuthentication {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1372 samples, 4 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<u8>` - Reference to label vector with shape `(1372,)`
-    ///   containing the raw class codes (`0` or `1`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1372 samples)
-    pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&BanknoteAuthenticationData` - reference to the cached
-    ///   `(features, labels)` tuple. The feature matrix has shape `(1372, 4)`.
-    ///   The label vector has shape `(1372,)` and contains the raw class codes
-    ///   (`0` or `1`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1372 samples, 4 features)
-    pub fn data(&self) -> Result<&BanknoteAuthenticationData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering
-    /// loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`BanknoteAuthentication::data`], which loads the dataset on first
-    /// call, this never runs the loader. If the data has not loaded yet, it
-    /// returns `None` instead of downloading and parsing.
-    ///
-    /// Use this method when you want the data only if it is already cached. This
-    /// avoids the download and parse cost when the data is not cached.
+    /// Unlike [`BanknoteAuthentication::data`], this method never runs the
+    /// loader. If the data has not loaded yet, it returns `None` instead of
+    /// downloading and parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&BanknoteAuthenticationData)` - reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(1372, 4)`, label vector
-    ///   `(1372,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&BanknoteAuthenticationData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize features,
-    /// replace label values). It needs no `to_owned()` clone, and the arrays
-    /// stay in the cache. The changes persist, so later calls to
-    /// [`BanknoteAuthentication::features`], [`BanknoteAuthentication::data`], or
-    /// [`BanknoteAuthentication::get_data`] see them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to
+    /// [`BanknoteAuthentication::data`] or [`BanknoteAuthentication::get_data`]
+    /// see them.
     ///
     /// Like [`BanknoteAuthentication::get_data`], this does **not** trigger
-    /// loading. It returns `None` if the dataset has not loaded. If you
-    /// need to make sure the data is present, call a loading accessor first
-    /// (e.g. [`BanknoteAuthentication::data`]).
+    /// loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut BanknoteAuthenticationData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(1372, 4)`, label vector
-    ///   `(1372,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut BanknoteAuthenticationData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`BanknoteAuthentication::data`], which borrows the cached data,
-    /// this moves it out and returns owned arrays directly. It needs no
-    /// `to_owned()` clone. This method loads the dataset on first access if it
-    /// has not loaded yet.
-    ///
-    /// This **consumes** `self`, so you cannot use the instance afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`BanknoteAuthentication::take_data`] instead. It takes `&mut self` and
-    /// leaves the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`BanknoteAuthentication::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(1372, 4)` and owned label vector with shape `(1372,)`.
+    /// - `Table` - the owned table of 1372 samples and 5 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<BanknoteAuthenticationData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -424,29 +374,20 @@ impl BanknoteAuthentication {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`BanknoteAuthentication::into_data`], this returns owned arrays with
-    /// no `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out. This resets the instance to
-    /// its unloaded state. The next accessor call (e.g.
-    /// [`BanknoteAuthentication::features`] or [`BanknoteAuthentication::data`])
+    /// This resets the instance to its unloaded state. The next accessor call
     /// loads the dataset again.
-    ///
-    /// If you are done with the instance, use
-    /// [`BanknoteAuthentication::into_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(1372, 4)` and owned label vector with shape `(1372,)`.
+    /// - `Table` - the owned table of 1372 samples and 5 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<BanknoteAuthenticationData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -455,8 +396,4 @@ impl BanknoteAuthentication {
     }
 }
 
-impl_ml_dataset!(
-    BanknoteAuthentication,
-    BanknoteAuthenticationData,
-    "banknote_authentication"
-);
+impl_ml_dataset!(BanknoteAuthentication, "banknote_authentication");

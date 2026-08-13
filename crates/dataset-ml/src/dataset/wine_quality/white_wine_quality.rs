@@ -1,18 +1,20 @@
 //! White wine subset of the Wine Quality dataset.
 //!
 //! See [`crate::dataset::wine_quality`] for the full dataset description,
-//! including features, target, application scenarios, and source.
+//! including the columns, the target, application scenarios, and the source.
 //!
 //! **Samples:** 4898
-//! **Feature shape:** `(4898, 11)`
-//! **Target shape:** `(4898,)`
+//! **Columns:** 12
 
 use crate::DOWNLOAD_RETRIES;
-use crate::dataset::wine_quality::{WineData, parse_wine_data_to_array};
+use crate::dataset::wine_quality::parse_wine_data_to_table;
+use crate::table::Table;
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
 use std::fs::File;
+
+/// Number of feature columns.
+const N_FEATURES: usize = 11;
 
 /// The URL for the White Wine Quality dataset.
 const WHITE_WINE_DATA_URL: &str = "https://raw.githubusercontent.com/shrikant-temburwar/Wine-Quality-Dataset/refs/heads/master/winequality-white.csv";
@@ -34,28 +36,26 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// The dataset contains physicochemical properties of Portuguese "Vinho Verde"
 /// white wine samples and a quality score for each sample.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The dataset has 11 numeric physicochemical features, all stored as `f64`. By
-/// 0-based column index in the feature matrix:
+/// | Name                   | Type      | Description                        |
+/// |------------------------|-----------|-------------------------------------|
+/// | `fixed acidity`        | `Numeric` | fixed acidity                      |
+/// | `volatile acidity`     | `Numeric` | volatile acidity                   |
+/// | `citric acid`          | `Numeric` | citric acid                        |
+/// | `residual sugar`       | `Numeric` | residual sugar                     |
+/// | `chlorides`            | `Numeric` | chlorides                          |
+/// | `free sulfur dioxide`  | `Numeric` | free sulfur dioxide                |
+/// | `total sulfur dioxide` | `Numeric` | total sulfur dioxide               |
+/// | `density`              | `Numeric` | density                            |
+/// | `pH`                   | `Numeric` | pH                                 |
+/// | `sulphates`            | `Numeric` | sulphates                          |
+/// | `alcohol`              | `Numeric` | alcohol                            |
+/// | `quality`              | `Numeric` | quality score between `0` and `10` |
 ///
-/// | Columns | Attributes             | Unit |
-/// |---------|------------------------|------|
-/// | `0`     | `fixed acidity`        |      |
-/// | `1`     | `volatile acidity`     |      |
-/// | `2`     | `citric acid`          |      |
-/// | `3`     | `residual sugar`       |      |
-/// | `4`     | `chlorides`            |      |
-/// | `5`     | `free sulfur dioxide`  |      |
-/// | `6`     | `total sulfur dioxide` |      |
-/// | `7`     | `density`              |      |
-/// | `8`     | `pH`                   |      |
-/// | `9`     | `sulphates`            |      |
-/// | `10`    | `alcohol`              |      |
-///
-/// # Targets
-///
-/// - quality (score between 0 and 10, stored as `f64`)
+/// The source designates the 11 physicochemical measurements as the inputs
+/// ([`WhiteWineQuality::FEATURE_NAMES`]) and `quality` as the label
+/// ([`WhiteWineQuality::TARGET`]).
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/186/wine+quality>
 ///
@@ -73,45 +73,68 @@ const WHITE_WINE_QUALITY_SHA256: &str =
 /// ```no_run
 /// use dataset_ml::WhiteWineQuality;
 ///
-/// let download_dir = "./white_wine"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./white_wine";
 ///
 /// let mut dataset = WhiteWineQuality::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 4898);
+/// assert_eq!(table.n_columns(), 12);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&WhiteWineQuality::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[4898, 11]);
-/// assert_eq!(targets.len(), 4898);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, targets)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 10.0;
-///     targets[0] = 7.0;
+/// // Reach one column by name.
+/// let quality = table.column("quality").unwrap().as_numeric().unwrap();
+/// assert_eq!(quality.len(), 4898);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("fixed acidity") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 10.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[4898, 11]);
-/// assert_eq!(owned_targets.len(), 4898);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4898);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[4898, 11]);
-/// assert_eq!(owned_targets.len(), 4898);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4898);
 /// ```
 #[derive(Debug)]
 pub struct WhiteWineQuality {
-    dataset: Dataset<WineData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl WhiteWineQuality {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "fixed acidity",
+        "volatile acidity",
+        "citric acid",
+        "residual sugar",
+        "chlorides",
+        "free sulfur dioxide",
+        "total sulfur dioxide",
+        "density",
+        "pH",
+        "sulphates",
+        "alcohol",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "quality";
+
     /// Create a new WhiteWineQuality instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -131,7 +154,7 @@ impl WhiteWineQuality {
     }
 
     /// Get and parse the White Wine Quality dataset.
-    fn load_data(dir: &str) -> Result<WineData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             WHITE_WINE_QUALITY_FILENAME,
@@ -144,28 +167,18 @@ impl WhiteWineQuality {
         )?;
 
         let file = File::open(&file_path)?;
-        parse_wine_data_to_array("white_wine_quality", file)
+        parse_wine_data_to_table("white_wine_quality", file)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(4898, 11)` containing:
-    ///     - fixed acidity
-    ///     - volatile acidity
-    ///     - citric acid
-    ///     - residual sugar
-    ///     - chlorides
-    ///     - free sulfur dioxide
-    ///     - total sulfur dioxide
-    ///     - density
-    ///     - pH
-    ///     - sulphates
-    ///     - alcohol
+    /// - `&Table` - reference to the cached table of 4898 samples and 12
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -173,116 +186,53 @@ impl WhiteWineQuality {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4898 samples, 11 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the target vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<f64>` - Reference to target vector with shape `(4898,)` containing quality scores (0-10)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4898 samples)
-    pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&WineData` - reference to the cached `(features, targets)` tuple: feature
-    ///   matrix with shape `(4898, 11)` (the 11 physicochemical properties) and
-    ///   target vector with shape `(4898,)` (quality scores, 0-10).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4898 samples, 11 features)
-    pub fn data(&self) -> Result<&WineData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and targets as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`WhiteWineQuality::data`], which loads the dataset on first call,
-    /// this method never runs the loader. If the data has not loaded yet, this
-    /// method returns `None` instead of downloading and parsing it. Use this
-    /// method when you want the data only if the dataset has already cached
-    /// it. This avoids the download and parse cost if the dataset has not
-    /// yet cached the data.
+    /// Unlike [`WhiteWineQuality::data`], this method never runs the loader. If
+    /// the data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&WineData)` - reference to the cached `(features, targets)` tuple
-    ///   (feature matrix `(4898, 11)`, target vector `(4898,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&WineData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and targets for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly, for example to normalize
-    /// features or rescale targets. It needs no `to_owned()` clone, and it does not
-    /// remove the arrays from the cache. The changes persist, so later calls to
-    /// [`WhiteWineQuality::features`], [`WhiteWineQuality::data`], or
-    /// [`WhiteWineQuality::get_data`] observe them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`WhiteWineQuality::data`] or
+    /// [`WhiteWineQuality::get_data`] see them.
     ///
-    /// Like [`WhiteWineQuality::get_data`], this method does not trigger loading.
-    /// If the dataset has not loaded yet, it returns `None`. If you need the
-    /// data to be present, call a loading accessor first, for example
-    /// [`WhiteWineQuality::data`].
+    /// Like [`WhiteWineQuality::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut WineData)` - mutable reference to the cached `(features,
-    ///   targets)` tuple (feature matrix `(4898, 11)`, target vector `(4898,)`),
-    ///   if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut WineData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`WhiteWineQuality::data`], which borrows the cached data, this
-    /// method moves the data out and returns owned arrays directly. It needs no
-    /// `to_owned()` clone. If the dataset has not loaded yet, it loads on first
-    /// access.
-    ///
-    /// This method consumes `self`, so you cannot use the instance afterward. If
-    /// you want owned data but need to keep using the instance, use
-    /// [`WhiteWineQuality::take_data`] instead. It takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`WhiteWineQuality::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - owned feature matrix with shape
-    ///   `(4898, 11)` and owned target vector with shape `(4898,)`.
+    /// - `Table` - the owned table of 4898 samples and 12 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<WineData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -290,29 +240,20 @@ impl WhiteWineQuality {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`WhiteWineQuality::into_data`], this method returns owned arrays with
-    /// no `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out. This resets the instance to its
-    /// unloaded state. The next accessor call, for example
-    /// [`WhiteWineQuality::features`] or [`WhiteWineQuality::data`], loads the
-    /// dataset again.
-    ///
-    /// If you are done with the instance, use [`WhiteWineQuality::into_data`]
-    /// instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - owned feature matrix with shape
-    ///   `(4898, 11)` and owned target vector with shape `(4898,)`.
+    /// - `Table` - the owned table of 4898 samples and 12 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<WineData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -321,4 +262,4 @@ impl WhiteWineQuality {
     }
 }
 
-impl_ml_dataset!(WhiteWineQuality, WineData, "white_wine_quality");
+impl_ml_dataset!(WhiteWineQuality, "white_wine_quality");

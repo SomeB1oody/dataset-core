@@ -10,22 +10,38 @@
 //! **test** partition (`optdigits.tes`) of the UCI archive, which holds exactly
 //! 1797 samples.
 //!
-//! **Features (64):** `pixel_0_0` … `pixel_7_7` - the 8×8 image flattened in
-//! row-major order, each an integer pixel intensity in `0..=16` (stored as `f64`).
+//! **Columns (65):** the 64 pixels of the image, flattened in row-major order,
+//! then the digit.
 //!
-//! **Target:** `digit` - the handwritten digit, one of `0`–`9` (stored as `u8`).
+//! | Name                        | Type      | Description                        |
+//! |-----------------------------|-----------|-------------------------------------|
+//! | `pixel_0_0` … `pixel_0_7`   | `Numeric` | row 0 pixel intensities (`0..=16`) |
+//! | `pixel_1_0` … `pixel_1_7`   | `Numeric` | row 1 pixel intensities (`0..=16`) |
+//! | `pixel_2_0` … `pixel_2_7`   | `Numeric` | row 2 pixel intensities (`0..=16`) |
+//! | `pixel_3_0` … `pixel_3_7`   | `Numeric` | row 3 pixel intensities (`0..=16`) |
+//! | `pixel_4_0` … `pixel_4_7`   | `Numeric` | row 4 pixel intensities (`0..=16`) |
+//! | `pixel_5_0` … `pixel_5_7`   | `Numeric` | row 5 pixel intensities (`0..=16`) |
+//! | `pixel_6_0` … `pixel_6_7`   | `Numeric` | row 6 pixel intensities (`0..=16`) |
+//! | `pixel_7_0` … `pixel_7_7`   | `Numeric` | row 7 pixel intensities (`0..=16`) |
+//! | `digit`                     | `Integer` | the handwritten digit, `0`–`9`     |
+//!
+//! The source designates the 64 pixel columns as the inputs
+//! ([`Digits::FEATURE_NAMES`](crate::Digits::FEATURE_NAMES)) and `digit` as the label ([`Digits::TARGET`](crate::Digits::TARGET)).
 //!
 //! **Samples:** 1797 total (roughly 180 per digit class)
 //! **Application:** Multi-class classification / handwritten digit recognition
+//!
+//! **Missing values:** none.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C50P49>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 /// The URL for the Optical Recognition of Handwritten Digits dataset.
@@ -65,9 +81,6 @@ const N_FEATURES: usize = 64;
 /// The number of columns per CSV record (64 pixels + 1 label).
 const N_COLUMNS: usize = N_FEATURES + 1;
 
-/// Type alias for the Digits dataset: (features, labels).
-type DigitsData = (Array2<f64>, Array1<u8>);
-
 /// A struct that represents the Digits dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
@@ -83,26 +96,27 @@ type DigitsData = (Array2<f64>, Array1<u8>);
 /// This is the same data scikit-learn exposes through `load_digits`: it uses the
 /// test partition (`optdigits.tes`) of the UCI archive, with 1797 samples.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The 64 features are the pixels of an 8×8 grayscale image, flattened in
-/// row-major order. Each pixel holds an integer intensity in `0..=16` stored as
-/// `f64`. By 0-based column index:
+/// The 64 pixel columns hold the 8×8 image, flattened in row-major order. The
+/// name of the pixel of row `r` and column `c` is `pixel_r_c`.
 ///
-/// | Columns   | Attributes                                  | Unit                 |
-/// |-----------|---------------------------------------------|----------------------|
-/// | `0..=7`   | row 0 pixels (`pixel_0_0` .. `pixel_0_7`)   | intensity (`0..=16`) |
-/// | `8..=15`  | row 1 pixels (`pixel_1_0` .. `pixel_1_7`)   | intensity (`0..=16`) |
-/// | `16..=23` | row 2 pixels (`pixel_2_0` .. `pixel_2_7`)   | intensity (`0..=16`) |
-/// | `24..=31` | row 3 pixels (`pixel_3_0` .. `pixel_3_7`)   | intensity (`0..=16`) |
-/// | `32..=39` | row 4 pixels (`pixel_4_0` .. `pixel_4_7`)   | intensity (`0..=16`) |
-/// | `40..=47` | row 5 pixels (`pixel_5_0` .. `pixel_5_7`)   | intensity (`0..=16`) |
-/// | `48..=55` | row 6 pixels (`pixel_6_0` .. `pixel_6_7`)   | intensity (`0..=16`) |
-/// | `56..=63` | row 7 pixels (`pixel_7_0` .. `pixel_7_7`)   | intensity (`0..=16`) |
+/// | Name                        | Type      | Description                        |
+/// |-----------------------------|-----------|-------------------------------------|
+/// | `pixel_0_0` … `pixel_0_7`   | `Numeric` | row 0 pixel intensities (`0..=16`) |
+/// | `pixel_1_0` … `pixel_1_7`   | `Numeric` | row 1 pixel intensities (`0..=16`) |
+/// | `pixel_2_0` … `pixel_2_7`   | `Numeric` | row 2 pixel intensities (`0..=16`) |
+/// | `pixel_3_0` … `pixel_3_7`   | `Numeric` | row 3 pixel intensities (`0..=16`) |
+/// | `pixel_4_0` … `pixel_4_7`   | `Numeric` | row 4 pixel intensities (`0..=16`) |
+/// | `pixel_5_0` … `pixel_5_7`   | `Numeric` | row 5 pixel intensities (`0..=16`) |
+/// | `pixel_6_0` … `pixel_6_7`   | `Numeric` | row 6 pixel intensities (`0..=16`) |
+/// | `pixel_7_0` … `pixel_7_7`   | `Numeric` | row 7 pixel intensities (`0..=16`) |
+/// | `digit`                     | `Integer` | the handwritten digit, `0`–`9`     |
 ///
-/// # Labels
+/// The source designates the 64 pixel columns as the inputs
+/// ([`Digits::FEATURE_NAMES`]) and `digit` as the label ([`Digits::TARGET`]).
 ///
-/// - digit (in `u8`): `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`
+/// Missing values: none.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/80/optical+recognition+of+handwritten+digits>
@@ -126,42 +140,119 @@ type DigitsData = (Array2<f64>, Array1<u8>);
 /// let download_dir = "./digits"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Digits::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 1797);
+/// assert_eq!(table.n_columns(), 65);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Digits::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[1797, 64]);
-/// assert_eq!(labels.len(), 1797);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 5.0;
-///     labels[0] = 7;
+/// // Reach one column by name.
+/// let digit = table.column(Digits::TARGET).unwrap().as_integer().unwrap();
+/// assert_eq!(digit.len(), 1797);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("pixel_0_0") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 5.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1797, 64]);
-/// assert_eq!(owned_labels.len(), 1797);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1797);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[1797, 64]);
-/// assert_eq!(owned_labels.len(), 1797);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 1797);
 /// ```
 #[derive(Debug)]
 pub struct Digits {
-    dataset: Dataset<DigitsData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Digits {
+    /// The columns the source designates as the model inputs, in source order.
+    /// The name of the pixel of row `r` and column `c` of the 8×8 image is
+    /// `pixel_r_c`.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "pixel_0_0",
+        "pixel_0_1",
+        "pixel_0_2",
+        "pixel_0_3",
+        "pixel_0_4",
+        "pixel_0_5",
+        "pixel_0_6",
+        "pixel_0_7",
+        "pixel_1_0",
+        "pixel_1_1",
+        "pixel_1_2",
+        "pixel_1_3",
+        "pixel_1_4",
+        "pixel_1_5",
+        "pixel_1_6",
+        "pixel_1_7",
+        "pixel_2_0",
+        "pixel_2_1",
+        "pixel_2_2",
+        "pixel_2_3",
+        "pixel_2_4",
+        "pixel_2_5",
+        "pixel_2_6",
+        "pixel_2_7",
+        "pixel_3_0",
+        "pixel_3_1",
+        "pixel_3_2",
+        "pixel_3_3",
+        "pixel_3_4",
+        "pixel_3_5",
+        "pixel_3_6",
+        "pixel_3_7",
+        "pixel_4_0",
+        "pixel_4_1",
+        "pixel_4_2",
+        "pixel_4_3",
+        "pixel_4_4",
+        "pixel_4_5",
+        "pixel_4_6",
+        "pixel_4_7",
+        "pixel_5_0",
+        "pixel_5_1",
+        "pixel_5_2",
+        "pixel_5_3",
+        "pixel_5_4",
+        "pixel_5_5",
+        "pixel_5_6",
+        "pixel_5_7",
+        "pixel_6_0",
+        "pixel_6_1",
+        "pixel_6_2",
+        "pixel_6_3",
+        "pixel_6_4",
+        "pixel_6_5",
+        "pixel_6_6",
+        "pixel_6_7",
+        "pixel_7_0",
+        "pixel_7_1",
+        "pixel_7_2",
+        "pixel_7_3",
+        "pixel_7_4",
+        "pixel_7_5",
+        "pixel_7_6",
+        "pixel_7_7",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "digit";
+
     /// Create a new Digits instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -181,7 +272,7 @@ impl Digits {
     }
 
     /// Get and parse the Digits dataset.
-    fn load_data(dir: &str) -> Result<DigitsData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // Prepare the dataset file: download the UCI ZIP package, extract it, and
         // return the `optdigits.tes` test partition (which scikit-learn uses).
         let file_path = acquire_dataset(
@@ -206,8 +297,8 @@ impl Digits {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut features = Vec::new();
-        let mut labels = Vec::new();
+        let mut features: Vec<Vec<f64>> = vec![Vec::new(); N_FEATURES];
+        let mut labels: Vec<i64> = Vec::new();
 
         for (idx, result) in rdr.records().enumerate() {
             let record =
@@ -232,7 +323,7 @@ impl Digits {
                         e,
                     )
                 })?;
-                features.push(value);
+                features[col].push(value);
             }
 
             let raw_label = record[N_FEATURES].trim();
@@ -247,32 +338,33 @@ impl Digits {
                     line_num,
                 ));
             }
-            labels.push(label);
+            labels.push(i64::from(label));
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(DIGITS_DATASET_NAME));
+        let mut columns: Vec<Column> = Vec::with_capacity(N_COLUMNS);
+        for (name, values) in Self::FEATURE_NAMES.into_iter().zip(features) {
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::Integer(Array1::from_vec(labels)),
+        ));
 
-        // Digits has a fixed schema of 64 numeric pixel features per sample.
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(DIGITS_DATASET_NAME, "features", e))?;
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(DIGITS_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(1797, 64)`
-    ///   containing the 64 pixel intensities (`pixel_0_0` … `pixel_7_7`, each in
-    ///   `0..=16`) of each flattened 8×8 image.
+    /// - `&Table` - reference to the cached table of 1797 samples and 65
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -280,111 +372,53 @@ impl Digits {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1797 samples, 64 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<u8>` - Reference to label vector with shape `(1797,)` containing the digit classes (`0`–`9`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1797 samples)
-    pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&DigitsData` - reference to the cached `(features, labels)` tuple: the
-    ///   feature matrix has shape `(1797, 64)` and the label vector has shape
-    ///   `(1797,)` containing the digit classes (`0`–`9`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (1797 samples, 64 features)
-    pub fn data(&self) -> Result<&DigitsData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Digits::data`], which loads the dataset on first call, this never
-    /// runs the loader. If the data has not loaded yet, it returns `None` instead
-    /// of downloading and parsing. If the data is already cached and you want to
-    /// avoid the download and parse cost, use this method.
+    /// Unlike [`Digits::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&DigitsData)` - reference to the cached `(features, labels)` tuple
-    ///   (feature matrix `(1797, 64)`, label vector `(1797,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&DigitsData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (for example, normalize
-    /// features, replace label values), with no `to_owned()` clone. The cache
-    /// keeps the change: it does not remove the arrays. Later calls to
-    /// [`Digits::features`], [`Digits::data`], or [`Digits::get_data`] observe the
-    /// change.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Digits::data`] or
+    /// [`Digits::get_data`] see them.
     ///
-    /// Like [`Digits::get_data`], this does **not** trigger loading: it returns
-    /// `None` if the dataset has not loaded. If you need to make sure the data is
-    /// present, call a loading accessor first (for example, [`Digits::data`]).
+    /// Like [`Digits::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut DigitsData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(1797, 64)`, label vector
-    ///   `(1797,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut DigitsData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Digits::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly. It needs no `to_owned()` clone. If the
-    /// dataset has not loaded yet, this call loads it.
-    ///
-    /// This consumes `self`, so you cannot use the instance afterward. If you want
-    /// owned data but need to keep using the instance, use [`Digits::take_data`]
-    /// instead. It takes `&mut self` and leaves the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Digits::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(1797, 64)` and owned label vector with shape `(1797,)`.
+    /// - `Table` - the owned table of 1797 samples and 65 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<DigitsData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -392,27 +426,20 @@ impl Digits {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Digits::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Unlike that method, it takes `&mut self` instead of consuming the
-    /// instance. It moves the cached data out and resets the instance to its
-    /// unloaded state. The next accessor call (for example, [`Digits::features`]
-    /// or [`Digits::data`]) loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Digits::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(1797, 64)` and owned label vector with shape `(1797,)`.
+    /// - `Table` - the owned table of 1797 samples and 65 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<DigitsData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -421,4 +448,4 @@ impl Digits {
     }
 }
 
-impl_ml_dataset!(Digits, DigitsData, "digits");
+impl_ml_dataset!(Digits, "digits");

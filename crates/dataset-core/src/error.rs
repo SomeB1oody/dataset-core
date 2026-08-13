@@ -12,6 +12,8 @@ use zip::result::ZipError;
 /// - `LengthMismatch` - The total parsed data length does not match expected dimensions.
 /// - `EmptyDataset` - The dataset is empty.
 /// - `ArrayShapeError` - Failed to construct ndarray with the given shape and data.
+/// - `UnknownColumn` - The requested column is not in the dataset.
+/// - `ColumnTypeMismatch` - The column holds values of a type the operation cannot use.
 #[derive(Debug, thiserror::Error)]
 pub enum DataFormatErrorKind {
     /// Failed to read a CSV record
@@ -87,6 +89,28 @@ pub enum DataFormatErrorKind {
         array_name: String,
         /// The underlying shape error message
         error: String,
+    },
+    /// The requested column is not in the dataset
+    #[error("[{dataset_name}] no column named `{column_name}`")]
+    UnknownColumn {
+        /// Dataset identifier
+        dataset_name: String,
+        /// The requested column name
+        column_name: String,
+    },
+    /// The column holds values of a type the operation cannot use
+    #[error(
+        "[{dataset_name}] column `{column_name}` holds `{actual}` values, expected `{expected}`"
+    )]
+    ColumnTypeMismatch {
+        /// Dataset identifier
+        dataset_name: String,
+        /// The column with the unusable type
+        column_name: String,
+        /// The type the operation needs
+        expected: String,
+        /// The type the column holds
+        actual: String,
     },
 }
 
@@ -292,6 +316,49 @@ impl DatasetError {
     pub fn empty_dataset(dataset_name: &str) -> Self {
         Self::DataFormatError(DataFormatErrorKind::EmptyDataset {
             dataset_name: dataset_name.to_string(),
+        })
+    }
+
+    /// Creates an unknown column error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset_name` - The dataset identifier.
+    /// - `column_name` - The requested column name.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError::DataFormatError(DataFormatErrorKind::UnknownColumn)` - A variant of `DatasetError` naming the column the dataset does not hold.
+    pub fn unknown_column(dataset_name: &str, column_name: &str) -> Self {
+        Self::DataFormatError(DataFormatErrorKind::UnknownColumn {
+            dataset_name: dataset_name.to_string(),
+            column_name: column_name.to_string(),
+        })
+    }
+
+    /// Creates a column type mismatch error.
+    ///
+    /// # Parameters
+    ///
+    /// - `dataset_name` - The dataset identifier.
+    /// - `column_name` - The column with the unusable type.
+    /// - `expected` - The type the operation needs.
+    /// - `actual` - The type the column holds.
+    ///
+    /// # Returns
+    ///
+    /// - `DatasetError::DataFormatError(DataFormatErrorKind::ColumnTypeMismatch)` - A variant of `DatasetError` describing the type mismatch.
+    pub fn column_type_mismatch(
+        dataset_name: &str,
+        column_name: &str,
+        expected: &str,
+        actual: &str,
+    ) -> Self {
+        Self::DataFormatError(DataFormatErrorKind::ColumnTypeMismatch {
+            dataset_name: dataset_name.to_string(),
+            column_name: column_name.to_string(),
+            expected: expected.to_string(),
+            actual: actual.to_string(),
         })
     }
 }

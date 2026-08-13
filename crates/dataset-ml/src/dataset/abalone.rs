@@ -3,32 +3,41 @@
 //! Physical measurements of abalone (a marine snail), used to predict the age of
 //! the animal. The age in years is the number of `rings` plus 1.5. Counting the
 //! rings through a microscope is a slow, tedious task. The goal is to predict the
-//! age from easier physical measurements instead. This loader exposes `rings`
-//! itself as the regression target.
+//! age from easier physical measurements instead. The `rings` column is the
+//! regression target.
 //!
-//! **Features (8, mixed):**
-//! - String feature (1): `sex`, one of `M` (male), `F` (female), or `I` (infant)
-//! - Numeric features (7): `length`, `diameter`, `height` in mm, and
-//!   `whole_weight`, `shucked_weight`, `viscera_weight`, `shell_weight` in grams
+//! **Columns (9):**
 //!
-//! **Target:** `rings`, the integer ring count (age in years is `rings + 1.5`),
-//! exposed as an `f64` regression target.
+//! | Name             | Type      | Description                            |
+//! |------------------|-----------|-----------------------------------------|
+//! | `sex`            | `String`  | `M` (male), `F` (female), `I` (infant) |
+//! | `length`         | `Numeric` | longest shell measurement in mm        |
+//! | `diameter`       | `Numeric` | diameter across the length in mm       |
+//! | `height`         | `Numeric` | height with meat in the shell in mm    |
+//! | `whole_weight`   | `Numeric` | weight of the whole abalone in grams   |
+//! | `shucked_weight` | `Numeric` | weight of the meat in grams            |
+//! | `viscera_weight` | `Numeric` | gut weight after bleeding in grams     |
+//! | `shell_weight`   | `Numeric` | weight of the dried shell in grams     |
+//! | `rings`          | `Numeric` | ring count from 1 to 29, age is `rings + 1.5` |
+//!
+//! The source designates `sex` and the seven measurements as the inputs
+//! ([`Abalone::FEATURE_NAMES`](crate::Abalone::FEATURE_NAMES)) and `rings` as the label ([`Abalone::TARGET`](crate::Abalone::TARGET)).
 //!
 //! **Samples:** 4,177
 //! **Application:** Regression / age prediction
+//!
+//! **Missing values:** none.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C55C7W>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for Abalone dataset: (string features, numeric features, targets).
-type AbaloneData = (Array2<String>, Array2<f64>, Array1<f64>);
 
 /// The URL for the Abalone dataset (the `abalone.data` file).
 const ABALONE_DATA_URL: &str =
@@ -82,41 +91,29 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// You find the age of an abalone by cutting the shell through the cone,
 /// staining it, and counting the rings through a microscope. This is a boring
 /// and time-consuming task. The goal is to predict the age instead, from other
-/// measurements that are easier to get. This loader exposes `rings` (the raw
-/// ring count) as the regression target. The actual age in years is
-/// `rings + 1.5`. It is a mixed-type **regression** dataset. The only
-/// categorical feature is `sex` (`M`/`F`/`I`). The remaining seven features are
-/// continuous measurements.
+/// measurements that are easier to get. The `rings` column holds the raw ring
+/// count, and it is the regression target. The actual age in years is
+/// `rings + 1.5`. The only categorical column is `sex` (`M`/`F`/`I`). The other
+/// seven features are continuous measurements.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// Features are split across two matrices: a `(4177, 1)` string matrix and a
-/// `(4177, 7)` numeric `f64` matrix.
+/// | Name             | Type      | Description                            |
+/// |------------------|-----------|-----------------------------------------|
+/// | `sex`            | `String`  | `M` (male), `F` (female), `I` (infant) |
+/// | `length`         | `Numeric` | longest shell measurement in mm        |
+/// | `diameter`       | `Numeric` | diameter across the length in mm       |
+/// | `height`         | `Numeric` | height with meat in the shell in mm    |
+/// | `whole_weight`   | `Numeric` | weight of the whole abalone in grams   |
+/// | `shucked_weight` | `Numeric` | weight of the meat in grams            |
+/// | `viscera_weight` | `Numeric` | gut weight after bleeding in grams     |
+/// | `shell_weight`   | `Numeric` | weight of the dried shell in grams     |
+/// | `rings`          | `Numeric` | ring count from 1 to 29, age is `rings + 1.5` |
 ///
-/// String features (`Array2<String>`), by 0-based column:
+/// The source designates `sex` and the seven measurements as the inputs
+/// ([`Abalone::FEATURE_NAMES`]) and `rings` as the label ([`Abalone::TARGET`]).
 ///
-/// | Column | Attribute | Values                                 |
-/// |--------|-----------|----------------------------------------|
-/// | `0`    | `sex`     | `M` (male), `F` (female), `I` (infant) |
-///
-/// Numeric features (`Array2<f64>`), by 0-based column:
-///
-/// | Column | Attribute         | Unit  |
-/// |--------|-------------------|-------|
-/// | `0`    | `length`          | mm    |
-/// | `1`    | `diameter`        | mm    |
-/// | `2`    | `height`          | mm    |
-/// | `3`    | `whole_weight`    | grams |
-/// | `4`    | `shucked_weight`  | grams |
-/// | `5`    | `viscera_weight`  | grams |
-/// | `6`    | `shell_weight`    | grams |
-///
-/// # Targets
-///
-/// - `rings` (shape `(4177,)`): the `Array1<f64>` regression target, the integer
-///   ring count (`1`–`29`) stored as `f64`. The age in years is `rings + 1.5`.
-///
-/// The dataset has no missing values.
+/// Missing values: none.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/1/abalone>.
 ///
@@ -135,48 +132,65 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// ```no_run
 /// use dataset_ml::Abalone;
 ///
-/// let download_dir = "./abalone"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./abalone";
 ///
 /// let mut dataset = Abalone::new(download_dir);
-/// let (string_features, numeric_features) = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (string_features, numeric_features, targets) = dataset.data().unwrap();
-/// assert_eq!(string_features.shape(), &[4177, 1]);
-/// assert_eq!(numeric_features.shape(), &[4177, 7]);
-/// assert_eq!(targets.len(), 4177);
+/// assert_eq!(table.n_samples(), 4177);
+/// assert_eq!(table.n_columns(), 9);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((_strings, numerics, targets)) = dataset.get_data_mut() {
-///     numerics[[0, 0]] = 0.5;
-///     targets[0] = 10.0;
+/// // Ask for the numeric target column when you want it.
+/// let rings = table.column(Abalone::TARGET).unwrap().as_numeric().unwrap();
+/// assert_eq!(rings.len(), 4177);
+///
+/// // Reach the one string column by name.
+/// let sex = table.column("sex").unwrap().as_string().unwrap();
+/// assert_eq!(sex.len(), 4177);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("length") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.5;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_strings, owned_numerics, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[4177, 1]);
-/// assert_eq!(owned_numerics.shape(), &[4177, 7]);
-/// assert_eq!(owned_targets.len(), 4177);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4177);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_strings, owned_numerics, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[4177, 1]);
-/// assert_eq!(owned_numerics.shape(), &[4177, 7]);
-/// assert_eq!(owned_targets.len(), 4177);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4177);
 /// ```
 #[derive(Debug)]
 pub struct Abalone {
-    dataset: Dataset<AbaloneData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Abalone {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_COLUMNS - 1] = [
+        "sex",
+        "length",
+        "diameter",
+        "height",
+        "whole_weight",
+        "shucked_weight",
+        "viscera_weight",
+        "shell_weight",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "rings";
+
     /// Create a new Abalone instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -196,7 +210,7 @@ impl Abalone {
     }
 
     /// Get and parse the Abalone dataset.
-    fn load_data(dir: &str) -> Result<AbaloneData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // The source file is `abalone.data`. The loader caches it under
         // `abalone.csv`.
         let file_path = acquire_dataset(
@@ -219,8 +233,14 @@ impl Abalone {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut string_features: Vec<String> = Vec::with_capacity(N_SAMPLES * N_STRING_FEATURES);
-        let mut numeric_features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_NUMERIC_FEATURES);
+        let mut string_features: Vec<Vec<String>> = STRING_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
+        let mut numeric_features: Vec<Vec<f64>> = NUMERIC_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut targets: Vec<f64> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -243,7 +263,7 @@ impl Abalone {
             }
 
             // Categorical features (only `sex`), kept verbatim.
-            for &(col, name) in STRING_COLUMNS.iter() {
+            for (values, &(col, name)) in string_features.iter_mut().zip(STRING_COLUMNS.iter()) {
                 let value = &record[col];
                 if value.is_empty() {
                     return Err(DatasetError::invalid_value(
@@ -253,15 +273,15 @@ impl Abalone {
                         line_num,
                     ));
                 }
-                string_features.push(value.to_string());
+                values.push(value.to_string());
             }
 
             // Numeric features.
-            for &(col, name) in NUMERIC_COLUMNS.iter() {
+            for (values, &(col, name)) in numeric_features.iter_mut().zip(NUMERIC_COLUMNS.iter()) {
                 let value: f64 = record[col].parse().map_err(|e| {
                     DatasetError::parse_failed(ABALONE_DATASET_NAME, name, line_num, e)
                 })?;
-                numeric_features.push(value);
+                values.push(value);
             }
 
             // Regression target (`rings`).
@@ -271,38 +291,38 @@ impl Abalone {
             targets.push(target);
         }
 
-        let n_samples = targets.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(ABALONE_DATASET_NAME));
+        // The columns follow the source order: `sex`, the 7 measurements, then
+        // `rings`.
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        for (values, &(_col, name)) in string_features.into_iter().zip(STRING_COLUMNS.iter()) {
+            columns.push(Column::new(
+                name,
+                ColumnData::String(Array1::from_vec(values)),
+            ));
         }
+        for (values, &(_col, name)) in numeric_features.into_iter().zip(NUMERIC_COLUMNS.iter()) {
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
+        }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::Numeric(Array1::from_vec(targets)),
+        ));
 
-        let string_array = Array2::from_shape_vec((n_samples, N_STRING_FEATURES), string_features)
-            .map_err(|e| {
-                DatasetError::array_shape_error(ABALONE_DATASET_NAME, "string_features", e)
-            })?;
-
-        let numeric_array =
-            Array2::from_shape_vec((n_samples, N_NUMERIC_FEATURES), numeric_features).map_err(
-                |e| DatasetError::array_shape_error(ABALONE_DATASET_NAME, "numeric_features", e),
-            )?;
-
-        let targets_array = Array1::from_vec(targets);
-
-        Ok((string_array, numeric_array, targets_array))
+        Table::new(ABALONE_DATASET_NAME, columns)
     }
 
-    /// Get a reference to both string and numeric feature matrices.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to the string feature matrix with shape
-    ///   `(4177, 1)` containing `sex` (`M`, `F`, or `I`).
-    /// - `&Array2<f64>` - Reference to the numeric feature matrix with shape
-    ///   `(4177, 7)` containing `length`, `diameter`, `height`, `whole_weight`,
-    ///   `shucked_weight`, `viscera_weight`, `shell_weight`.
+    /// - `&Table` - reference to the cached table of 4,177 samples and 9
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -310,118 +330,53 @@ impl Abalone {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4,177 samples)
-    pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load()?;
-        Ok((&data.0, &data.1))
-    }
-
-    /// Get a reference to the regression target vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<f64>` - Reference to the target vector with shape `(4177,)`
-    ///   containing `rings` (the age in years is `rings + 1.5`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4,177 samples)
-    pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get string features, numeric features and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&AbaloneData` - reference to the cached `(string features, numeric
-    ///   features, targets)` tuple: string feature matrix `(4177, 1)`, numeric
-    ///   feature matrix `(4177, 7)`, and target vector `(4177,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (4,177 samples)
-    pub fn data(&self) -> Result<&AbaloneData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and targets as references
-    /// **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Abalone::data`], which loads the dataset on first call, this method
-    /// never runs the loader. If the data has not loaded yet, it returns
-    /// `None` instead of downloading and parsing it. Use this method to get data
-    /// only when it is already cached. This avoids the download and parse cost
-    /// otherwise.
+    /// Unlike [`Abalone::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&AbaloneData)` - reference to the cached `(string features, numeric
-    ///   features, targets)` tuple (`(4177, 1)`, `(4177, 7)`, `(4177,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&AbaloneData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to string features, numeric features, and targets
-    /// for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. encode `sex`,
-    /// normalize measurements), with no `to_owned()` clone and without removing
-    /// them from the cache. The changes persist, so later [`Abalone::features`],
-    /// [`Abalone::data`], or [`Abalone::get_data`] calls see them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Abalone::data`] or
+    /// [`Abalone::get_data`] see them.
     ///
-    /// Like [`Abalone::get_data`], this method does **not** trigger loading. It
-    /// returns `None` if the dataset is not loaded. If you need the data to be
-    /// present, call a loading accessor first (e.g. [`Abalone::data`]).
+    /// Like [`Abalone::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut AbaloneData)` - mutable reference to the cached `(string
-    ///   features, numeric features, targets)` tuple (`(4177, 1)`, `(4177, 7)`,
-    ///   `(4177,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut AbaloneData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** string features, numeric features,
-    /// and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Abalone::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly. There is no `to_owned()` clone. This
-    /// method loads the dataset on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`. You cannot use the instance afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Abalone::take_data`] instead. It takes `&mut self` and leaves the instance
-    /// reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Abalone::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
-    ///   `(4177, 1)`, owned numeric feature matrix `(4177, 7)`, and owned target
-    ///   vector `(4177,)`.
+    /// - `Table` - the owned table of 4,177 samples and 9 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<AbaloneData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -429,28 +384,20 @@ impl Abalone {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** string features, numeric features, and targets out of the
-    /// dataset. This leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Abalone::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Instead of consuming the instance, it takes `&mut self` and moves the
-    /// cached data out. This resets the instance to its unloaded state, so the next
-    /// accessor call (e.g. [`Abalone::features`] or [`Abalone::data`]) loads the
-    /// dataset again.
-    ///
-    /// If you are done with the instance, use [`Abalone::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
-    ///   `(4177, 1)`, owned numeric feature matrix `(4177, 7)`, and owned target
-    ///   vector `(4177,)`.
+    /// - `Table` - the owned table of 4,177 samples and 9 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<AbaloneData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -459,4 +406,4 @@ impl Abalone {
     }
 }
 
-impl_ml_dataset!(Abalone, AbaloneData, "abalone");
+impl_ml_dataset!(Abalone, "abalone");

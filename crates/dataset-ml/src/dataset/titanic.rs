@@ -4,28 +4,45 @@
 //! Learning from Disaster` competition. The task is to predict survival on
 //! the RMS Titanic.
 //!
-//! **Features (11, mixed):**
-//! - String features: `Name`, `Sex`, `Ticket`, `Cabin`, `Embarked`
-//! - Numeric features: `PassengerId`, `Pclass`, `Age`, `SibSp`, `Parch`, `Fare`
+//! **Columns (12):**
 //!
-//! **Target:** `Survived` - binary label (`0` = died, `1` = survived)
+//! | Name          | Type      | Description                           |
+//! |---------------|-----------|----------------------------------------|
+//! | `PassengerId` | `Numeric` | passenger record number               |
+//! | `Survived`    | `Numeric` | `0.0` for died, `1.0` for survived    |
+//! | `Pclass`      | `Numeric` | ticket class: `1`, `2`, or `3`        |
+//! | `Name`        | `String`  | passenger name                        |
+//! | `Sex`         | `String`  | `male` or `female`                    |
+//! | `Age`         | `Numeric` | age in years                          |
+//! | `SibSp`       | `Numeric` | count of siblings and spouses aboard  |
+//! | `Parch`       | `Numeric` | count of parents and children aboard  |
+//! | `Ticket`      | `String`  | ticket number                         |
+//! | `Fare`        | `Numeric` | passenger fare                        |
+//! | `Cabin`       | `String`  | cabin number                          |
+//! | `Embarked`    | `String`  | port of embarkation: `C`, `Q`, or `S` |
+//!
+//! The source designates ten columns as the inputs
+//! ([`Titanic::FEATURE_NAMES`](crate::Titanic::FEATURE_NAMES)) and `Survived` as the label
+//! ([`Titanic::TARGET`](crate::Titanic::TARGET)).
 //!
 //! **Samples:** 891
 //! **Application:** Binary classification / survival prediction
+//!
+//! **Missing values:** a missing numeric field becomes `NaN`. A missing text
+//! field becomes an empty string. The source omits `Age`, `Cabin`, and
+//! `Embarked` values.
 //!
 //! **Source:** Kaggle competition
 //! <https://www.kaggle.com/c/titanic/data>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use serde::Deserialize;
 use std::fs::File;
-
-/// Type alias for Titanic dataset: (string features, numeric features, labels)
-type TitanicData = (Array2<String>, Array2<f64>, Array1<f64>);
 
 /// The URL for the Titanic dataset.
 const TITANIC_DATA_URL: &str =
@@ -76,41 +93,30 @@ struct TitanicRecord {
 /// the 2224 passengers and crew died. Luck played some role in survival, but
 /// some groups of people were more likely to survive than others.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The feature matrices have two parts: a `(891, 5)` string matrix and a
-/// `(891, 6)` numeric `f64` matrix. Numeric entries are `NaN` when missing in
-/// the source.
+/// | Name          | Type      | Description                           |
+/// |---------------|-----------|----------------------------------------|
+/// | `PassengerId` | `Numeric` | passenger record number               |
+/// | `Survived`    | `Numeric` | `0.0` for died, `1.0` for survived    |
+/// | `Pclass`      | `Numeric` | ticket class: `1`, `2`, or `3`        |
+/// | `Name`        | `String`  | passenger name                        |
+/// | `Sex`         | `String`  | `male` or `female`                    |
+/// | `Age`         | `Numeric` | age in years                          |
+/// | `SibSp`       | `Numeric` | count of siblings and spouses aboard  |
+/// | `Parch`       | `Numeric` | count of parents and children aboard  |
+/// | `Ticket`      | `String`  | ticket number                         |
+/// | `Fare`        | `Numeric` | passenger fare                        |
+/// | `Cabin`       | `String`  | cabin number                          |
+/// | `Embarked`    | `String`  | port of embarkation: `C`, `Q`, or `S` |
 ///
-/// String features (`Array2<String>`), by 0-based column:
+/// The source designates ten columns as the inputs
+/// ([`Titanic::FEATURE_NAMES`]) and `Survived` as the label
+/// ([`Titanic::TARGET`]).
 ///
-/// | Columns | Attributes | Unit |
-/// |---------|------------|------|
-/// | `0`     | `Name`     |      |
-/// | `1`     | `Sex`      |      |
-/// | `2`     | `Ticket`   |      |
-/// | `3`     | `Cabin`    |      |
-/// | `4`     | `Embarked` |      |
-///
-/// Numeric features (`Array2<f64>`), by 0-based column:
-///
-/// | Columns | Attributes    | Unit  |
-/// |---------|---------------|-------|
-/// | `0`     | `PassengerId` |       |
-/// | `1`     | `Pclass`      |       |
-/// | `2`     | `Age`         | years |
-/// | `3`     | `SibSp`       |       |
-/// | `4`     | `Parch`       |       |
-/// | `5`     | `Fare`        |       |
-///
-/// # Labels
-///
-/// - `Survived` (shape `(891,)`): `0.0` (died), `1.0` (survived), or `NaN` if
-///   missing in the source
-///
-/// Missing values:
-/// - The loader parses missing numeric fields as `NaN`.
-/// - The loader parses missing string fields as empty strings.
+/// Missing values: a missing numeric field becomes `NaN`. A missing text field
+/// becomes an empty string. The source omits `Age`, `Cabin`, and `Embarked`
+/// values.
 ///
 /// See more information at <https://www.kaggle.com/c/titanic/data>.
 ///
@@ -129,48 +135,69 @@ struct TitanicRecord {
 /// ```no_run
 /// use dataset_ml::Titanic;
 ///
-/// let download_dir = "./titanic"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./titanic";
 ///
 /// let mut dataset = Titanic::new(download_dir);
-/// let (string_features, numeric_features) = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
-/// assert_eq!(string_features.shape(), &[891, 5]);
-/// assert_eq!(numeric_features.shape(), &[891, 6]);
-/// assert_eq!(labels.len(), 891);
+/// assert_eq!(table.n_samples(), 891);
+/// assert_eq!(table.n_columns(), 12);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
-///     numerics[[0, 0]] = 1.0;
-///     labels[0] = 1.0;
+/// // Name the numeric feature columns you want in the matrix. `FEATURE_NAMES`
+/// // also holds text columns, so a numeric matrix call must name a subset.
+/// let numeric_features = table
+///     .numeric_matrix(&["Pclass", "Age", "SibSp", "Parch", "Fare"])
+///     .unwrap();
+/// assert_eq!(numeric_features.shape(), &[891, 5]);
+///
+/// // Reach a text column by name.
+/// let sex = table.column("Sex").unwrap().as_string().unwrap();
+/// assert_eq!(sex.len(), 891);
+///
+/// // Reach the label column by name.
+/// let survived = table.column(Titanic::TARGET).unwrap().as_numeric().unwrap();
+/// assert_eq!(survived.len(), 891);
+///
+/// // Reach one column by name.
+/// let age = table.column("Age").unwrap().as_numeric().unwrap();
+/// assert_eq!(age.len(), 891);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("Age") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 30.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[891, 5]);
-/// assert_eq!(owned_numerics.shape(), &[891, 6]);
-/// assert_eq!(owned_labels.len(), 891);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 891);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[891, 5]);
-/// assert_eq!(owned_numerics.shape(), &[891, 6]);
-/// assert_eq!(owned_labels.len(), 891);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 891);
 /// ```
 #[derive(Debug)]
 pub struct Titanic {
-    dataset: Dataset<TitanicData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Titanic {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; 10] = [
+        "Pclass", "Name", "Sex", "Age", "SibSp", "Parch", "Ticket", "Fare", "Cabin", "Embarked",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "Survived";
+
     /// Create a new Titanic instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -190,7 +217,7 @@ impl Titanic {
     }
 
     /// Get and parse the Titanic dataset.
-    fn load_data(dir: &str) -> Result<TitanicData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             TITANIC_FILENAME,
@@ -205,94 +232,101 @@ impl Titanic {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut string_features = Vec::new();
-        let mut numeric_features = Vec::new();
-        let mut labels = Vec::new();
+        let mut passenger_id = Vec::new();
+        let mut survived = Vec::new();
+        let mut pclass = Vec::new();
+        let mut name = Vec::new();
+        let mut sex = Vec::new();
+        let mut age = Vec::new();
+        let mut sib_sp = Vec::new();
+        let mut parch = Vec::new();
+        let mut ticket = Vec::new();
+        let mut fare = Vec::new();
+        let mut cabin = Vec::new();
+        let mut embarked = Vec::new();
 
         for result in rdr.deserialize::<TitanicRecord>().skip(1) {
-            let TitanicRecord {
-                passenger_id,
-                survived,
-                pclass,
-                name,
-                sex,
-                age,
-                sib_sp,
-                parch,
-                ticket,
-                fare,
-                cabin,
-                embarked,
-            } = result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
+            let record =
+                result.map_err(|e| DatasetError::csv_read_error(TITANIC_DATASET_NAME, e))?;
 
             // Missing numeric fields (`None`) become `NaN`.
-            labels.push(survived.unwrap_or(f64::NAN));
-
-            // Numeric features, in column order:
-            // PassengerId, Pclass, Age, SibSp, Parch, Fare.
-            numeric_features.extend_from_slice(&[
-                passenger_id.unwrap_or(f64::NAN),
-                pclass.unwrap_or(f64::NAN),
-                age.unwrap_or(f64::NAN),
-                sib_sp.unwrap_or(f64::NAN),
-                parch.unwrap_or(f64::NAN),
-                fare.unwrap_or(f64::NAN),
-            ]);
-
-            // String features, in column order: Name, Sex, Ticket, Cabin, Embarked.
-            string_features.push(name);
-            string_features.push(sex);
-            string_features.push(ticket);
-            string_features.push(cabin);
-            string_features.push(embarked);
+            passenger_id.push(record.passenger_id.unwrap_or(f64::NAN));
+            survived.push(record.survived.unwrap_or(f64::NAN));
+            pclass.push(record.pclass.unwrap_or(f64::NAN));
+            name.push(record.name);
+            sex.push(record.sex);
+            age.push(record.age.unwrap_or(f64::NAN));
+            sib_sp.push(record.sib_sp.unwrap_or(f64::NAN));
+            parch.push(record.parch.unwrap_or(f64::NAN));
+            ticket.push(record.ticket);
+            fare.push(record.fare.unwrap_or(f64::NAN));
+            cabin.push(record.cabin);
+            embarked.push(record.embarked);
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(TITANIC_DATASET_NAME));
-        }
-
-        // Titanic has a fixed schema of 5 string and 6 numeric features per sample.
-        let string_array =
-            Array2::from_shape_vec((n_samples, 5), string_features).map_err(|e| {
-                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "string_features", e)
-            })?;
-
-        let numeric_array =
-            Array2::from_shape_vec((n_samples, 6), numeric_features).map_err(|e| {
-                DatasetError::array_shape_error(TITANIC_DATASET_NAME, "numeric_features", e)
-            })?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((string_array, numeric_array, labels_array))
+        Table::new(
+            TITANIC_DATASET_NAME,
+            vec![
+                Column::new(
+                    "PassengerId",
+                    ColumnData::Numeric(Array1::from_vec(passenger_id)),
+                ),
+                Column::new(
+                    Self::TARGET,
+                    ColumnData::Numeric(Array1::from_vec(survived)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[0],
+                    ColumnData::Numeric(Array1::from_vec(pclass)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[1],
+                    ColumnData::String(Array1::from_vec(name)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[2],
+                    ColumnData::String(Array1::from_vec(sex)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[3],
+                    ColumnData::Numeric(Array1::from_vec(age)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[4],
+                    ColumnData::Numeric(Array1::from_vec(sib_sp)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[5],
+                    ColumnData::Numeric(Array1::from_vec(parch)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[6],
+                    ColumnData::String(Array1::from_vec(ticket)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[7],
+                    ColumnData::Numeric(Array1::from_vec(fare)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[8],
+                    ColumnData::String(Array1::from_vec(cabin)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[9],
+                    ColumnData::String(Array1::from_vec(embarked)),
+                ),
+            ],
+        )
     }
 
-    /// Get a reference to both string and numeric feature matrices.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to string feature matrix with shape `(891, 5)` containing:
-    ///     - `Name`
-    ///     - `Sex`
-    ///     - `Ticket`
-    ///     - `Cabin`
-    ///     - `Embarked`
-    ///
-    ///   (empty string if missing in source)
-    ///
-    /// - `&Array2<f64>` - Reference to numeric feature matrix with shape `(891, 6)` containing:
-    ///     - `PassengerId`
-    ///     - `Pclass`
-    ///     - `Age`
-    ///     - `SibSp`
-    ///     - `Parch`
-    ///     - `Fare`
-    ///
-    ///   (`NaN` if missing in source)
+    /// - `&Table` - reference to the cached table of 891 samples and 12 columns.
     ///
     /// # Errors
     ///
@@ -300,123 +334,53 @@ impl Titanic {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (891 samples)
-    pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load()?;
-        Ok((&data.0, &data.1))
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<f64>` - Reference to label vector with shape `(891,)`
-    ///   containing `Survived` values (`0.0` or `1.0`, `NaN` if missing in
-    ///   source)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (891 samples)
-    pub fn labels(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get string features, numeric features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&TitanicData` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple. The string feature matrix has shape
-    ///   `(891, 5)` (Name, Sex, Ticket, Cabin, Embarked). The numeric feature
-    ///   matrix has shape `(891, 6)` (PassengerId, Pclass, Age, SibSp, Parch,
-    ///   Fare). The label vector has shape `(891,)` (Survived).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (891 samples)
-    pub fn data(&self) -> Result<&TitanicData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and labels as references
-    /// **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Titanic::data`], which loads the dataset on first call, this never
-    /// runs the loader. If the data has not loaded yet, it returns `None`
-    /// instead of downloading and parsing.
-    ///
-    /// Use this method when you want the data only if it is already cached. This
-    /// avoids the download and parse cost when the data is not cached.
+    /// Unlike [`Titanic::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&TitanicData)` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple (`(891, 5)`, `(891, 6)`, `(891,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&TitanicData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to string features, numeric features, and labels
-    /// for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize numeric
-    /// features, replace missing values). It needs no `to_owned()` clone, and
-    /// the arrays stay in the cache. The changes persist, so later calls to
-    /// [`Titanic::features`], [`Titanic::data`], or [`Titanic::get_data`] see
-    /// them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Titanic::data`] or
+    /// [`Titanic::get_data`] see them.
     ///
-    /// Like [`Titanic::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not loaded. If you need to make sure the
-    /// data is present, call a loading accessor first (e.g. [`Titanic::data`]).
+    /// Like [`Titanic::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut TitanicData)` - mutable reference to the cached `(string
-    ///   features, numeric features, labels)` tuple (`(891, 5)`, `(891, 6)`,
-    ///   `(891,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut TitanicData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** string features, numeric features,
-    /// and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Titanic::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset loads on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`, so you cannot use the instance afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Titanic::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Titanic::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
-    ///   `(891, 5)`, owned numeric feature matrix `(891, 6)`, and owned label vector
-    ///   `(891,)`.
+    /// - `Table` - the owned table of 891 samples and 12 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<TitanicData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -424,28 +388,20 @@ impl Titanic {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset. This leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Titanic::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call (e.g. [`Titanic::features`] or [`Titanic::data`]) loads
-    /// the dataset again.
-    ///
-    /// If you are done with the instance, use [`Titanic::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<f64>)` - owned string feature matrix
-    ///   `(891, 5)`, owned numeric feature matrix `(891, 6)`, and owned label vector
-    ///   `(891,)`.
+    /// - `Table` - the owned table of 891 samples and 12 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<TitanicData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -454,4 +410,4 @@ impl Titanic {
     }
 }
 
-impl_ml_dataset!(Titanic, TitanicData, "titanic");
+impl_ml_dataset!(Titanic, "titanic");

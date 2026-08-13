@@ -14,8 +14,8 @@
 
 - Downloads the source file on first access with `ureq`, and retries transient network failures.
 - Verifies a pinned SHA-256 hash to detect corruption or upstream changes.
-- Parses the source into [`ndarray`](https://crates.io/crates/ndarray) `Array1` / `Array2`.
-- Caches the parsed result in memory using `dataset_core::Dataset<T, E>`. Later accesses return a `&` reference with zero I/O.
+- Parses the source into a `Table`: one named, typed column per source column.
+- Caches the parsed `Table` in memory using `dataset_core::Dataset<T, E>`. Later accesses return a `&` reference with zero I/O.
 
 Each module is also a complete reference implementation of the pattern for wrapping `Dataset<T, E>` for a concrete data source.
 
@@ -38,7 +38,7 @@ dataset-ml = "0.4"
 | `dataset`       | yes     | The `dataset` module and its loaders, the crate-root re-export of every loader struct            |
 | `preprocessing` | yes     | The `preprocessing` module: seeded splits, feature scaling, one-hot encoding, and label encoding |
 
-The `traits` module is always available, whichever features you pick. It holds `MlDataset` and `NumSamples`. You can write a loader of your own against the same interface with both features off.
+The `table` and `traits` modules are always available, whichever features you pick. They hold `Table` and `MlDataset`. You can write a loader of your own against the same interface with both features off.
 
 To take only what you need, turn the default off:
 
@@ -62,29 +62,72 @@ fn main() {
     let iris = Iris::new("./data");
 
     // Lazy: downloads and parses on first access, then cached.
-    let features = iris.features().unwrap();  // &Array2<f64>
-    let labels   = iris.labels().unwrap();    // &Array1<&'static str>
+    let table = iris.data().unwrap();
 
-    // Or get both at once:
-    let (features, labels) = iris.data().unwrap();
+    assert_eq!(table.n_samples(), 150);
+    assert_eq!(table.n_columns(), 5);
 
+    // Name the columns you want in the matrix, when you want it.
+    let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
     assert_eq!(features.shape(), &[150, 4]);
-    assert_eq!(labels.len(), 150);
 
-    // Call .to_owned() when you need a mutable copy.
-    let mut owned = features.to_owned();
-    owned[[0, 0]] = 5.5;
+    // Or reach one column by name, whatever its position.
+    let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
+    assert_eq!(species[0], "setosa");
 }
 ```
 
-Each dataset struct follows the same pattern:
+Every dataset struct exposes the same six methods, whatever it holds:
 
-- `new(storage_dir)`: create instance (no I/O)
-- `features()`: reference to feature matrix
-- `labels()` / `targets()`: reference to label/target vector
-- `data()`: all references at once
+- `new(storage_dir)`: create instance (no I/O). Some datasets add `new_test` / `new_all` / `new_full` for their subsets
+- `data()`: reference to the parsed `Table`
+- `get_data()` / `get_data_mut()`: borrow the cached `Table` **without** loading
+- `into_data()` / `take_data()`: move the owned `Table` out, with no clone
 
-There are some exceptional cases, which will be noted in their documentation.
+## The `Table`
+
+Every loader returns a `Table`: one `Column` per source column, each with its own name and its values
+in the type the source uses.
+
+`Table::new` checks its columns, so a loader cannot hand you misaligned data:
+
+- the table holds at least one column
+- every column holds the same number of samples
+- no two columns share a name
+
+| `ColumnData` | What one column holds                                                  |
+|--------------|------------------------------------------------------------------------|
+| `Numeric`    | one `f64` per sample. A missing value is `NaN`                         |
+| `Integer`    | one `i64` per sample                                                   |
+| `String`     | one `String` per sample, spelled as the source spells it               |
+| `Bytes`      | one fixed-width row of `u8` per sample, such as the pixels of an image |
+
+Each loader names its columns in associated constants. `FEATURE_NAMES` lists the columns the source designates as the model inputs, and `TARGET` names the label column. A source that designates more than one label column uses `TARGET_NAMES` in place of `TARGET`. A dataset without a label has neither constant. You reach every other column by its name.
+
+```rust
+use dataset_ml::Iris;
+
+fn main() {
+    let iris = Iris::new("./data");
+    let table = iris.data().unwrap();
+
+    // Every column, with its name and its type.
+    for column in table.columns() {
+        println!("{} {}", column.name(), column.data().kind());
+    }
+
+    // Materialize a matrix only when you need one.
+    let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
+
+    // The matrix follows the order you name, which is not always the source order.
+    let petals = table.numeric_matrix(&["petal_width", "petal_length"]).unwrap();
+
+    // Strings stay as the source spells them. Encoding is your decision.
+    let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
+}
+```
+
+A `String` column has no numeric reading, so `numeric_matrix` returns an error if you name one. `numeric_matrix` allocates on every call, so call it once and keep the result.
 
 ## The `MlDataset` trait
 
@@ -120,20 +163,23 @@ The trait's names deliberately differ from the inherent `data()` / `get_data()` 
 `dataset_ml::preprocessing` turns what the loaders return into what a model consumes. Everything is deterministic given a seed and needs no extra crates.
 
 ```rust
-use dataset_ml::preprocessing::{stratified_split, standardize, label_encode};
+use dataset_ml::preprocessing::{label_encode, standardize, stratified_split};
 use dataset_ml::Iris;
 use ndarray::Axis;
 
 fn main() {
     let iris = Iris::new("./data");
-    let (features, labels) = iris.data().unwrap();
+    let table = iris.data().unwrap();
+
+    let features = table.numeric_matrix(&Iris::FEATURE_NAMES).unwrap();
+    let species = table.column(Iris::TARGET).unwrap().as_string().unwrap();
 
     // Split with each species proportionally represented on both sides.
-    let (train, test) = stratified_split(labels.as_slice().unwrap(), 0.2, 42).unwrap();
+    let (train, test) = stratified_split(species.as_slice().unwrap(), 0.2, 42).unwrap();
 
     // Fit the scaler on the training rows only, then replay it on the test rows.
     let (train_x, scaler) = standardize(&features.select(Axis(0), &train)).unwrap();
-    let (codes, classes) = label_encode(&labels.select(Axis(0), &train)).unwrap();
+    let (codes, classes) = label_encode(&species.select(Axis(0), &train)).unwrap();
 
     assert_eq!(train_x.nrows(), 120);
     assert_eq!(classes.len(), 3);
@@ -151,13 +197,14 @@ fn main() {
 | `one_hot_encode(categorical, names)`        | Expand the categorical `Array2<String>` into indicator columns                 |
 | `label_encode(labels)` / `class_counts`     | Map labels to `0..n_classes` codes and count samples per class                 |
 
-The splitting functions return **row indices**, not arrays, because a sample spans two or three parallel arrays. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. As a result, the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing. It does not skew the column's statistics.
+The splitting functions return **row indices**, not arrays, because a sample spans every column of the table. One index list keeps every sample aligned across them. To get arrays, use ndarray's `select(Axis(0), &indices)`. The scalers compute their statistics over the **finite** values of each column. As a result, the `NaN` that marks a missing value in `Titanic`, `PalmerPenguins`, and `HeartDisease` stays missing. It does not skew the column's statistics.
 
 ## Performance Considerations
 
 - **First access**: downloads the file (if not on disk), validates SHA-256, parses, caches in memory.
 - **Later accesses**: return a reference to the cached data, with zero allocation and zero I/O.
-- **`.to_owned()`**: clones cached data into a new owned value. Use it only when you need to mutate the data.
+- **`numeric_matrix()`**: allocates a new matrix out of the columns you name. Call it once and keep the result.
+- **`take_data()` / `into_data()`**: move the owned `Table` out with no clone. `get_data_mut()` edits it in place.
 - **Offline**: after the initial download, datasets stay on disk. Later runs need no network access.
 
 ## License

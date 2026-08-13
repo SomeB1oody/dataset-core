@@ -3,12 +3,29 @@
 //! One record per day of the years 2011 and 2012, with the rental counts of the
 //! Capital Bikeshare system in Washington, D.C.
 //!
-//! **Dates:** `dteday`, from `2011-01-01` to `2012-12-31`, as `YYYY-MM-DD`.
+//! **Columns (15):**
 //!
-//! **Features (11, all numeric):** `season`, `yr`, `mnth`, `holiday`,
-//! `weekday`, `workingday`, `weathersit`, `temp`, `atemp`, `hum`, `windspeed`
+//! | Name         | Type      | Description                     |
+//! |--------------|-----------|----------------------------------|
+//! | `dteday`     | `String`  | calendar date as `YYYY-MM-DD`, from `2011-01-01` to `2012-12-31` |
+//! | `season`     | `Numeric` | `1` = winter, `2` = spring, `3` = summer, `4` = fall |
+//! | `yr`         | `Numeric` | `0` = 2011, `1` = 2012          |
+//! | `mnth`       | `Numeric` | month, `1` to `12`              |
+//! | `holiday`    | `Numeric` | `1` on a holiday, else `0`      |
+//! | `weekday`    | `Numeric` | `0` = Sunday to `6` = Saturday  |
+//! | `workingday` | `Numeric` | `1` on a day that is neither a weekend nor a holiday, else `0` |
+//! | `weathersit` | `Numeric` | `1` = clear, `2` = mist, `3` = light rain or snow |
+//! | `temp`       | `Numeric` | temperature in Celsius, divided by 41 |
+//! | `atemp`      | `Numeric` | apparent temperature in Celsius, divided by 50 |
+//! | `hum`        | `Numeric` | humidity, divided by 100        |
+//! | `windspeed`  | `Numeric` | wind speed, divided by 67       |
+//! | `casual`     | `Numeric` | rentals by users without a membership |
+//! | `registered` | `Numeric` | rentals by members              |
+//! | `cnt`        | `Numeric` | total rentals, the sum of `casual` and `registered` |
 //!
-//! **Targets (3):** `casual`, `registered`, `cnt`
+//! The source designates the eleven weather and calendar columns as the
+//! inputs ([`BikeSharingDaily::FEATURE_NAMES`](crate::BikeSharingDaily::FEATURE_NAMES)) and `casual`, `registered`,
+//! and `cnt` as the labels ([`BikeSharingDaily::TARGET_NAMES`](crate::BikeSharingDaily::TARGET_NAMES)).
 //!
 //! **Samples:** 731
 //! **Application:** Regression / daily demand forecasting
@@ -16,10 +33,10 @@
 //! **Source:** UCI Machine Learning Repository
 //! <https://doi.org/10.24432/C5W894>
 
-use super::{BikeSharingData, acquire_bike_csv, parse_bike_data};
+use super::{acquire_bike_csv, parse_bike_data};
+use crate::table::Table;
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError};
-use ndarray::{Array1, Array2};
 
 /// The name of the file inside the archive that this loader uses.
 const BIKE_DAILY_SOURCE_FILENAME: &str = "day.csv";
@@ -39,6 +56,9 @@ const N_SAMPLES: usize = 731;
 /// Number of features per sample.
 const N_FEATURES: usize = 11;
 
+/// Number of target columns.
+const N_TARGETS: usize = 3;
+
 /// A struct that represents the daily Bike Sharing dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the
@@ -55,34 +75,40 @@ const N_FEATURES: usize = 11;
 /// is to predict the daily rental count. Its two full years of consecutive days
 /// suit a split by time.
 ///
+/// # Columns
+///
+/// | Name         | Type      | Description                     |
+/// |--------------|-----------|----------------------------------|
+/// | `dteday`     | `String`  | calendar date as `YYYY-MM-DD`, from `2011-01-01` to `2012-12-31` |
+/// | `season`     | `Numeric` | `1` = winter, `2` = spring, `3` = summer, `4` = fall |
+/// | `yr`         | `Numeric` | `0` = 2011, `1` = 2012          |
+/// | `mnth`       | `Numeric` | month, `1` to `12`              |
+/// | `holiday`    | `Numeric` | `1` on a holiday, else `0`      |
+/// | `weekday`    | `Numeric` | `0` = Sunday to `6` = Saturday  |
+/// | `workingday` | `Numeric` | `1` on a day that is neither a weekend nor a holiday, else `0` |
+/// | `weathersit` | `Numeric` | `1` = clear, `2` = mist, `3` = light rain or snow |
+/// | `temp`       | `Numeric` | temperature in Celsius, divided by 41 |
+/// | `atemp`      | `Numeric` | apparent temperature in Celsius, divided by 50 |
+/// | `hum`        | `Numeric` | humidity, divided by 100        |
+/// | `windspeed`  | `Numeric` | wind speed, divided by 67       |
+/// | `casual`     | `Numeric` | rentals by users without a membership |
+/// | `registered` | `Numeric` | rentals by members              |
+/// | `cnt`        | `Numeric` | total rentals, the sum of `casual` and `registered` |
+///
+/// The source designates the eleven weather and calendar columns as the
+/// inputs ([`BikeSharingDaily::FEATURE_NAMES`]) and `casual`, `registered`,
+/// and `cnt` as the labels ([`BikeSharingDaily::TARGET_NAMES`]).
+///
 /// # Dates
 ///
-/// `dteday` (shape `(731,)`). The `Array1<String>` holds the calendar date of
-/// each record as `YYYY-MM-DD`, from `2011-01-01` to `2012-12-31`. The subset
-/// covers all 731 days of the two years, in chronological order and with no
-/// gaps. Each date appears once.
+/// The subset covers all 731 days of the two years, in chronological order and
+/// with no gaps. Each `dteday` value appears once.
 ///
-/// # Feature columns
+/// # Features
 ///
-/// Features (`Array2<f64>`), by 0-based column:
-///
-/// | Column | Attribute    | Domain                                          |
-/// |--------|--------------|-------------------------------------------------|
-/// | `0`    | `season`     | `1` = winter, `2` = spring, `3` = summer, `4` = fall |
-/// | `1`    | `yr`         | `0` = 2011, `1` = 2012                          |
-/// | `2`    | `mnth`       | `1` to `12`                                     |
-/// | `3`    | `holiday`    | `1` on a holiday, else `0`                      |
-/// | `4`    | `weekday`    | `0` = Sunday to `6` = Saturday                  |
-/// | `5`    | `workingday` | `1` on a day that is neither a weekend nor a holiday, else `0` |
-/// | `6`    | `weathersit` | `1` = clear, `2` = mist, `3` = light rain or snow |
-/// | `7`    | `temp`       | temperature in Celsius, divided by 41           |
-/// | `8`    | `atemp`      | apparent temperature in Celsius, divided by 50  |
-/// | `9`    | `hum`        | humidity, divided by 100                        |
-/// | `10`   | `windspeed`  | wind speed, divided by 67                       |
-///
-/// The source normalizes the last four columns to `[0, 1]`. They hold the daily
-/// mean of the hourly readings. To read a value in its physical unit, multiply
-/// it by the divisor in the table.
+/// The source normalizes `temp`, `atemp`, `hum`, and `windspeed` to `[0, 1]`.
+/// They hold the daily mean of the hourly readings. To read a value in its
+/// physical unit, multiply it by the divisor in the table.
 ///
 /// The `weathersit` scale also defines a code `4` for heavy rain or snow. No
 /// day carries it. The hourly subset does hold that code, on 3 of its records.
@@ -100,19 +126,11 @@ const N_FEATURES: usize = 11;
 ///
 /// # Targets
 ///
-/// Targets (`Array2<f64>`), by 0-based column:
+/// The three target columns make a multi-output regression target, like
+/// [`Linnerud`](crate::Linnerud). Most published work predicts `cnt` alone. For
+/// that task, take the `cnt` column alone.
 ///
-/// | Column | Attribute    | Description                     |
-/// |--------|--------------|---------------------------------|
-/// | `0`    | `casual`     | rentals by users without a membership |
-/// | `1`    | `registered` | rentals by members              |
-/// | `2`    | `cnt`        | total rentals, the sum of `casual` and `registered` |
-///
-/// This is a multi-output regression target, like [`Linnerud`](crate::Linnerud).
-/// Most published work predicts `cnt` alone. For that task, take the third
-/// column with `targets.column(2)`, which copies nothing.
-///
-/// Column `2` is the exact sum of columns `0` and `1` in every record. Never
+/// `cnt` is the exact sum of `casual` and `registered` in every record. Never
 /// train on `casual` or `registered` as a feature for `cnt`. That leaks the
 /// answer.
 ///
@@ -143,49 +161,68 @@ const N_FEATURES: usize = 11;
 /// let download_dir = "./bike_sharing";
 ///
 /// let mut dataset = BikeSharingDaily::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
-/// let dates = dataset.dates().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // data() also returns all data at once
-/// let (dates, features, targets) = dataset.data().unwrap();
-/// assert_eq!(dates.len(), 731);
+/// assert_eq!(table.n_samples(), 731);
+/// assert_eq!(table.n_columns(), 15);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&BikeSharingDaily::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[731, 11]);
-/// assert_eq!(targets.shape(), &[731, 3]);
 ///
-/// // The total rental count `cnt` is the third target column.
-/// let cnt = targets.column(2);
+/// // Reach the total rental count by name.
+/// let cnt = table.column("cnt").unwrap().as_numeric().unwrap();
 /// assert_eq!(cnt.len(), 731);
 ///
-/// // `get_data_mut()` edits the arrays in place. This needs no clone and no
-/// // reload. The change stays cached. If you only need to change values,
-/// // prefer this method over `.to_owned()`.
-/// if let Some((_dates, features, _targets)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 2.0;
+/// // Reach the date column by name.
+/// let dates = table.column("dteday").unwrap().as_string().unwrap();
+/// assert_eq!(dates[0], "2011-01-01");
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("temp") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] *= 41.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_dates, owned_features, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_dates.len(), 731);
-/// assert_eq!(owned_features.shape(), &[731, 11]);
-/// assert_eq!(owned_targets.shape(), &[731, 3]);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 731);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_dates, owned_features, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_dates.len(), 731);
-/// assert_eq!(owned_features.shape(), &[731, 11]);
-/// assert_eq!(owned_targets.shape(), &[731, 3]);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 731);
 /// ```
 #[derive(Debug)]
 pub struct BikeSharingDaily {
-    dataset: Dataset<BikeSharingData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl BikeSharingDaily {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "season",
+        "yr",
+        "mnth",
+        "holiday",
+        "weekday",
+        "workingday",
+        "weathersit",
+        "temp",
+        "atemp",
+        "hum",
+        "windspeed",
+    ];
+
+    /// The columns the source designates as the labels, in source order.
+    pub const TARGET_NAMES: [&'static str; N_TARGETS] = ["casual", "registered", "cnt"];
+
     /// Create a new BikeSharingDaily instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -205,7 +242,7 @@ impl BikeSharingDaily {
     }
 
     /// Get and parse the daily Bike Sharing dataset.
-    fn load_data(dir: &str) -> Result<BikeSharingData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_bike_csv(
             dir,
             BIKE_DAILY_FILENAME,
@@ -214,28 +251,23 @@ impl BikeSharingDaily {
             BIKE_DAILY_SOURCE_FILENAME,
         )?;
 
-        parse_bike_data(BIKE_DAILY_DATASET_NAME, &file_path, N_FEATURES, N_SAMPLES)
+        parse_bike_data(
+            BIKE_DAILY_DATASET_NAME,
+            &file_path,
+            &Self::FEATURE_NAMES,
+            N_SAMPLES,
+        )
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(731, 11)` containing:
-    ///     - `season`
-    ///     - `yr`
-    ///     - `mnth`
-    ///     - `holiday`
-    ///     - `weekday`
-    ///     - `workingday`
-    ///     - `weathersit`
-    ///     - `temp`
-    ///     - `atemp`
-    ///     - `hum`
-    ///     - `windspeed`
+    /// - `&Table` - reference to the cached table of 731 samples and 15
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -243,141 +275,53 @@ impl BikeSharingDaily {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (731 samples)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get a reference to the target matrix.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array2<f64>` - Reference to target matrix with shape `(731, 3)` containing
-    ///   `casual`, `registered`, and `cnt`. Column `2` (`cnt`) is the sum of columns
-    ///   `0` and `1`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (731 samples)
-    pub fn targets(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get a reference to the date vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to date vector with shape `(731,)`. Each
-    ///   entry is the calendar date of one record, as `YYYY-MM-DD`. The dates run
-    ///   from `2011-01-01` to `2012-12-31` in chronological order, one per day,
-    ///   with no gaps.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (731 samples)
-    pub fn dates(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get dates, features, and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&BikeSharingData` - reference to the cached `(dates, features, targets)`
-    ///   tuple: date vector `(731,)`, feature matrix `(731, 11)`, and target matrix
-    ///   `(731, 3)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (731 samples)
-    pub fn data(&self) -> Result<&BikeSharingData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get dates, features, and targets as references **without** triggering
-    /// loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`BikeSharingDaily::data`], this method never runs the loader. If
     /// the data has not loaded yet, it returns `None` instead of downloading and
-    /// parsing it. Use this method when you want the data only if it is already
-    /// cached. This skips the cost of a download and a parse.
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&BikeSharingData)` - reference to the cached `(dates, features,
-    ///   targets)` tuple (`(731,)`, `(731, 11)`, `(731, 3)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&BikeSharingData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to dates, features, and targets for **in-place**
-    /// editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly. For example, you can scale
-    /// the normalized weather columns back to their physical units. This needs no
-    /// `.to_owned()` clone, and it does not remove the data from the cache. The
-    /// changes stay in the cache. Later calls to [`BikeSharingDaily::features`],
-    /// [`BikeSharingDaily::data`], or [`BikeSharingDaily::get_data`] see the
-    /// changes.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`BikeSharingDaily::data`] or
+    /// [`BikeSharingDaily::get_data`] see them.
     ///
-    /// Like [`BikeSharingDaily::get_data`], this does **not** trigger loading. It
-    /// returns `None` if the dataset has not loaded yet. If you need the data to be
-    /// present, call a loading accessor first, for example
-    /// [`BikeSharingDaily::data`].
+    /// Like [`BikeSharingDaily::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut BikeSharingData)` - mutable reference to the cached `(dates,
-    ///   features, targets)` tuple (`(731,)`, `(731, 11)`, `(731, 3)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut BikeSharingData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** dates, features, and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`BikeSharingDaily::data`], which borrows the cached data, this
-    /// moves the data out and returns owned arrays directly. It needs no
-    /// `to_owned()` clone. If the dataset has not loaded yet, the first access
-    /// loads it.
-    ///
-    /// This **consumes** `self`. After the call, you cannot use the instance again.
-    /// If you want owned data but need to keep using the instance, use
-    /// [`BikeSharingDaily::take_data`] instead. It takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`BikeSharingDaily::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array1<String>, Array2<f64>, Array2<f64>)` - owned date vector `(731,)`,
-    ///   owned feature matrix `(731, 11)`, and owned target matrix `(731, 3)`.
+    /// - `Table` - the owned table of 731 samples and 15 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<BikeSharingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -385,28 +329,20 @@ impl BikeSharingDaily {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** dates, features, and targets out of the dataset. This
-    /// leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`BikeSharingDaily::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state. The next accessor call, for example [`BikeSharingDaily::features`]
-    /// or [`BikeSharingDaily::data`], loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`BikeSharingDaily::into_data`]
-    /// instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array1<String>, Array2<f64>, Array2<f64>)` - owned date vector `(731,)`,
-    ///   owned feature matrix `(731, 11)`, and owned target matrix `(731, 3)`.
+    /// - `Table` - the owned table of 731 samples and 15 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<BikeSharingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -415,4 +351,4 @@ impl BikeSharingDaily {
     }
 }
 
-impl_ml_dataset!(BikeSharingDaily, BikeSharingData, "bike_sharing_daily");
+impl_ml_dataset!(BikeSharingDaily, "bike_sharing_daily");

@@ -6,7 +6,7 @@
 //! 1. Download from a URL.
 //! 2. Verify a SHA-256 hash.
 //! 3. Parse the source: CSV records, raw documents from an archive, or binary IDX images.
-//! 4. Expose typed accessors backed by [`ndarray`].
+//! 4. Return a [`Table`](crate::table::Table) of named, typed columns.
 //!
 //! The crate root also re-exports every loader struct, so
 //! [`dataset_ml::Iris`](crate::Iris) and
@@ -68,8 +68,9 @@ mod idx;
 /// Contains the Abalone dataset (UCI, Nash et al. 1994) for **regression**. It
 /// predicts an abalone's `rings` (age in years is `rings + 1.5`) from 8 mixed
 /// features: 1 categorical `sex` feature and 7 numeric physical measurements.
-/// Unlike the other mixed-type loaders (which are classification tasks), its
-/// target is an `Array1<f64>` regression target via `targets()`.
+/// `Abalone::FEATURE_NAMES` names the 8 inputs. Unlike the other mixed-type
+/// loaders, which are classification tasks, its target column
+/// `Abalone::TARGET` holds numeric values.
 pub mod abalone;
 
 /// Adult / Census Income dataset module.
@@ -96,8 +97,9 @@ pub mod bank_marketing;
 /// classification. It tells genuine banknote specimens from forged ones, using 4
 /// continuous statistics (variance, skewness, curtosis, entropy) of
 /// Wavelet-transformed banknote images. This is the crate's most compact
-/// pure-numeric benchmark. Its target is the source's raw `0`/`1` code as an
-/// `Array1<u8>`, because UCI does not document which code means which.
+/// pure-numeric benchmark. Its target column `BanknoteAuthentication::TARGET`
+/// holds the source's raw `0`/`1` code, because UCI does not document which code
+/// means which.
 pub mod banknote_authentication;
 
 /// Bike Sharing dataset module.
@@ -105,12 +107,13 @@ pub mod banknote_authentication;
 /// Contains the Bike Sharing dataset (UCI, Fanaee-T 2013) for **regression**:
 /// predicting the rental count of the Capital Bikeshare system in Washington,
 /// D.C., over 2011 and 2012 from the calendar attributes and the weather. Each
-/// sample carries its calendar date through a `dates()` accessor, and the rows
-/// stay in chronological order, so a split by time is possible. One ZIP archive holds
+/// sample carries its calendar date in the `dteday` column, and the rows stay in
+/// chronological order, so a split by time is possible. One ZIP archive holds
 /// two aggregations of the same rental log, and each one has its own loader:
 /// `bike_sharing_hourly::BikeSharingHourly` (17,379 records) and
 /// `bike_sharing_daily::BikeSharingDaily` (731 records). Both use the
-/// multi-output target `(casual, registered, cnt)`.
+/// multi-output target `(casual, registered, cnt)`, which each loader names in
+/// its own `TARGET_NAMES` constant.
 pub mod bike_sharing;
 
 /// Boston Housing dataset module.
@@ -131,8 +134,7 @@ pub mod breast_cancer;
 ///
 /// Contains the California Housing dataset for predicting median house values
 /// in California districts. Reproduces the eight derived features of
-/// scikit-learn's `fetch_california_housing`. A modern replacement for Boston
-/// Housing.
+/// scikit-learn's `fetch_california_housing`.
 pub mod california_housing;
 
 /// Car Evaluation dataset module.
@@ -140,16 +142,16 @@ pub mod california_housing;
 /// Contains the Car Evaluation dataset (UCI, Bohanec 1988) for multi-class
 /// classification. It predicts a car's overall acceptability (`unacc`, `acc`,
 /// `good`, `vgood`) from 6 categorical price and technical attributes. Like
-/// [`mushroom`], it is **all-categorical**: `features()` returns a single
-/// `Array2<String>`.
+/// [`mushroom`], it is **all-categorical**: every feature column is
+/// `ColumnData::String`.
 pub mod car_evaluation;
 
 /// Forest Cover Type dataset module.
 ///
 /// Contains the scikit-learn Forest CoverType dataset (`fetch_covtype`) for
 /// multi-class classification: predicting one of seven forest cover types from 54
-/// cartographic features of 30×30 metre cells. Sourced from a gzip-compressed file,
-/// it is the first loader to decompress its source with `gunzip`.
+/// cartographic features of 30×30 meter cells. Its source is a gzip-compressed
+/// file.
 pub mod covtype;
 
 /// Diabetes dataset module.
@@ -172,8 +174,8 @@ pub mod digits;
 /// 28×28 grayscale image. It matches [`mnist`] in image size, class count,
 /// partition sizes, and IDX file format, but its classes overlap more. They are
 /// exactly balanced: 6,000 images per class for training and 1,000 for test.
-/// Like `mnist`, it returns pixels as `Array2<u8>` and offers `images()`, plus a
-/// `CLASS_NAMES` constant that names each label code. It offers
+/// Like `mnist`, it holds one `pixels` column of `ColumnData::Bytes`, plus a
+/// `FashionMnist::CLASS_NAMES` constant that names each label code. It offers
 /// `new`/`new_test`/`new_all` subset constructors.
 pub mod fashion_mnist;
 
@@ -182,7 +184,8 @@ pub mod fashion_mnist;
 /// Contains the Cleveland Heart Disease dataset (UCI, Janosi et al. 1988) for
 /// classification: predicting the presence of heart disease (`num`, `0`–`4`) from
 /// 13 clinical features. The loader maps the `?` missing values in `ca`/`thal` to
-/// `NaN` (like [`titanic`]/[`palmer_penguins`]). The target is an `Array1<u8>`.
+/// `NaN` (like [`titanic`]/[`palmer_penguins`]). `HeartDisease::TARGET` names the
+/// `num` column, which holds one integer code per patient.
 pub mod heart_disease;
 
 /// Ionosphere dataset module.
@@ -216,9 +219,9 @@ pub mod kddcup99;
 /// Contains the Letter Recognition dataset (UCI, Slate 1991) for multi-class
 /// classification. It identifies which of the 26 capital letters a distorted
 /// glyph shows, from 16 integer statistics of its pixel image. This is the
-/// crate's widest classification problem by class count, and the only loader
-/// whose label is an `Array1<char>`. A one-letter class is naturally a `char`,
-/// so it needs no lookup table.
+/// crate's widest classification problem by class count. Its label column
+/// `LetterRecognition::TARGET` holds one capital letter per sample, as a
+/// one-character string, so it needs no lookup table.
 pub mod letter_recognition;
 
 /// Linnerud dataset module.
@@ -234,10 +237,9 @@ pub mod linnerud;
 /// Contains the Cornell Movie Review Polarity dataset (Pang and Lee 2004,
 /// polarity dataset v2.0) for binary **text** classification. It labels 2,000
 /// full IMDb movie reviews as `positive` or `negative` (1,000 each). Like
-/// [`sms_spam`], it is a text-modality loader (document accessor `texts()`, not
-/// `features()`) and complements the sentence-level [`sentiment_sentences`] with
-/// full-document reviews. Sourced from a `.tar.gz` archive (decompressed with
-/// `untar_gz`).
+/// [`sms_spam`], its document column is `ColumnData::String`. It complements the
+/// sentence-level [`sentiment_sentences`] with full-document reviews. Sourced
+/// from a `.tar.gz` archive (decompressed with `untar_gz`).
 pub mod movie_review_polarity;
 
 /// MNIST handwritten digits dataset module.
@@ -245,31 +247,29 @@ pub mod movie_review_polarity;
 /// Contains the MNIST database (LeCun et al. 1998) for multi-class
 /// classification: recognizing a handwritten digit (`0`-`9`) from a 28×28
 /// grayscale image. Its source is the binary IDX format, read from four
-/// gzip-compressed files. `features()` returns the pixels as an `Array2<u8>` of
-/// shape `(n_samples, 784)`, and `images()` returns the same buffer as a
-/// `(n_samples, 28, 28)` view. It offers `new`/`new_test`/`new_all` subset
-/// constructors.
+/// gzip-compressed files. One `pixels` column holds `ColumnData::Bytes` of shape
+/// `(n_samples, 784)`, which a `(n_samples, 28, 28)` view reads at no copy. It
+/// offers `new`/`new_test`/`new_all` subset constructors.
 pub mod mnist;
 
 /// MovieLens 100K dataset module.
 ///
 /// Contains the MovieLens 100K dataset (GroupLens, Harper & Konstan 2015) for
 /// **recommendation**: 100,000 ratings that 943 users gave to 1,682 movies
-/// between September 1997 and April 1998. One sample is one rating, so the
-/// loader returns the log as four parallel arrays through `users()`, `items()`,
-/// `ratings()`, and `timestamps()`. `N_USERS` and `N_ITEMS` give the two
-/// identifier ranges. GroupLens permits research use under conditions that this
-/// crate's MIT license does not cover, so read the struct docs before you use
-/// the data.
+/// between September 1997 and April 1998. One sample is one rating. The table
+/// holds the `user_id` and `item_id` columns, the `rating` column
+/// (`MovieLens100k::TARGET`), and a `timestamp` column of Unix seconds.
+/// `MovieLens100k::N_USERS` and `MovieLens100k::N_ITEMS` give the two identifier
+/// ranges. GroupLens permits research use under conditions that this crate's MIT
+/// license does not cover, so read the struct docs before you use the data.
 pub mod movielens_100k;
 
 /// Mushroom dataset module.
 ///
 /// Contains the Mushroom dataset (UCI `agaricus-lepiota`) for binary
 /// classification: predicting whether a mushroom is edible or poisonous from 22
-/// categorical attributes. This is the first **all-categorical** loader: every
-/// feature is a single-letter string code, so `features()` returns a single
-/// `Array2<String>`.
+/// categorical attributes. It is **all-categorical**: every feature is a
+/// single-letter string code in a `ColumnData::String` column.
 pub mod mushroom;
 
 /// 20 Newsgroups dataset module.
@@ -277,17 +277,17 @@ pub mod mushroom;
 /// Contains the classic 20 Newsgroups dataset (Lang 1995, the `bydate` version)
 /// for multi-class **text** classification: labeling ~18,846 Usenet posts with
 /// one of 20 newsgroups. It is the framework-agnostic analogue of scikit-learn's
-/// `fetch_20newsgroups`, and the crate's first **multi-class** text loader. Like
-/// [`sms_spam`], it is a text-modality loader (document accessor `texts()`, not
-/// `features()`). `new`/`new_test`/`new_all` mirror scikit-learn's train/test/all
-/// subsets. Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
+/// `fetch_20newsgroups`. It is the **multi-class** text corpus, with 20 classes.
+/// Like [`sms_spam`], its document column is `ColumnData::String`.
+/// `new`/`new_test`/`new_all` mirror scikit-learn's train/test/all subsets.
+/// Sourced from a `.tar.gz` archive (decompressed with `untar_gz`).
 pub mod newsgroups20;
 
 /// Palmer Penguins dataset module.
 ///
 /// Contains the Palmer Penguins dataset for classifying penguins into three
 /// species (Adelie, Chinstrap, Gentoo). It uses bill and flipper measurements,
-/// body mass, and categorical island/sex features. A modern alternative to Iris.
+/// body mass, and categorical island and sex features.
 pub mod palmer_penguins;
 
 /// Sentiment Labelled Sentences dataset module.
@@ -295,20 +295,17 @@ pub mod palmer_penguins;
 /// Contains the Sentiment Labelled Sentences dataset (UCI, Kotzias et al. 2015)
 /// for binary **text** classification. It labels 3,000 review sentences from
 /// three sites (Amazon, IMDb, Yelp) as `positive` or `negative`. Like
-/// [`sms_spam`] and [`youtube_spam`], it is a text-modality loader (document
-/// accessor `texts()`, not `features()`). It also carries per-sample
-/// **metadata**, which site each sentence came from, via a `sources()` accessor.
-/// This makes `SentimentSentencesData` a `(texts, sources, labels)` triple.
-/// Sourced from a ZIP archive of three per-site files.
+/// [`sms_spam`] and [`youtube_spam`], it is a text-modality loader: its document
+/// column is `ColumnData::String`. A third column, `source`, names the review
+/// site of each sentence. Sourced from a ZIP archive of three per-site files.
 pub mod sentiment_sentences;
 
 /// SMS Spam Collection dataset module.
 ///
 /// Contains the SMS Spam Collection dataset (UCI, Almeida and Hidalgo 2011) for
 /// binary **text** classification: labeling 5,574 SMS messages as `ham` or
-/// `spam`. This is the crate's first text-modality loader. There is no feature
-/// matrix, so the document accessor is `texts()` (an `Array1<String>` of raw
-/// messages) rather than `features()`. Sourced from a ZIP archive.
+/// `spam`. Its document column is `ColumnData::String`, one raw message per
+/// sample. Sourced from a ZIP archive.
 pub mod sms_spam;
 
 /// Spambase dataset module.
@@ -333,9 +330,8 @@ pub mod titanic;
 /// **clustering**: segmenting 440 clients of a Portuguese wholesale distributor
 /// by their annual spending across six product categories, plus a sales-channel
 /// code and a region code. The dataset has **no target column**, so the loader
-/// offers `features()` and no `labels()` or `targets()`. Its data is a single
-/// `Array2<f64>`, and `data()` returns that same matrix. A `COLUMN_NAMES`
-/// constant names the 8 columns.
+/// has no target constant: all 8 columns are numeric features.
+/// `WholesaleCustomers::COLUMN_NAMES` names them in source order.
 pub mod wholesale_customers;
 
 /// Wine Quality dataset module.
@@ -357,8 +353,7 @@ pub mod wine_recognition;
 /// Contains the YouTube Spam Collection dataset (UCI, Alberto, Lochter, and
 /// Almeida 2017) for binary **text** classification. It labels 1,956 comments
 /// from five popular music videos as `ham` or `spam`. Like [`sms_spam`] (a
-/// sibling by the same authors), it is a text-modality loader. There is no
-/// feature matrix, so the document accessor is `texts()` (an `Array1<String>` of
-/// raw comments) rather than `features()`. Sourced from a ZIP archive of five
-/// per-video CSVs.
+/// sibling by the same authors), it is a text-modality loader: its document
+/// column is `ColumnData::String`, one raw comment per sample. Sourced from a ZIP
+/// archive of five per-video CSVs.
 pub mod youtube_spam;

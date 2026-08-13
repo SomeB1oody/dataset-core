@@ -6,23 +6,34 @@
 //! National Forest of northern Colorado. The task is to predict the forest cover
 //! type of the cell, one of seven classes, from 54 cartographic features.
 //!
-//! **Features (54):** these encode 12 logical attributes (10 numeric and 2
-//! categorical). The two categorical attributes are already **one-hot expanded**.
-//! By 0-based column index:
-//! - cols `0..=9`, 10 distinct quantitative variables: `Elevation`, `Aspect`,
-//!   `Slope`, `Horizontal_Distance_To_Hydrology`, `Vertical_Distance_To_Hydrology`,
-//!   `Horizontal_Distance_To_Roadways`, `Hillshade_9am`, `Hillshade_Noon`,
-//!   `Hillshade_3pm`, `Horizontal_Distance_To_Fire_Points`
-//! - cols `10..=13`, `Wilderness_Area`: **one** categorical attribute (4 areas),
-//!   one-hot encoded. Exactly one of these columns is `1` and the rest are `0`.
-//! - cols `14..=53`, `Soil_Type`: **one** categorical attribute (40 soil types),
-//!   one-hot encoded. Exactly one of these columns is `1` and the rest are `0`.
+//! **Columns (55):**
 //!
-//! All 54 columns use `f64` values (the one-hot columns hold `0.0`/`1.0`), so each
-//! one-hot block sums to `1` per row. See the struct docs for a per-column table.
+//! | Name                                        | Type      | Description                                                            |
+//! |---------------------------------------------|-----------|------------------------------------------------------------------------|
+//! | `Elevation`                                 | `Numeric` | elevation in meters                                                    |
+//! | `Aspect`                                    | `Numeric` | aspect in azimuth degrees                                              |
+//! | `Slope`                                     | `Numeric` | slope in degrees                                                       |
+//! | `Horizontal_Distance_To_Hydrology`          | `Numeric` | horizontal distance to the nearest surface water                       |
+//! | `Vertical_Distance_To_Hydrology`            | `Numeric` | vertical distance to the nearest surface water, which can be negative  |
+//! | `Horizontal_Distance_To_Roadways`           | `Numeric` | horizontal distance to the nearest roadway                             |
+//! | `Hillshade_9am`                             | `Numeric` | hillshade index at 9am, in `0..=255`                                   |
+//! | `Hillshade_Noon`                            | `Numeric` | hillshade index at noon, in `0..=255`                                  |
+//! | `Hillshade_3pm`                             | `Numeric` | hillshade index at 3pm, in `0..=255`                                   |
+//! | `Horizontal_Distance_To_Fire_Points`        | `Numeric` | horizontal distance to the nearest wildfire ignition point             |
+//! | `Wilderness_Area_0` to `Wilderness_Area_3`  | `Numeric` | one-hot block of 4 columns for the wilderness area, exactly one column holds `1.0` |
+//! | `Soil_Type_0` to `Soil_Type_39`             | `Numeric` | one-hot block of 40 columns for the soil type, exactly one column holds `1.0` |
+//! | `Cover_Type`                                | `Integer` | the forest cover type, one of `1`-`7`                                  |
 //!
-//! **Target:** `cover_type` - the forest cover type, one of `1`–`7` (stored as
-//! `u8`):
+//! The source designates the 54 cartographic columns as the inputs
+//! ([`Covtype::FEATURE_NAMES`](crate::Covtype::FEATURE_NAMES)) and `Cover_Type` as the label
+//! ([`Covtype::TARGET`](crate::Covtype::TARGET)).
+//!
+//! The 54 feature columns encode 12 logical attributes. Ten of them are
+//! quantitative, and two of them are categorical. The source ships the two
+//! categorical attributes **one-hot expanded**, so each one-hot block sums to
+//! `1` per row.
+//!
+//! The `Cover_Type` codes name these classes:
 //!
 //! - `1` = Spruce/Fir
 //! - `2` = Lodgepole Pine
@@ -40,10 +51,11 @@
 //! <https://archive.ics.uci.edu/dataset/31/covertype>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, gunzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 /// The URL for the Forest Cover Type dataset.
@@ -82,9 +94,6 @@ const N_COLUMNS: usize = N_FEATURES + 1;
 /// The expected number of samples, used only to pre-allocate the parse buffers.
 const N_SAMPLES: usize = 581_012;
 
-/// Type alias for the Cover Type dataset: (features, labels).
-type CovtypeData = (Array2<f64>, Array1<u8>);
-
 /// A struct that represents the Forest Cover Type dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
@@ -98,45 +107,43 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 /// slope, distances to hydrology, roadways, and fire points, and hillshade
 /// indices) with two one-hot blocks. The one-hot blocks are 4 `Wilderness_Area`
 /// columns and 40 `Soil_Type` columns. The target is the forest cover type
-/// (`1`–`7`).
+/// (`1`-`7`).
 ///
 /// This is the same data that scikit-learn exposes through `fetch_covtype`.
 ///
-/// # Feature columns
+/// # Columns
+///
+/// | Name                                        | Type      | Description                                                            |
+/// |---------------------------------------------|-----------|------------------------------------------------------------------------|
+/// | `Elevation`                                 | `Numeric` | elevation in meters                                                    |
+/// | `Aspect`                                    | `Numeric` | aspect in azimuth degrees                                              |
+/// | `Slope`                                     | `Numeric` | slope in degrees                                                       |
+/// | `Horizontal_Distance_To_Hydrology`          | `Numeric` | horizontal distance to the nearest surface water                       |
+/// | `Vertical_Distance_To_Hydrology`            | `Numeric` | vertical distance to the nearest surface water, which can be negative  |
+/// | `Horizontal_Distance_To_Roadways`           | `Numeric` | horizontal distance to the nearest roadway                             |
+/// | `Hillshade_9am`                             | `Numeric` | hillshade index at 9am, in `0..=255`                                   |
+/// | `Hillshade_Noon`                            | `Numeric` | hillshade index at noon, in `0..=255`                                  |
+/// | `Hillshade_3pm`                             | `Numeric` | hillshade index at 3pm, in `0..=255`                                   |
+/// | `Horizontal_Distance_To_Fire_Points`        | `Numeric` | horizontal distance to the nearest wildfire ignition point             |
+/// | `Wilderness_Area_0` to `Wilderness_Area_3`  | `Numeric` | one-hot block of 4 columns for the wilderness area, exactly one column holds `1.0` |
+/// | `Soil_Type_0` to `Soil_Type_39`             | `Numeric` | one-hot block of 40 columns for the soil type, exactly one column holds `1.0` |
+/// | `Cover_Type`                                | `Integer` | the forest cover type, one of `1`-`7`                                  |
+///
+/// The source designates the 54 cartographic columns as the inputs
+/// ([`Covtype::FEATURE_NAMES`]) and `Cover_Type` as the label
+/// ([`Covtype::TARGET`]).
 ///
 /// The 54 feature columns are **not** 54 independent variables. They encode 12
-/// logical attributes: 10 numeric and 2 categorical. The two categorical
-/// attributes are already **one-hot expanded** into many binary indicator columns.
-/// The table below lists them by 0-based column index in the feature matrix:
+/// logical attributes: 10 numeric and 2 categorical. The source ships the two
+/// categorical attributes **one-hot expanded** into binary indicator columns.
+/// The 4 `Wilderness_Area` columns jointly answer "which of 4 wilderness
+/// areas". The 40 `Soil_Type` columns jointly answer "which of 40 soil types".
+/// In each block, `1.0` marks the active category and `0.0` marks every other
+/// column of the block. Each block sums to `1`.
 ///
-/// | Columns   | Attribute(s)                                  | Encoding                                   |
-/// |-----------|-----------------------------------------------|--------------------------------------------|
-/// | `0`       | `Elevation`                                   | quantitative (meters)                      |
-/// | `1`       | `Aspect`                                      | quantitative (azimuth degrees)             |
-/// | `2`       | `Slope`                                       | quantitative (degrees)                     |
-/// | `3`       | `Horizontal_Distance_To_Hydrology`            | quantitative                               |
-/// | `4`       | `Vertical_Distance_To_Hydrology`              | quantitative (may be negative)             |
-/// | `5`       | `Horizontal_Distance_To_Roadways`             | quantitative                               |
-/// | `6`       | `Hillshade_9am`                               | quantitative (`0..=255`)                   |
-/// | `7`       | `Hillshade_Noon`                              | quantitative (`0..=255`)                   |
-/// | `8`       | `Hillshade_3pm`                               | quantitative (`0..=255`)                   |
-/// | `9`       | `Horizontal_Distance_To_Fire_Points`          | quantitative                               |
-/// | `10..=13` | `Wilderness_Area` (one attribute, 4 areas)    | one-hot: exactly one column is `1`, rest `0` |
-/// | `14..=53` | `Soil_Type` (one attribute, 40 soil types)    | one-hot: exactly one column is `1`, rest `0` |
-///
-/// Columns `0..=9` hold ten distinct numeric features. Columns `10..=13` jointly
-/// answer "which of 4 wilderness areas", and columns `14..=53` jointly answer
-/// "which of 40 soil types". Each of these two blocks is a single categorical
-/// variable: `1` marks the active category, and `0` marks every other column in
-/// the block. Each block sums to `1`. All 54 columns use `f64` values (the one-hot
-/// columns hold `0.0` or `1.0`), which matches scikit-learn's dense `fetch_covtype`
-/// matrix.
-///
-/// # Labels
-///
-/// - cover type (in `u8`): `1` = Spruce/Fir, `2` = Lodgepole Pine,
-///   `3` = Ponderosa Pine, `4` = Cottonwood/Willow, `5` = Aspen,
-///   `6` = Douglas-fir, `7` = Krummholz
+/// The `Cover_Type` codes name these classes: `1` = Spruce/Fir,
+/// `2` = Lodgepole Pine, `3` = Ponderosa Pine, `4` = Cottonwood/Willow,
+/// `5` = Aspen, `6` = Douglas-fir, `7` = Krummholz.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/31/covertype>
@@ -159,42 +166,114 @@ type CovtypeData = (Array2<f64>, Array1<u8>);
 /// let download_dir = "./covtype"; // the loader creates the directory if it does not exist
 ///
 /// let mut dataset = Covtype::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 581012);
+/// assert_eq!(table.n_columns(), 55);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Covtype::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[581012, 54]);
-/// assert_eq!(labels.len(), 581012);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 2596.0;
-///     labels[0] = 5;
+/// // Reach one column by name, whatever its position.
+/// let elevation = table.column("Elevation").unwrap().as_numeric().unwrap();
+/// assert_eq!(elevation.len(), 581012);
+///
+/// let cover_type = table.column(Covtype::TARGET).unwrap().as_integer().unwrap();
+/// assert_eq!(cover_type.len(), 581012);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("Elevation") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 2596.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[581012, 54]);
-/// assert_eq!(owned_labels.len(), 581012);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable. The next access reloads the data from the cached file.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 581012);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[581012, 54]);
-/// assert_eq!(owned_labels.len(), 581012);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 581012);
 /// ```
 #[derive(Debug)]
 pub struct Covtype {
-    dataset: Dataset<CovtypeData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Covtype {
+    /// The columns the source designates as the model inputs, in source order.
+    ///
+    /// The first 10 names are the quantitative attributes. The next 4 are the
+    /// one-hot `Wilderness_Area` block. The last 40 are the one-hot `Soil_Type`
+    /// block.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "Elevation",
+        "Aspect",
+        "Slope",
+        "Horizontal_Distance_To_Hydrology",
+        "Vertical_Distance_To_Hydrology",
+        "Horizontal_Distance_To_Roadways",
+        "Hillshade_9am",
+        "Hillshade_Noon",
+        "Hillshade_3pm",
+        "Horizontal_Distance_To_Fire_Points",
+        "Wilderness_Area_0",
+        "Wilderness_Area_1",
+        "Wilderness_Area_2",
+        "Wilderness_Area_3",
+        "Soil_Type_0",
+        "Soil_Type_1",
+        "Soil_Type_2",
+        "Soil_Type_3",
+        "Soil_Type_4",
+        "Soil_Type_5",
+        "Soil_Type_6",
+        "Soil_Type_7",
+        "Soil_Type_8",
+        "Soil_Type_9",
+        "Soil_Type_10",
+        "Soil_Type_11",
+        "Soil_Type_12",
+        "Soil_Type_13",
+        "Soil_Type_14",
+        "Soil_Type_15",
+        "Soil_Type_16",
+        "Soil_Type_17",
+        "Soil_Type_18",
+        "Soil_Type_19",
+        "Soil_Type_20",
+        "Soil_Type_21",
+        "Soil_Type_22",
+        "Soil_Type_23",
+        "Soil_Type_24",
+        "Soil_Type_25",
+        "Soil_Type_26",
+        "Soil_Type_27",
+        "Soil_Type_28",
+        "Soil_Type_29",
+        "Soil_Type_30",
+        "Soil_Type_31",
+        "Soil_Type_32",
+        "Soil_Type_33",
+        "Soil_Type_34",
+        "Soil_Type_35",
+        "Soil_Type_36",
+        "Soil_Type_37",
+        "Soil_Type_38",
+        "Soil_Type_39",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "Cover_Type";
+
     /// Create a new Covtype instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -214,7 +293,7 @@ impl Covtype {
     }
 
     /// Get and parse the Forest Cover Type dataset.
-    fn load_data(dir: &str) -> Result<CovtypeData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // Download the gzip-compressed `covtype.data.gz` file, then decompress it
         // into the plain comma-separated `covtype.csv` file.
         let file_path = acquire_dataset(
@@ -241,9 +320,11 @@ impl Covtype {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        // Pre-allocate for the known sample count. This avoids repeatedly growing
-        // a ~250 MB feature buffer. Parsing still works for any actual row count.
-        let mut features = Vec::with_capacity(N_SAMPLES * N_FEATURES);
+        // Pre-allocate for the known sample count. Parsing still works for any
+        // actual row count.
+        let mut feature_columns: Vec<Vec<f64>> = (0..N_FEATURES)
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut labels = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -269,47 +350,48 @@ impl Covtype {
                         e,
                     )
                 })?;
-                features.push(value);
+                feature_columns[col].push(value);
             }
 
             let raw_label = record[N_FEATURES].trim();
             let label: u8 = raw_label.parse().map_err(|e| {
-                DatasetError::parse_failed(COVTYPE_DATASET_NAME, "cover_type", line_num, e)
+                DatasetError::parse_failed(COVTYPE_DATASET_NAME, "Cover_Type", line_num, e)
             })?;
             if !(1..=7).contains(&label) {
                 return Err(DatasetError::invalid_value(
                     COVTYPE_DATASET_NAME,
-                    "cover_type",
+                    "Cover_Type",
                     raw_label,
                     line_num,
                 ));
             }
-            labels.push(label);
+            labels.push(i64::from(label));
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(COVTYPE_DATASET_NAME));
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        for (name, values) in Self::FEATURE_NAMES.into_iter().zip(feature_columns) {
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::Integer(Array1::from_vec(labels)),
+        ));
 
-        // Cover Type has a fixed schema of 54 numeric features per sample.
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(COVTYPE_DATASET_NAME, "features", e))?;
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(COVTYPE_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(581012, 54)`
-    ///   containing the 10 quantitative variables followed by the 4 one-hot
-    ///   `Wilderness_Area` and 40 one-hot `Soil_Type` columns.
+    /// - `&Table` - reference to the cached table of 581,012 samples and 55
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -317,54 +399,11 @@ impl Covtype {
     /// - Download fails due to network issues
     /// - File decompression or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (581012 samples, 54 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<u8>` - Reference to label vector with shape `(581012,)` containing the cover-type classes (`1`–`7`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File decompression or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (581012 samples)
-    pub fn labels(&self) -> Result<&Array1<u8>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&CovtypeData` - reference to the cached `(features, labels)` tuple.
-    ///   The feature matrix has shape `(581012, 54)`. The label vector has shape
-    ///   `(581012,)` and contains the cover-type classes (`1`–`7`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File decompression or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (581012 samples, 54 features)
-    pub fn data(&self) -> Result<&CovtypeData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`Covtype::data`], which loads the dataset on the first call, this
     /// method never runs the loader. If the data has not loaded yet, this method
@@ -374,19 +413,16 @@ impl Covtype {
     ///
     /// # Returns
     ///
-    /// - `Some(&CovtypeData)` - reference to the cached `(features, labels)` tuple
-    ///   (feature matrix `(581012, 54)`, label vector `(581012,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&CovtypeData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This method lets you change the cached arrays in place (for example, to
-    /// normalize features or replace label values). It needs no `to_owned()`
-    /// clone, and it does not remove the data from the cache. The changes persist,
-    /// so later calls to [`Covtype::features`], [`Covtype::data`], or
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes persist, so later calls to [`Covtype::data`] or
     /// [`Covtype::get_data`] see them.
     ///
     /// Like [`Covtype::get_data`], this method does **not** trigger loading. It
@@ -395,19 +431,13 @@ impl Covtype {
     ///
     /// # Returns
     ///
-    /// - `Some(&mut CovtypeData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(581012, 54)`, label vector
-    ///   `(581012,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut CovtypeData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
-    ///
-    /// Unlike [`Covtype::data`], which borrows the cached data, this method moves
-    /// the data out and returns owned arrays directly, with no `to_owned()` clone
-    /// needed. The dataset loads on the first access if it has not loaded yet.
+    /// Consume the dataset and return the **owned** table.
     ///
     /// This method **consumes** `self`, so you cannot use the instance afterward.
     /// If you want owned data but need to keep using the instance, use
@@ -416,14 +446,13 @@ impl Covtype {
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(581012, 54)` and owned label vector with shape `(581012,)`.
+    /// - `Table` - the owned table of 581,012 samples and 55 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<CovtypeData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or
+    /// invalid labels).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -431,27 +460,23 @@ impl Covtype {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Covtype::into_data`], this method returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state. The next accessor call, for example [`Covtype::features`] or
-    /// [`Covtype::data`], loads the dataset again.
+    /// This resets the instance to its unloaded state. The next accessor call,
+    /// for example [`Covtype::data`], loads the dataset again.
     ///
     /// If you are done with the instance, use [`Covtype::into_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<u8>)` - owned feature matrix with shape
-    ///   `(581012, 54)` and owned label vector with shape `(581012,)`.
+    /// - `Table` - the owned table of 581,012 samples and 55 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<CovtypeData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or
+    /// invalid labels).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -460,4 +485,4 @@ impl Covtype {
     }
 }
 
-impl_ml_dataset!(Covtype, CovtypeData, "covtype");
+impl_ml_dataset!(Covtype, "covtype");

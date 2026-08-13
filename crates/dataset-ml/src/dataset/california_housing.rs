@@ -2,7 +2,7 @@
 //!
 //! This dataset has median house values for California districts (block groups),
 //! derived from the 1990 U.S. census. It is a common regression benchmark and a
-//! modern replacement for the deprecated Boston Housing dataset.
+//! replacement for the deprecated Boston Housing dataset.
 //!
 //! This loader reproduces the **scikit-learn** `fetch_california_housing` feature
 //! set. Instead of exposing the raw census columns, it derives the same eight
@@ -11,20 +11,26 @@
 //! columns are `longitude`, `latitude`, `housing_median_age`, `total_rooms`,
 //! `total_bedrooms`, `population`, `households`, `median_income`,
 //! `median_house_value`, and `ocean_proximity`. This loader combines those
-//! columns into the sklearn features below.
+//! columns into the sklearn columns below.
 //!
-//! **Features (8):** in sklearn column order
-//! - `MedInc` - median income in block group (tens of thousands of USD)
-//! - `HouseAge` - median house age in block group
-//! - `AveRooms` - average number of rooms per household (`total_rooms / households`)
-//! - `AveBedrms` - average number of bedrooms per household (`total_bedrooms / households`)
-//! - `Population` - block group population
-//! - `AveOccup` - average household occupancy (`population / households`)
-//! - `Latitude` - block group latitude
-//! - `Longitude` - block group longitude
+//! **Columns (9):** in sklearn column order
 //!
-//! **Target:** `MedHouseVal` - median house value, in units of $100,000
-//!   (`median_house_value / 100000`), matching sklearn.
+//! | Name          | Type      | Description                                                     |
+//! |---------------|-----------|---------------------------------------------------------------------|
+//! | `MedInc`      | `Numeric` | median income in the block group, in tens of thousands of USD   |
+//! | `HouseAge`    | `Numeric` | median house age in the block group                             |
+//! | `AveRooms`    | `Numeric` | average rooms per household, `total_rooms / households`          |
+//! | `AveBedrms`   | `Numeric` | average bedrooms per household, `total_bedrooms / households`    |
+//! | `Population`  | `Numeric` | block group population                                          |
+//! | `AveOccup`    | `Numeric` | average household occupancy, `population / households`           |
+//! | `Latitude`    | `Numeric` | block group latitude in degrees                                 |
+//! | `Longitude`   | `Numeric` | block group longitude in degrees                                |
+//! | `MedHouseVal` | `Numeric` | median house value in units of $100,000                         |
+//!
+//! The source designates the first eight columns as the inputs
+//! ([`CaliforniaHousing::FEATURE_NAMES`](crate::CaliforniaHousing::FEATURE_NAMES)) and `MedHouseVal` as the label
+//! ([`CaliforniaHousing::TARGET`](crate::CaliforniaHousing::TARGET)). The target is `median_house_value / 100000`,
+//! which matches sklearn.
 //!
 //! **Samples:** 20,640
 //! **Application:** Regression / median house value prediction
@@ -38,10 +44,11 @@
 //! Géron's *Hands-On Machine Learning* repository.
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use serde::Deserialize;
 use std::fs::File;
 
@@ -64,15 +71,12 @@ const CALIFORNIA_HOUSING_SHA256: &str =
 /// The name of the dataset.
 const CALIFORNIA_HOUSING_DATASET_NAME: &str = "california_housing";
 
-/// The number of derived (sklearn) features per sample.
-const N_FEATURES: usize = 8;
+/// Number of samples.
+const N_SAMPLES: usize = 20_640;
 
 /// The divisor sklearn applies to `median_house_value` to produce a target in
 /// units of $100,000.
 const TARGET_SCALE: f64 = 100_000.0;
-
-/// Type alias for the California Housing dataset: (features, targets).
-type CaliforniaHousingData = (Array2<f64>, Array1<f64>);
 
 /// This struct represents one CSV record of the California Housing dataset. Its
 /// fields follow the source column order: `longitude`, `latitude`,
@@ -81,7 +85,7 @@ type CaliforniaHousingData = (Array2<f64>, Array1<f64>);
 ///
 /// `total_bedrooms` is `Option<f64>` because 207 rows leave it empty, and those
 /// rows become `NaN` in the derived `AveBedrms`. The struct keeps
-/// `ocean_proximity` only to consume its column positionally. The sklearn feature
+/// `ocean_proximity` only to consume its column positionally. The sklearn column
 /// set does not use it. The struct declares its fields in CSV column order. The
 /// loader disables csv's header handling, so csv deserializes the fields
 /// **positionally**. This design makes the struct independent of the exact
@@ -97,7 +101,7 @@ struct HousingRecord {
     households: f64,
     median_income: f64,
     median_house_value: f64,
-    /// This field is not part of the sklearn feature set. It exists only to
+    /// This field is not part of the sklearn column set. It exists only to
     /// consume the final CSV column. The loader never reads it.
     #[allow(dead_code)]
     ocean_proximity: String,
@@ -113,35 +117,34 @@ struct HousingRecord {
 /// This dataset describes the houses in a California district (block group). It
 /// also has summary statistics about those houses, based on the 1990 census. The
 /// target is the median house value for the district. This loader reproduces
-/// scikit-learn's `fetch_california_housing` feature set. It derives eight
+/// scikit-learn's `fetch_california_housing` column set. It derives eight
 /// per-district features from the raw census columns.
 ///
-/// # Feature columns
+/// # Columns
 ///
 /// The eight features reproduce scikit-learn's `fetch_california_housing` set.
-/// The loader derives them per district from the raw census columns. The three
-/// per-household ratios are `AveRooms = total_rooms / households`,
-/// `AveBedrms = total_bedrooms / households`, and
-/// `AveOccup = population / households`. A missing `total_bedrooms` yields `NaN`
-/// in `AveBedrms`. By 0-based column index in the feature matrix:
+/// The loader derives them per district from the raw census columns. A missing
+/// `total_bedrooms` yields `NaN` in `AveBedrms`. The columns keep sklearn column
+/// order:
 ///
-/// | Columns | Attributes   | Unit                    |
-/// |---------|--------------|-------------------------|
-/// | `0`     | `MedInc`     | tens of thousands of USD |
-/// | `1`     | `HouseAge`   |                         |
-/// | `2`     | `AveRooms`   |                         |
-/// | `3`     | `AveBedrms`  |                         |
-/// | `4`     | `Population` |                         |
-/// | `5`     | `AveOccup`   |                         |
-/// | `6`     | `Latitude`   | degrees                 |
-/// | `7`     | `Longitude`  | degrees                 |
+/// | Name          | Type      | Description                                                     |
+/// |---------------|-----------|---------------------------------------------------------------------|
+/// | `MedInc`      | `Numeric` | median income in the block group, in tens of thousands of USD   |
+/// | `HouseAge`    | `Numeric` | median house age in the block group                             |
+/// | `AveRooms`    | `Numeric` | average rooms per household, `total_rooms / households`          |
+/// | `AveBedrms`   | `Numeric` | average bedrooms per household, `total_bedrooms / households`    |
+/// | `Population`  | `Numeric` | block group population                                          |
+/// | `AveOccup`    | `Numeric` | average household occupancy, `population / households`           |
+/// | `Latitude`    | `Numeric` | block group latitude in degrees                                 |
+/// | `Longitude`   | `Numeric` | block group longitude in degrees                                |
+/// | `MedHouseVal` | `Numeric` | median house value in units of $100,000                         |
 ///
-/// # Targets
-///
-/// - `MedHouseVal` - median house value in units of $100,000
+/// The source designates the first eight columns as the inputs
+/// ([`CaliforniaHousing::FEATURE_NAMES`]) and `MedHouseVal` as the label
+/// ([`CaliforniaHousing::TARGET`]).
 ///
 /// Missing values: the source file has 207 rows with a missing `total_bedrooms`
-/// value. These rows yield `NaN` in the derived `AveBedrms` feature.
+/// value. These rows yield `NaN` in the derived `AveBedrms` column.
 ///
 /// See more information at <https://scikit-learn.org/stable/modules/generated/sklearn.datasets.fetch_california_housing.html>
 ///
@@ -160,45 +163,65 @@ struct HousingRecord {
 /// ```no_run
 /// use dataset_ml::CaliforniaHousing;
 ///
-/// let download_dir = "./california_housing"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./california_housing";
 ///
 /// let mut dataset = CaliforniaHousing::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let targets = dataset.targets().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, targets) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 20640);
+/// assert_eq!(table.n_columns(), 9);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&CaliforniaHousing::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[20640, 8]);
-/// assert_eq!(targets.len(), 20640);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, targets)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 5.0;
-///     targets[0] = 4.5;
+/// // Reach one column by name.
+/// let target = table.column(CaliforniaHousing::TARGET).unwrap().as_numeric().unwrap();
+/// assert_eq!(target.len(), 20640);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("MedInc") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 5.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_targets) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[20640, 8]);
-/// assert_eq!(owned_targets.len(), 20640);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 20640);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_targets) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[20640, 8]);
-/// assert_eq!(owned_targets.len(), 20640);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 20640);
 /// ```
 #[derive(Debug)]
 pub struct CaliforniaHousing {
-    dataset: Dataset<CaliforniaHousingData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl CaliforniaHousing {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; 8] = [
+        "MedInc",
+        "HouseAge",
+        "AveRooms",
+        "AveBedrms",
+        "Population",
+        "AveOccup",
+        "Latitude",
+        "Longitude",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "MedHouseVal";
+
     /// Create a new CaliforniaHousing instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -218,7 +241,7 @@ impl CaliforniaHousing {
     }
 
     /// Get and parse the California Housing dataset.
-    fn load_data(dir: &str) -> Result<CaliforniaHousingData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             CALIFORNIA_HOUSING_FILENAME,
@@ -240,8 +263,15 @@ impl CaliforniaHousing {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut features = Vec::new();
-        let mut targets = Vec::new();
+        let mut med_inc = Vec::with_capacity(N_SAMPLES);
+        let mut house_age = Vec::with_capacity(N_SAMPLES);
+        let mut ave_rooms = Vec::with_capacity(N_SAMPLES);
+        let mut ave_bedrms = Vec::with_capacity(N_SAMPLES);
+        let mut population_column = Vec::with_capacity(N_SAMPLES);
+        let mut ave_occup = Vec::with_capacity(N_SAMPLES);
+        let mut latitude_column = Vec::with_capacity(N_SAMPLES);
+        let mut longitude_column = Vec::with_capacity(N_SAMPLES);
+        let mut med_house_val = Vec::with_capacity(N_SAMPLES);
 
         for result in rdr.deserialize::<HousingRecord>().skip(1) {
             let HousingRecord {
@@ -261,47 +291,71 @@ impl CaliforniaHousing {
             // `households >= 1` throughout the dataset, so the per-household
             // ratios never divide by zero. A missing `total_bedrooms` propagates
             // to `NaN` in `AveBedrms`.
-            features.extend_from_slice(&[
-                median_income,                                       // MedInc
-                housing_median_age,                                  // HouseAge
-                total_rooms / households,                            // AveRooms
-                total_bedrooms.map_or(f64::NAN, |b| b / households), // AveBedrms
-                population,                                          // Population
-                population / households,                             // AveOccup
-                latitude,                                            // Latitude
-                longitude,                                           // Longitude
-            ]);
+            med_inc.push(median_income);
+            house_age.push(housing_median_age);
+            ave_rooms.push(total_rooms / households);
+            ave_bedrms.push(total_bedrooms.map_or(f64::NAN, |b| b / households));
+            population_column.push(population);
+            ave_occup.push(population / households);
+            latitude_column.push(latitude);
+            longitude_column.push(longitude);
 
             // Target, scaled to units of $100,000 as sklearn does.
-            targets.push(median_house_value / TARGET_SCALE);
+            med_house_val.push(median_house_value / TARGET_SCALE);
         }
 
-        let n_samples = targets.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(CALIFORNIA_HOUSING_DATASET_NAME));
-        }
-
-        // California Housing has a fixed schema of 8 derived features per sample.
-        let features_array =
-            Array2::from_shape_vec((n_samples, N_FEATURES), features).map_err(|e| {
-                DatasetError::array_shape_error(CALIFORNIA_HOUSING_DATASET_NAME, "features", e)
-            })?;
-        let targets_array = Array1::from_vec(targets);
-
-        Ok((features_array, targets_array))
+        Table::new(
+            CALIFORNIA_HOUSING_DATASET_NAME,
+            vec![
+                Column::new(
+                    Self::FEATURE_NAMES[0],
+                    ColumnData::Numeric(Array1::from_vec(med_inc)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[1],
+                    ColumnData::Numeric(Array1::from_vec(house_age)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[2],
+                    ColumnData::Numeric(Array1::from_vec(ave_rooms)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[3],
+                    ColumnData::Numeric(Array1::from_vec(ave_bedrms)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[4],
+                    ColumnData::Numeric(Array1::from_vec(population_column)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[5],
+                    ColumnData::Numeric(Array1::from_vec(ave_occup)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[6],
+                    ColumnData::Numeric(Array1::from_vec(latitude_column)),
+                ),
+                Column::new(
+                    Self::FEATURE_NAMES[7],
+                    ColumnData::Numeric(Array1::from_vec(longitude_column)),
+                ),
+                Column::new(
+                    Self::TARGET,
+                    ColumnData::Numeric(Array1::from_vec(med_house_val)),
+                ),
+            ],
+        )
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(20640, 8)`
-    ///   containing the sklearn features (`MedInc`, `HouseAge`, `AveRooms`,
-    ///   `AveBedrms`, `Population`, `AveOccup`, `Latitude`, `Longitude`).
-    ///   `AveBedrms` is `NaN` for the 207 rows with a missing `total_bedrooms`.
+    /// - `&Table` - reference to the cached table of 20640 samples and 9
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -309,116 +363,53 @@ impl CaliforniaHousing {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20640 samples, 8 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the target vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<f64>` - Reference to target vector with shape `(20640,)`
-    ///   containing median house values in units of $100,000.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20640 samples)
-    pub fn targets(&self) -> Result<&Array1<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and targets as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&CaliforniaHousingData` - reference to the cached `(features, targets)`
-    ///   tuple. The feature matrix has shape `(20640, 8)`. The target vector has
-    ///   shape `(20640,)` (median house value in units of $100,000).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (20640 samples, 8 features)
-    pub fn data(&self) -> Result<&CaliforniaHousingData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and targets as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`CaliforniaHousing::data`], this method never runs the loader. If
-    /// the dataset has not loaded yet, it returns `None` instead of downloading
-    /// and parsing the data. Use this method when you want the data only if it is
-    /// already cached. This choice avoids the download and parse cost.
+    /// the data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&CaliforniaHousingData)` - reference to the cached `(features,
-    ///   targets)` tuple (feature matrix `(20640, 8)`, target vector `(20640,)`),
-    ///   if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&CaliforniaHousingData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and targets for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (for example, normalize
-    /// features, or impute the missing `AveBedrms` values) with no `to_owned()`
-    /// clone. The changes stay in the cache: later calls to
-    /// [`CaliforniaHousing::features`], [`CaliforniaHousing::data`], or
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`CaliforniaHousing::data`] or
     /// [`CaliforniaHousing::get_data`] see them.
     ///
-    /// Like [`CaliforniaHousing::get_data`], this method does **not** trigger
-    /// loading. It returns `None` if the dataset has not loaded. If you need to
-    /// make sure the data is present, call a loading accessor first (for example,
-    /// [`CaliforniaHousing::data`]).
+    /// Like [`CaliforniaHousing::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut CaliforniaHousingData)` - a mutable reference to the cached
-    ///   `(features, targets)` tuple (feature matrix `(20640, 8)`, target vector
-    ///   `(20640,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut CaliforniaHousingData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and targets.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`CaliforniaHousing::data`], which borrows the cached data, this
-    /// method moves the data out and returns owned arrays. It needs no
-    /// `to_owned()` clone. The dataset loads on the first access if it has not
-    /// loaded yet.
-    ///
-    /// This **consumes** `self`, so you cannot use the instance afterward. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`CaliforniaHousing::take_data`] instead. It takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`CaliforniaHousing::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - an owned feature matrix with shape
-    ///   `(20640, 8)` and an owned target vector with shape `(20640,)`.
+    /// - `Table` - the owned table of 20640 samples and 9 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<CaliforniaHousingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -426,29 +417,20 @@ impl CaliforniaHousing {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and targets out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`CaliforniaHousing::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. But instead of consuming the instance, it takes
-    /// `&mut self` and moves the cached data out. This resets the instance to its
-    /// unloaded state. The next accessor call (for example,
-    /// [`CaliforniaHousing::features`] or [`CaliforniaHousing::data`]) loads the
-    /// dataset again.
-    ///
-    /// If you are done with the instance, use [`CaliforniaHousing::into_data`]
-    /// instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<f64>)` - an owned feature matrix with shape
-    ///   `(20640, 8)` and an owned target vector with shape `(20640,)`.
+    /// - `Table` - the owned table of 20640 samples and 9 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<CaliforniaHousingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -457,8 +439,4 @@ impl CaliforniaHousing {
     }
 }
 
-impl_ml_dataset!(
-    CaliforniaHousing,
-    CaliforniaHousingData,
-    "california_housing"
-);
+impl_ml_dataset!(CaliforniaHousing, "california_housing");

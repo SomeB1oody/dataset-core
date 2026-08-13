@@ -4,6 +4,7 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_ml::dataset::wholesale_customers::WholesaleCustomers;
+use dataset_ml::table::{ColumnData, Table};
 use dataset_ml::traits::MlDataset;
 use ndarray::Array2;
 use std::collections::HashMap;
@@ -42,9 +43,33 @@ fn value_counts(features: &Array2<f64>, col: usize) -> HashMap<i64, usize> {
     counts
 }
 
+/// Assert that the table names and types its columns as the docs claim.
+fn assert_wholesale_layout(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_FEATURES);
+    assert_eq!(
+        table.names().collect::<Vec<_>>(),
+        WholesaleCustomers::COLUMN_NAMES
+    );
+
+    // Every column is numeric. The dataset has no target.
+    for column in table.columns() {
+        assert!(
+            matches!(column.data(), ColumnData::Numeric(_)),
+            "column {} should be numeric",
+            column.name()
+        );
+    }
+}
+
 /// Assert the Wholesale Customers invariants: the shape, the two code domains,
 /// the spending domain, and the pinned records.
-fn assert_wholesale_semantics(features: &Array2<f64>) {
+fn assert_wholesale_semantics(table: &Table) {
+    assert_wholesale_layout(table);
+
+    let features = table
+        .numeric_matrix(&WholesaleCustomers::COLUMN_NAMES)
+        .unwrap();
     assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
 
     for row in 0..features.nrows() {
@@ -85,7 +110,7 @@ fn assert_wholesale_semantics(features: &Array2<f64>) {
     }
 
     // The two codes keep the published balance.
-    let channels = value_counts(features, 0);
+    let channels = value_counts(&features, 0);
     assert_eq!(
         channels[&1], 298,
         "298 clients should use the Horeca channel"
@@ -95,7 +120,7 @@ fn assert_wholesale_semantics(features: &Array2<f64>) {
         "142 clients should use the Retail channel"
     );
 
-    let regions = value_counts(features, 1);
+    let regions = value_counts(&features, 1);
     assert_eq!(regions[&1], 77, "77 clients should sit in Lisbon");
     assert_eq!(regions[&2], 47, "47 clients should sit in Oporto");
     assert_eq!(regions[&3], 316, "316 clients should sit in another region");
@@ -103,14 +128,18 @@ fn assert_wholesale_semantics(features: &Array2<f64>) {
     // Each spending column sums to its published total.
     for (offset, expected) in SPENDING_SUMS.iter().enumerate() {
         let col = offset + 2;
-        let total: f64 = features.column(col).iter().sum();
+        let name = WholesaleCustomers::COLUMN_NAMES[col];
+        let total: f64 = table
+            .column(name)
+            .unwrap()
+            .as_numeric()
+            .unwrap()
+            .iter()
+            .sum();
         assert_eq!(
-            total,
-            *expected,
+            total, *expected,
             "column {} ({}) should sum to {}",
-            col,
-            WholesaleCustomers::COLUMN_NAMES[col],
-            expected
+            col, name, expected
         );
     }
 
@@ -123,6 +152,18 @@ fn assert_wholesale_semantics(features: &Array2<f64>) {
         features.row(N_SAMPLES - 1).to_vec(),
         vec![1.0, 3.0, 2787.0, 1698.0, 2510.0, 65.0, 477.0, 52.0]
     );
+
+    // A column reached by name agrees with its position in the feature matrix.
+    for (col, name) in WholesaleCustomers::COLUMN_NAMES.iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 220, N_SAMPLES - 1] {
+            assert_eq!(
+                column[row],
+                features[[row, col]],
+                "column {name} disagrees with matrix column {col} at row {row}"
+            );
+        }
+    }
 }
 
 #[test]
@@ -151,19 +192,13 @@ fn test_load_wholesale_customers() {
     let download_dir = "./test_load_wholesale_customers"; // the loader creates this directory if it is missing
 
     let dataset = WholesaleCustomers::new(download_dir);
-    let features = dataset.features().unwrap();
-
-    assert_wholesale_semantics(features);
-
-    // This dataset has no target, so data() returns the same matrix.
-    let data = dataset.data().unwrap();
-    assert_eq!(data, features);
+    assert_wholesale_semantics(dataset.data().unwrap());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that n_samples() counts the leading axis of a single-array dataset.
+// Verifies that n_samples() counts the samples of a table with no target.
 fn test_wholesale_customers_n_samples() {
     let download_dir = "./test_wholesale_customers_n_samples";
 
@@ -195,7 +230,7 @@ fn test_wholesale_customers_no_need_download() {
     );
 
     let dataset = WholesaleCustomers::new(download_dir);
-    assert_eq!(dataset.features().unwrap().nrows(), N_SAMPLES);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -213,7 +248,7 @@ fn test_wholesale_customers_overwrite() {
     }
 
     let dataset = WholesaleCustomers::new(download_dir);
-    assert_eq!(dataset.features().unwrap().nrows(), N_SAMPLES);
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -227,37 +262,43 @@ fn test_wholesale_customers_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns the owned matrix and consumes the dataset.
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_wholesale_customers_into_data() {
     let download_dir = "./test_wholesale_customers_into_data";
 
     let dataset = WholesaleCustomers::new(download_dir);
-    let mut features = dataset.into_data().unwrap();
-    // into_data() consumed `dataset`. The matrix is now fully owned.
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_FEATURES);
 
-    // The caller can mutate the owned data directly, with no `to_owned()` clone.
-    features[[0, 2]] = 1.0;
-    assert_eq!(features[[0, 2]], 1.0);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("Fresh").map(|c| c.data_mut()) {
+        values[0] = 1.0;
+    }
+    assert_eq!(table.column("Fresh").unwrap().as_numeric().unwrap()[0], 1.0);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns the owned matrix and leaves the instance reusable.
+// Verifies that take_data() returns the owned table and leaves the instance reusable.
 fn test_wholesale_customers_take_data() {
     let download_dir = "./test_wholesale_customers_take_data";
 
     let mut dataset = WholesaleCustomers::new(download_dir);
-    let features = dataset.take_data().unwrap();
+    let table = dataset.take_data().unwrap();
 
-    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_FEATURES);
 
     // After take_data, the instance resets to unloaded but stays usable. The next
     // access reloads it from the cached file and yields the same shape.
     assert!(!dataset.is_loaded());
-    assert_eq!(dataset.data().unwrap().shape(), &[N_SAMPLES, N_FEATURES]);
+    let table = dataset.data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_FEATURES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -272,16 +313,15 @@ fn test_wholesale_customers_get_data() {
     assert!(dataset.get_data().is_none());
 
     dataset.data().unwrap();
-    assert_eq!(
-        dataset.get_data().unwrap().shape(),
-        &[N_SAMPLES, N_FEATURES]
-    );
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), N_FEATURES);
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached matrix in place.
+// Verifies that get_data_mut() edits the cached table in place.
 fn test_wholesale_customers_get_data_mut() {
     let download_dir = "./test_wholesale_customers_get_data_mut";
 
@@ -292,18 +332,17 @@ fn test_wholesale_customers_get_data_mut() {
     // get_data_mut() takes the logarithm of the first client's `Fresh` spending
     // in place, with no clone and no reload.
     dataset.data().unwrap();
-    if let Some(features) = dataset.get_data_mut() {
-        features[[0, 2]] = features[[0, 2]].ln();
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) = table.column_mut("Fresh").map(|c| c.data_mut())
+    {
+        values[0] = values[0].ln();
     }
 
     // The change persisted in the cache: a later access observes it.
-    let features = dataset.data().unwrap();
-    assert_eq!(features[[0, 2]], 12669f64.ln());
-    assert_eq!(
-        features[[1, 2]],
-        7057.0,
-        "the second row should stay untouched"
-    );
+    let table = dataset.data().unwrap();
+    let fresh = table.column("Fresh").unwrap().as_numeric().unwrap();
+    assert_eq!(fresh[0], 12669f64.ln());
+    assert_eq!(fresh[1], 7057.0, "the second row should stay untouched");
 
     remove_dir_all(download_dir).unwrap();
 }

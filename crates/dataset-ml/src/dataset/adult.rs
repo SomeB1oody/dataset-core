@@ -7,29 +7,46 @@
 //! partition. That partition has a non-data header line and trailing
 //! periods on its labels.
 //!
-//! **Features (14, mixed):**
-//! - String features (8): `workclass`, `education`, `marital-status`,
-//!   `occupation`, `relationship`, `race`, `sex`, `native-country`
-//! - Numeric features (6): `age`, `fnlwgt`, `education-num`, `capital-gain`,
-//!   `capital-loss`, `hours-per-week`
+//! **Columns (15):**
 //!
-//! **Target:** `income`. This binary label is kept verbatim (`<=50K` or `>50K`).
+//! | Name             | Type      | Description                  |
+//! |------------------|-----------|-------------------------------|
+//! | `age`            | `Numeric` | age in years                 |
+//! | `workclass`      | `String`  | employer type                |
+//! | `fnlwgt`         | `Numeric` | census sampling weight       |
+//! | `education`      | `String`  | highest education level      |
+//! | `education-num`  | `Numeric` | education level as a number  |
+//! | `marital-status` | `String`  | marital status               |
+//! | `occupation`     | `String`  | occupation                   |
+//! | `relationship`   | `String`  | role in the household         |
+//! | `race`           | `String`  | race                         |
+//! | `sex`            | `String`  | `Male` or `Female`            |
+//! | `capital-gain`   | `Numeric` | capital gain in USD          |
+//! | `capital-loss`   | `Numeric` | capital loss in USD          |
+//! | `hours-per-week` | `Numeric` | worked hours per week        |
+//! | `native-country` | `String`  | country of origin             |
+//! | `income`         | `String`  | `<=50K` or `>50K`             |
+//!
+//! The source designates the 14 attributes as the inputs
+//! ([`Adult::FEATURE_NAMES`](crate::Adult::FEATURE_NAMES)) and `income` as the label ([`Adult::TARGET`](crate::Adult::TARGET)).
 //!
 //! **Samples:** 32,561
 //! **Application:** Binary classification / income prediction
+//!
+//! **Missing values:** the source marks a missing category with `?` in
+//! `workclass`, `occupation`, and `native-country`. The loader stores these
+//! values as empty strings. The numeric columns have no missing value.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/2/adult>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::{ReaderBuilder, Trim};
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for Adult dataset: (string features, numeric features, labels).
-type AdultData = (Array2<String>, Array2<f64>, Array1<String>);
 
 /// The URL for the Adult dataset (the `adult.data` training partition).
 const ADULT_DATA_URL: &str =
@@ -47,11 +64,14 @@ const ADULT_DATASET_NAME: &str = "adult";
 /// Number of samples in the `adult.data` partition.
 const N_SAMPLES: usize = 32_561;
 
-/// Number of categorical (string) features.
+/// Number of categorical columns.
 const N_STRING_FEATURES: usize = 8;
 
-/// Number of numeric features.
+/// Number of numeric columns.
 const N_NUMERIC_FEATURES: usize = 6;
+
+/// Number of feature columns.
+const N_FEATURES: usize = N_STRING_FEATURES + N_NUMERIC_FEATURES;
 
 /// Number of columns per record (14 features + 1 label).
 const N_COLUMNS: usize = 15;
@@ -59,7 +79,7 @@ const N_COLUMNS: usize = 15;
 /// Source column index of the label (`income`).
 const LABEL_COLUMN: usize = 14;
 
-/// Categorical feature columns, as `(source column index, name)`, in output order.
+/// Categorical columns, as `(source column index, name)`.
 const STRING_COLUMNS: [(usize, &str); N_STRING_FEATURES] = [
     (1, "workclass"),
     (3, "education"),
@@ -71,7 +91,7 @@ const STRING_COLUMNS: [(usize, &str); N_STRING_FEATURES] = [
     (13, "native-country"),
 ];
 
-/// Numeric feature columns, as `(source column index, name)`, in output order.
+/// Numeric columns, as `(source column index, name)`.
 const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (0, "age"),
     (2, "fnlwgt"),
@@ -97,45 +117,34 @@ const MISSING_TOKEN: &str = "?";
 /// person earns over $50,000 a year from 14 demographic and employment attributes.
 /// It is a standard benchmark for mixed categorical/numeric classification.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The loader splits features across two matrices: a `(32561, 8)` string matrix
-/// and a `(32561, 6)` numeric `f64` matrix.
+/// | Name             | Type      | Description                  |
+/// |------------------|-----------|-------------------------------|
+/// | `age`            | `Numeric` | age in years                 |
+/// | `workclass`      | `String`  | employer type                |
+/// | `fnlwgt`         | `Numeric` | census sampling weight       |
+/// | `education`      | `String`  | highest education level      |
+/// | `education-num`  | `Numeric` | education level as a number  |
+/// | `marital-status` | `String`  | marital status               |
+/// | `occupation`     | `String`  | occupation                   |
+/// | `relationship`   | `String`  | role in the household         |
+/// | `race`           | `String`  | race                         |
+/// | `sex`            | `String`  | `Male` or `Female`            |
+/// | `capital-gain`   | `Numeric` | capital gain in USD          |
+/// | `capital-loss`   | `Numeric` | capital loss in USD          |
+/// | `hours-per-week` | `Numeric` | worked hours per week        |
+/// | `native-country` | `String`  | country of origin             |
+/// | `income`         | `String`  | `<=50K` or `>50K`             |
 ///
-/// String features (`Array2<String>`), by 0-based column:
-///
-/// | Column | Attribute        |
-/// |--------|------------------|
-/// | `0`    | `workclass`      |
-/// | `1`    | `education`      |
-/// | `2`    | `marital-status` |
-/// | `3`    | `occupation`     |
-/// | `4`    | `relationship`   |
-/// | `5`    | `race`           |
-/// | `6`    | `sex`            |
-/// | `7`    | `native-country` |
-///
-/// Numeric features (`Array2<f64>`), by 0-based column:
-///
-/// | Column | Attribute        | Unit          |
-/// |--------|------------------|---------------|
-/// | `0`    | `age`            | years         |
-/// | `1`    | `fnlwgt`         | sampling weight |
-/// | `2`    | `education-num`  |               |
-/// | `3`    | `capital-gain`   | USD           |
-/// | `4`    | `capital-loss`   | USD           |
-/// | `5`    | `hours-per-week` | hours         |
-///
-/// # Labels
-///
-/// - `income` (shape `(32561,)`). The `Array1<String>` holds `<=50K` or `>50K`
-///   verbatim.
+/// The columns keep the source column order. The source designates the 14
+/// attributes as the inputs ([`Adult::FEATURE_NAMES`]) and `income` as the
+/// label ([`Adult::TARGET`]).
 ///
 /// Missing values:
-/// - The source marks missing categorical values with `?` (in `workclass`,
-///   `occupation`, and `native-country`). The loader maps these values to
-///   empty strings `""`.
-/// - The numeric features have no missing values.
+/// - The source marks a missing category with `?` in `workclass`, `occupation`,
+///   and `native-country`. The loader stores these values as empty strings.
+/// - The numeric columns have no missing value.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/2/adult>.
 ///
@@ -158,46 +167,79 @@ const MISSING_TOKEN: &str = "?";
 /// let download_dir = "./adult";
 ///
 /// let mut dataset = Adult::new(download_dir);
-/// let (string_features, numeric_features) = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // data() also returns all data at once
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
-/// assert_eq!(string_features.shape(), &[32561, 8]);
-/// assert_eq!(numeric_features.shape(), &[32561, 6]);
-/// assert_eq!(labels.len(), 32561);
+/// assert_eq!(table.n_samples(), 32561);
+/// assert_eq!(table.n_columns(), 15);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
-///     numerics[[0, 0]] = 99.0;
-///     labels[0] = ">50K".to_string();
+/// // The 14 features mix types, so `numeric_matrix(&Adult::FEATURE_NAMES)`
+/// // fails. Name the six numeric features instead.
+/// let numeric = table
+///     .numeric_matrix(&[
+///         "age",
+///         "fnlwgt",
+///         "education-num",
+///         "capital-gain",
+///         "capital-loss",
+///         "hours-per-week",
+///     ])
+///     .unwrap();
+/// assert_eq!(numeric.shape(), &[32561, 6]);
+///
+/// // Reach one column by name.
+/// let age = table.column("age").unwrap().as_numeric().unwrap();
+/// assert_eq!(age.len(), 32561);
+/// let income = table.column(Adult::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(income.len(), 32561);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("age") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 99.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[32561, 8]);
-/// assert_eq!(owned_numerics.shape(), &[32561, 6]);
-/// assert_eq!(owned_labels.len(), 32561);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 32561);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[32561, 8]);
-/// assert_eq!(owned_numerics.shape(), &[32561, 6]);
-/// assert_eq!(owned_labels.len(), 32561);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 32561);
 /// ```
 #[derive(Debug)]
 pub struct Adult {
-    dataset: Dataset<AdultData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Adult {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "age",
+        "workclass",
+        "fnlwgt",
+        "education",
+        "education-num",
+        "marital-status",
+        "occupation",
+        "relationship",
+        "race",
+        "sex",
+        "capital-gain",
+        "capital-loss",
+        "hours-per-week",
+        "native-country",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "income";
+
     /// Create a new Adult instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -217,7 +259,7 @@ impl Adult {
     }
 
     /// Get and parse the Adult dataset.
-    fn load_data(dir: &str) -> Result<AdultData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             ADULT_FILENAME,
@@ -244,8 +286,14 @@ impl Adult {
             .trim(Trim::All)
             .from_reader(file);
 
-        let mut string_features: Vec<String> = Vec::with_capacity(N_SAMPLES * N_STRING_FEATURES);
-        let mut numeric_features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_NUMERIC_FEATURES);
+        let mut string_values: Vec<Vec<String>> = STRING_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
+        let mut numeric_values: Vec<Vec<f64>> = NUMERIC_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut labels: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -266,22 +314,22 @@ impl Adult {
                 ));
             }
 
-            // Categorical features. Maps the `?` missing token to an empty string.
-            for &(col, _name) in STRING_COLUMNS.iter() {
+            // Categorical columns. Maps the `?` missing token to an empty string.
+            for (values, &(col, _name)) in string_values.iter_mut().zip(STRING_COLUMNS.iter()) {
                 let value = &record[col];
                 if value == MISSING_TOKEN {
-                    string_features.push(String::new());
+                    values.push(String::new());
                 } else {
-                    string_features.push(value.to_string());
+                    values.push(value.to_string());
                 }
             }
 
-            // Numeric features.
-            for &(col, name) in NUMERIC_COLUMNS.iter() {
+            // Numeric columns.
+            for (values, &(col, name)) in numeric_values.iter_mut().zip(NUMERIC_COLUMNS.iter()) {
                 let value: f64 = record[col].parse().map_err(|e| {
                     DatasetError::parse_failed(ADULT_DATASET_NAME, name, line_num, e)
                 })?;
-                numeric_features.push(value);
+                values.push(value);
             }
 
             // Label, kept verbatim (`<=50K` or `>50K`).
@@ -297,52 +345,42 @@ impl Adult {
             labels.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(ADULT_DATASET_NAME));
+        // Each entry keeps its source column index. The sort then restores the
+        // source column order.
+        let mut columns: Vec<(usize, Column)> = Vec::with_capacity(N_COLUMNS);
+        for (values, &(col, name)) in string_values.into_iter().zip(STRING_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::String(Array1::from_vec(values))),
+            ));
         }
+        for (values, &(col, name)) in numeric_values.into_iter().zip(NUMERIC_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::Numeric(Array1::from_vec(values))),
+            ));
+        }
+        columns.push((
+            LABEL_COLUMN,
+            Column::new(Self::TARGET, ColumnData::String(Array1::from_vec(labels))),
+        ));
+        columns.sort_by_key(|entry| entry.0);
 
-        let string_array = Array2::from_shape_vec((n_samples, N_STRING_FEATURES), string_features)
-            .map_err(|e| {
-                DatasetError::array_shape_error(ADULT_DATASET_NAME, "string_features", e)
-            })?;
-
-        let numeric_array =
-            Array2::from_shape_vec((n_samples, N_NUMERIC_FEATURES), numeric_features).map_err(
-                |e| DatasetError::array_shape_error(ADULT_DATASET_NAME, "numeric_features", e),
-            )?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((string_array, numeric_array, labels_array))
+        Table::new(
+            ADULT_DATASET_NAME,
+            columns.into_iter().map(|(_, column)| column).collect(),
+        )
     }
 
-    /// Get a reference to both string and numeric feature matrices.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to string feature matrix with shape `(32561, 8)` containing:
-    ///     - `workclass`
-    ///     - `education`
-    ///     - `marital-status`
-    ///     - `occupation`
-    ///     - `relationship`
-    ///     - `race`
-    ///     - `sex`
-    ///     - `native-country`
-    ///
-    ///   (empty string if missing in source)
-    ///
-    /// - `&Array2<f64>` - Reference to numeric feature matrix with shape `(32561, 6)` containing:
-    ///     - `age`
-    ///     - `fnlwgt`
-    ///     - `education-num`
-    ///     - `capital-gain`
-    ///     - `capital-loss`
-    ///     - `hours-per-week`
+    /// - `&Table` - reference to the cached table of 32,561 samples and 15
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -350,117 +388,52 @@ impl Adult {
     /// - Download fails due to network issues
     /// - File I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (32,561 samples)
-    pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load()?;
-        Ok((&data.0, &data.1))
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(32561,)` containing `income` values (`<=50K` or `>50K`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (32,561 samples)
-    pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get string features, numeric features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&AdultData` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple: string feature matrix `(32561, 8)`, numeric
-    ///   feature matrix `(32561, 6)`, and label vector `(32561,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (32,561 samples)
-    pub fn data(&self) -> Result<&AdultData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and labels as references
-    /// **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Adult::data`], this method never runs the loader. If the data is
+    /// Unlike [`Adult::data`], this method never runs the loader. If the data has
     /// not loaded yet, it returns `None` instead of downloading and parsing it.
-    /// Use this method when you want the data only if it is already cached. This
-    /// skips the cost of a download and a parse.
     ///
     /// # Returns
     ///
-    /// - `Some(&AdultData)` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple (`(32561, 8)`, `(32561, 6)`, `(32561,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&AdultData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to string features, numeric features, and labels
-    /// for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly. For example, you can encode
-    /// categorical features or normalize numeric features. This needs no
-    /// `.to_owned()` clone, and it does not remove the data from the cache. The
-    /// changes stay in the cache. Later calls to [`Adult::features`],
-    /// [`Adult::data`], or [`Adult::get_data`] see the changes.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Adult::data`] or
+    /// [`Adult::get_data`] see them.
     ///
-    /// Like [`Adult::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not loaded yet. If you need the data to be
-    /// present, call a loading accessor first, for example [`Adult::data`].
+    /// Like [`Adult::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut AdultData)` - mutable reference to the cached `(string
-    ///   features, numeric features, labels)` tuple (`(32561, 8)`, `(32561, 6)`,
-    ///   `(32561,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut AdultData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** string features, numeric features,
-    /// and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Adult::data`], which borrows the cached data, this moves the data
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. If
-    /// the dataset has not loaded yet, the first access loads it.
-    ///
-    /// This **consumes** `self`. After the call, you cannot use the instance again.
-    /// If you want owned data but need to keep using the instance, use
-    /// [`Adult::take_data`] instead. It takes `&mut self` and leaves the instance
-    /// reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Adult::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature matrix
-    ///   `(32561, 8)`, owned numeric feature matrix `(32561, 6)`, and owned label vector
-    ///   `(32561,)`.
+    /// - `Table` - the owned table of 32,561 samples and 15 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<AdultData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -468,28 +441,20 @@ impl Adult {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset. This leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Adult::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. Instead of consuming the instance, it takes `&mut self` and moves the
-    /// cached data out. This resets the instance to its unloaded state. The next
-    /// accessor call, for example [`Adult::features`] or [`Adult::data`], loads the
-    /// dataset again.
-    ///
-    /// If you are done with the instance, use [`Adult::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature matrix
-    ///   `(32561, 8)`, owned numeric feature matrix `(32561, 6)`, and owned label vector
-    ///   `(32561,)`.
+    /// - `Table` - the owned table of 32,561 samples and 15 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<AdultData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -498,4 +463,4 @@ impl Adult {
     }
 }
 
-impl_ml_dataset!(Adult, AdultData, "adult");
+impl_ml_dataset!(Adult, "adult");

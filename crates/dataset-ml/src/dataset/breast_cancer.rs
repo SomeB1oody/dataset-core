@@ -5,16 +5,52 @@
 //! nuclei in the image. The task is to predict whether a tumor is malignant or
 //! benign.
 //!
-//! The dataset uses 10 base measurements: `radius`, `texture`, `perimeter`,
-//! `area`, `smoothness`, `compactness`, `concavity`, `concave_points`,
-//! `symmetry`, and `fractal_dimension`. For each measurement, it reports three
-//! statistics: the `mean`, the standard error (`se`), and the `worst` (mean of
-//! the three largest values). This gives **30 features** in total.
+//! The source measures 10 properties of each cell nucleus: `radius`, `texture`,
+//! `perimeter`, `area`, `smoothness`, `compactness`, `concavity`,
+//! `concave_points`, `symmetry`, and `fractal_dimension`. For each property the
+//! source reports three statistics: the mean (`_mean`), the standard error
+//! (`_se`), and the worst value (`_worst`, the mean of the three largest
+//! values). This gives 30 feature columns.
 //!
-//! **Features (30):** `<measurement>_mean`, `<measurement>_se`, and
-//! `<measurement>_worst` for each of the 10 measurements listed above.
+//! **Columns (31):**
 //!
-//! **Target:** `diagnosis` - one of `malignant` or `benign`
+//! | Name | Type | Description |
+//! |------|------|-------------|
+//! | `diagnosis` | `String` | `malignant` or `benign` |
+//! | `radius_mean` | `Numeric` | mean of `radius` |
+//! | `texture_mean` | `Numeric` | mean of `texture` |
+//! | `perimeter_mean` | `Numeric` | mean of `perimeter` |
+//! | `area_mean` | `Numeric` | mean of `area` |
+//! | `smoothness_mean` | `Numeric` | mean of `smoothness` |
+//! | `compactness_mean` | `Numeric` | mean of `compactness` |
+//! | `concavity_mean` | `Numeric` | mean of `concavity` |
+//! | `concave_points_mean` | `Numeric` | mean of `concave_points` |
+//! | `symmetry_mean` | `Numeric` | mean of `symmetry` |
+//! | `fractal_dimension_mean` | `Numeric` | mean of `fractal_dimension` |
+//! | `radius_se` | `Numeric` | standard error of `radius` |
+//! | `texture_se` | `Numeric` | standard error of `texture` |
+//! | `perimeter_se` | `Numeric` | standard error of `perimeter` |
+//! | `area_se` | `Numeric` | standard error of `area` |
+//! | `smoothness_se` | `Numeric` | standard error of `smoothness` |
+//! | `compactness_se` | `Numeric` | standard error of `compactness` |
+//! | `concavity_se` | `Numeric` | standard error of `concavity` |
+//! | `concave_points_se` | `Numeric` | standard error of `concave_points` |
+//! | `symmetry_se` | `Numeric` | standard error of `symmetry` |
+//! | `fractal_dimension_se` | `Numeric` | standard error of `fractal_dimension` |
+//! | `radius_worst` | `Numeric` | worst value of `radius` |
+//! | `texture_worst` | `Numeric` | worst value of `texture` |
+//! | `perimeter_worst` | `Numeric` | worst value of `perimeter` |
+//! | `area_worst` | `Numeric` | worst value of `area` |
+//! | `smoothness_worst` | `Numeric` | worst value of `smoothness` |
+//! | `compactness_worst` | `Numeric` | worst value of `compactness` |
+//! | `concavity_worst` | `Numeric` | worst value of `concavity` |
+//! | `concave_points_worst` | `Numeric` | worst value of `concave_points` |
+//! | `symmetry_worst` | `Numeric` | worst value of `symmetry` |
+//! | `fractal_dimension_worst` | `Numeric` | worst value of `fractal_dimension` |
+//!
+//! The source designates the 30 cell-nucleus measurements as the inputs
+//! ([`BreastCancer::FEATURE_NAMES`](crate::BreastCancer::FEATURE_NAMES)) and `diagnosis` as the label
+//! ([`BreastCancer::TARGET`](crate::BreastCancer::TARGET)).
 //!
 //! **Samples:** 569 total (212 malignant, 357 benign)
 //! **Application:** Binary classification / tumor diagnosis
@@ -23,10 +59,11 @@
 //! <https://doi.org/10.24432/C5DW2B>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use serde::Deserialize;
 use std::fs::File;
 
@@ -52,9 +89,6 @@ const BREAST_CANCER_DATASET_NAME: &str = "breast_cancer";
 
 /// The number of features per sample (10 measurements × {mean, se, worst}).
 const N_FEATURES: usize = 30;
-
-/// Type alias for the Breast Cancer dataset: (features, labels).
-type BreastCancerData = (Array2<f64>, Array1<&'static str>);
 
 /// One CSV record of the Breast Cancer dataset holds an ID column, the
 /// `M`/`B` diagnosis, and 30 `f64` features. The features are `mean`, `se`,
@@ -112,57 +146,54 @@ struct BreastCancerRecord {
 ///
 /// This dataset's features come from a digitized image of a fine needle
 /// aspirate (FNA) of a breast mass. They describe characteristics of the cell
-/// nuclei in the image. The dataset uses 10 base measurements: radius, texture,
-/// perimeter, area, smoothness, compactness, concavity, concave points,
-/// symmetry, and fractal dimension. For each measurement, the dataset records
-/// the mean, the standard error, and the "worst" value (mean of the three
-/// largest values). This gives 30 features in total.
+/// nuclei in the image. The source measures 10 properties of each cell nucleus:
+/// radius, texture, perimeter, area, smoothness, compactness, concavity,
+/// concave points, symmetry, and fractal dimension. For each property the source
+/// reports the mean, the standard error, and the "worst" value (the mean of the
+/// three largest values). This gives 30 feature columns.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// All 30 features are quantitative. The source arranges them in three blocks
-/// of 10:
+/// | Name | Type | Description |
+/// |------|------|-------------|
+/// | `diagnosis` | `String` | `malignant` or `benign` |
+/// | `radius_mean` | `Numeric` | mean of `radius` |
+/// | `texture_mean` | `Numeric` | mean of `texture` |
+/// | `perimeter_mean` | `Numeric` | mean of `perimeter` |
+/// | `area_mean` | `Numeric` | mean of `area` |
+/// | `smoothness_mean` | `Numeric` | mean of `smoothness` |
+/// | `compactness_mean` | `Numeric` | mean of `compactness` |
+/// | `concavity_mean` | `Numeric` | mean of `concavity` |
+/// | `concave_points_mean` | `Numeric` | mean of `concave_points` |
+/// | `symmetry_mean` | `Numeric` | mean of `symmetry` |
+/// | `fractal_dimension_mean` | `Numeric` | mean of `fractal_dimension` |
+/// | `radius_se` | `Numeric` | standard error of `radius` |
+/// | `texture_se` | `Numeric` | standard error of `texture` |
+/// | `perimeter_se` | `Numeric` | standard error of `perimeter` |
+/// | `area_se` | `Numeric` | standard error of `area` |
+/// | `smoothness_se` | `Numeric` | standard error of `smoothness` |
+/// | `compactness_se` | `Numeric` | standard error of `compactness` |
+/// | `concavity_se` | `Numeric` | standard error of `concavity` |
+/// | `concave_points_se` | `Numeric` | standard error of `concave_points` |
+/// | `symmetry_se` | `Numeric` | standard error of `symmetry` |
+/// | `fractal_dimension_se` | `Numeric` | standard error of `fractal_dimension` |
+/// | `radius_worst` | `Numeric` | worst value of `radius` |
+/// | `texture_worst` | `Numeric` | worst value of `texture` |
+/// | `perimeter_worst` | `Numeric` | worst value of `perimeter` |
+/// | `area_worst` | `Numeric` | worst value of `area` |
+/// | `smoothness_worst` | `Numeric` | worst value of `smoothness` |
+/// | `compactness_worst` | `Numeric` | worst value of `compactness` |
+/// | `concavity_worst` | `Numeric` | worst value of `concavity` |
+/// | `concave_points_worst` | `Numeric` | worst value of `concave_points` |
+/// | `symmetry_worst` | `Numeric` | worst value of `symmetry` |
+/// | `fractal_dimension_worst` | `Numeric` | worst value of `fractal_dimension` |
 ///
-/// - the `mean` of each base measurement (columns `0`–`9`)
-/// - its standard error (`se`, columns `10`–`19`)
-/// - its `worst` value (columns `20`–`29`)
+/// The source designates the 30 cell-nucleus measurements as the inputs
+/// ([`BreastCancer::FEATURE_NAMES`]) and `diagnosis` as the label
+/// ([`BreastCancer::TARGET`]).
 ///
-/// | Columns | Attributes                | Unit |
-/// |---------|---------------------------|------|
-/// | `0`     | `radius_mean`             |      |
-/// | `1`     | `texture_mean`            |      |
-/// | `2`     | `perimeter_mean`          |      |
-/// | `3`     | `area_mean`               |      |
-/// | `4`     | `smoothness_mean`         |      |
-/// | `5`     | `compactness_mean`        |      |
-/// | `6`     | `concavity_mean`          |      |
-/// | `7`     | `concave_points_mean`     |      |
-/// | `8`     | `symmetry_mean`           |      |
-/// | `9`     | `fractal_dimension_mean`  |      |
-/// | `10`    | `radius_se`               |      |
-/// | `11`    | `texture_se`              |      |
-/// | `12`    | `perimeter_se`            |      |
-/// | `13`    | `area_se`                 |      |
-/// | `14`    | `smoothness_se`           |      |
-/// | `15`    | `compactness_se`          |      |
-/// | `16`    | `concavity_se`            |      |
-/// | `17`    | `concave_points_se`       |      |
-/// | `18`    | `symmetry_se`             |      |
-/// | `19`    | `fractal_dimension_se`    |      |
-/// | `20`    | `radius_worst`            |      |
-/// | `21`    | `texture_worst`           |      |
-/// | `22`    | `perimeter_worst`         |      |
-/// | `23`    | `area_worst`              |      |
-/// | `24`    | `smoothness_worst`        |      |
-/// | `25`    | `compactness_worst`       |      |
-/// | `26`    | `concavity_worst`         |      |
-/// | `27`    | `concave_points_worst`    |      |
-/// | `28`    | `symmetry_worst`          |      |
-/// | `29`    | `fractal_dimension_worst` |      |
-///
-/// # Labels
-///
-/// - diagnosis (in `&str`): `"malignant"`, `"benign"`
+/// The source file also starts every record with a sample ID. The ID names no
+/// measurement, so the table drops it.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic>
 ///
@@ -182,46 +213,87 @@ struct BreastCancerRecord {
 /// ```no_run
 /// use dataset_ml::BreastCancer;
 ///
-/// let download_dir = "./breast_cancer"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./breast_cancer";
 ///
 /// let mut dataset = BreastCancer::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // `data()` also returns features and labels at once.
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 569);
+/// assert_eq!(table.n_columns(), 31);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&BreastCancer::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[569, 30]);
-/// assert_eq!(labels.len(), 569);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 15.0;
-///     labels[0] = "benign";
+/// // Reach one column by name.
+/// let diagnosis = table.column(BreastCancer::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(diagnosis.len(), 569);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("radius_mean") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 15.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[569, 30]);
-/// assert_eq!(owned_labels.len(), 569);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 569);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[569, 30]);
-/// assert_eq!(owned_labels.len(), 569);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 569);
 /// ```
 #[derive(Debug)]
 pub struct BreastCancer {
-    dataset: Dataset<BreastCancerData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl BreastCancer {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "radius_mean",
+        "texture_mean",
+        "perimeter_mean",
+        "area_mean",
+        "smoothness_mean",
+        "compactness_mean",
+        "concavity_mean",
+        "concave_points_mean",
+        "symmetry_mean",
+        "fractal_dimension_mean",
+        "radius_se",
+        "texture_se",
+        "perimeter_se",
+        "area_se",
+        "smoothness_se",
+        "compactness_se",
+        "concavity_se",
+        "concave_points_se",
+        "symmetry_se",
+        "fractal_dimension_se",
+        "radius_worst",
+        "texture_worst",
+        "perimeter_worst",
+        "area_worst",
+        "smoothness_worst",
+        "compactness_worst",
+        "concavity_worst",
+        "concave_points_worst",
+        "symmetry_worst",
+        "fractal_dimension_worst",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "diagnosis";
+
     /// Create a new BreastCancer instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -241,7 +313,7 @@ impl BreastCancer {
     }
 
     /// Get and parse the Breast Cancer dataset.
-    fn load_data(dir: &str) -> Result<BreastCancerData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             BREAST_CANCER_FILENAME,
@@ -264,7 +336,7 @@ impl BreastCancer {
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features = Vec::new();
-        let mut labels = Vec::new();
+        let mut diagnoses = Vec::new();
 
         for (idx, result) in rdr.deserialize::<BreastCancerRecord>().enumerate() {
             let BreastCancerRecord {
@@ -336,159 +408,106 @@ impl BreastCancer {
                 fractal_dimension_worst,
             ]);
 
-            labels.push(match diagnosis.as_str() {
-                "M" => "malignant",
-                "B" => "benign",
-                other => {
-                    return Err(DatasetError::invalid_value(
-                        BREAST_CANCER_DATASET_NAME,
-                        "diagnosis",
-                        other,
-                        line_num,
-                    ));
+            diagnoses.push(
+                match diagnosis.as_str() {
+                    "M" => "malignant",
+                    "B" => "benign",
+                    other => {
+                        return Err(DatasetError::invalid_value(
+                            BREAST_CANCER_DATASET_NAME,
+                            "diagnosis",
+                            other,
+                            line_num,
+                        ));
+                    }
                 }
-            });
+                .to_string(),
+            );
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(BREAST_CANCER_DATASET_NAME));
+        // The source lists the diagnosis before the 30 measurements.
+        let mut columns = Vec::with_capacity(N_FEATURES + 1);
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(diagnoses)),
+        ));
+        for (index, &name) in Self::FEATURE_NAMES.iter().enumerate() {
+            let values: Vec<f64> = features[index..]
+                .iter()
+                .step_by(N_FEATURES)
+                .copied()
+                .collect();
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
 
-        // Breast Cancer has a fixed schema of 30 numeric features per sample.
-        let features_array =
-            Array2::from_shape_vec((n_samples, N_FEATURES), features).map_err(|e| {
-                DatasetError::array_shape_error(BREAST_CANCER_DATASET_NAME, "features", e)
-            })?;
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(BREAST_CANCER_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(569, 30)`
-    ///   containing the `mean`, `se`, and `worst` statistics for each of the 10
-    ///   base nucleus measurements.
+    /// - `&Table` - reference to the cached table of 569 samples and 31 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (569 samples, 30 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<&'static str>` - Reference to label vector with shape `(569,)` containing diagnoses (`"malignant"`, `"benign"`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (569 samples)
-    pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&BreastCancerData` - reference to the cached `(features, labels)` tuple:
-    ///   the feature matrix has shape `(569, 30)` and the label vector has shape
-    ///   `(569,)` containing diagnoses (`"malignant"`, `"benign"`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (569 samples, 30 features)
-    pub fn data(&self) -> Result<&BreastCancerData, DatasetError> {
+    /// - Data format is invalid (unparseable values, an unknown diagnosis)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`BreastCancer::data`], which loads the dataset on first call, this
-    /// method never runs the loader. If the data has not loaded yet, it
-    /// returns `None` instead of downloading and parsing. Use this method only
-    /// when you want data that is already cached. This avoids the download and
-    /// parse cost.
+    /// Unlike [`BreastCancer::data`], this method never runs the loader. If the
+    /// data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&BreastCancerData)` - reference to the cached `(features, labels)`
-    ///   tuple (feature matrix `(569, 30)`, label vector `(569,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&BreastCancerData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize features,
-    /// replace label values), with no `to_owned()` clone. It does not remove them
-    /// from the cache, so the changes persist. Later [`BreastCancer::features`],
-    /// [`BreastCancer::data`], or [`BreastCancer::get_data`] calls observe them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`BreastCancer::data`] or
+    /// [`BreastCancer::get_data`] see them.
     ///
-    /// Like [`BreastCancer::get_data`], this does **not** trigger loading: it
-    /// returns `None` if the dataset has not been loaded. Call a loading accessor
-    /// (e.g. [`BreastCancer::data`]) first if you need to make sure the data is
-    /// present.
+    /// Like [`BreastCancer::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut BreastCancerData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(569, 30)`, label vector
-    ///   `(569,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut BreastCancerData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`BreastCancer::data`], which borrows the cached data, this moves it
-    /// out and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset is loaded on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`BreastCancer::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`BreastCancer::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(569, 30)` and owned label vector with shape `(569,)`.
+    /// - `Table` - the owned table of 569 samples and 31 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<BreastCancerData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -496,27 +515,20 @@ impl BreastCancer {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`BreastCancer::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state, so the next accessor call (e.g. [`BreastCancer::features`] or
-    /// [`BreastCancer::data`]) loads the dataset again.
-    ///
-    /// Use [`BreastCancer::into_data`] instead if you are done with the instance.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(569, 30)` and owned label vector with shape `(569,)`.
+    /// - `Table` - the owned table of 569 samples and 31 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<BreastCancerData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -525,4 +537,4 @@ impl BreastCancer {
     }
 }
 
-impl_ml_dataset!(BreastCancer, BreastCancerData, "breast_cancer");
+impl_ml_dataset!(BreastCancer, "breast_cancer");

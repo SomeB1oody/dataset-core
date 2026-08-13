@@ -11,22 +11,28 @@
 //! datasets in [`crate::dataset::wine_quality`], which are a regression task on red/white
 //! wine quality scores.
 //!
-//! **Features (13):**
-//! - `alcohol`
-//! - `malic_acid`
-//! - `ash`
-//! - `alcalinity_of_ash`
-//! - `magnesium`
-//! - `total_phenols`
-//! - `flavanoids`
-//! - `nonflavanoid_phenols`
-//! - `proanthocyanins`
-//! - `color_intensity`
-//! - `hue`
-//! - `od280_od315_of_diluted_wines`
-//! - `proline`
+//! **Columns (14):**
 //!
-//! **Target:** `class` - one of `class_1`, `class_2`, or `class_3` (the cultivar)
+//! | Name                           | Type      | Description                                       |
+//! |--------------------------------|-----------|---------------------------------------------------|
+//! | `class`                        | `String`  | `class_1`, `class_2`, or `class_3` (the cultivar) |
+//! | `alcohol`                      | `Numeric` | alcohol content                                   |
+//! | `malic_acid`                   | `Numeric` | malic acid content                                |
+//! | `ash`                          | `Numeric` | ash content                                       |
+//! | `alcalinity_of_ash`            | `Numeric` | alcalinity of the ash                             |
+//! | `magnesium`                    | `Numeric` | magnesium content                                 |
+//! | `total_phenols`                | `Numeric` | total phenol content                              |
+//! | `flavanoids`                   | `Numeric` | flavanoid content                                 |
+//! | `nonflavanoid_phenols`         | `Numeric` | nonflavanoid phenol content                       |
+//! | `proanthocyanins`              | `Numeric` | proanthocyanin content                            |
+//! | `color_intensity`              | `Numeric` | color intensity                                   |
+//! | `hue`                          | `Numeric` | hue                                               |
+//! | `od280_od315_of_diluted_wines` | `Numeric` | OD280/OD315 ratio of diluted wines                |
+//! | `proline`                      | `Numeric` | proline content                                   |
+//!
+//! The source designates the 13 constituents as the inputs
+//! ([`WineRecognition::FEATURE_NAMES`](crate::WineRecognition::FEATURE_NAMES)) and `class` as the label
+//! ([`WineRecognition::TARGET`](crate::WineRecognition::TARGET)).
 //!
 //! **Samples:** 178 total (59 of class 1, 71 of class 2, 48 of class 3)
 //! **Application:** Multi-class classification / cultivar recognition
@@ -35,10 +41,11 @@
 //! <https://doi.org/10.24432/C5PC7J>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use serde::Deserialize;
 use std::fs::File;
 
@@ -63,9 +70,6 @@ const WINE_RECOGNITION_DATASET_NAME: &str = "wine_recognition";
 
 /// The number of features per sample (13 chemical constituents).
 const N_FEATURES: usize = 13;
-
-/// Type alias for the Wine Recognition dataset: (features, labels).
-type WineRecognitionData = (Array2<f64>, Array1<&'static str>);
 
 /// One CSV record of the Wine Recognition dataset: the `1`/`2`/`3` class label
 /// followed by the 13 `f64` constituent measurements.
@@ -107,30 +111,28 @@ struct WineRecognitionRecord {
 /// multi-class classification task. It is **not** the same as the
 /// [`crate::dataset::wine_quality`] datasets, which predict a quality score (regression).
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The 13 numeric feature columns are the chemical constituents measured for
-/// each wine sample. By 0-based column index in the feature matrix:
+/// | Name                           | Type      | Description                                       |
+/// |--------------------------------|-----------|---------------------------------------------------|
+/// | `class`                        | `String`  | `class_1`, `class_2`, or `class_3` (the cultivar) |
+/// | `alcohol`                      | `Numeric` | alcohol content                                   |
+/// | `malic_acid`                   | `Numeric` | malic acid content                                |
+/// | `ash`                          | `Numeric` | ash content                                       |
+/// | `alcalinity_of_ash`            | `Numeric` | alcalinity of the ash                             |
+/// | `magnesium`                    | `Numeric` | magnesium content                                 |
+/// | `total_phenols`                | `Numeric` | total phenol content                              |
+/// | `flavanoids`                   | `Numeric` | flavanoid content                                 |
+/// | `nonflavanoid_phenols`         | `Numeric` | nonflavanoid phenol content                       |
+/// | `proanthocyanins`              | `Numeric` | proanthocyanin content                            |
+/// | `color_intensity`              | `Numeric` | color intensity                                   |
+/// | `hue`                          | `Numeric` | hue                                               |
+/// | `od280_od315_of_diluted_wines` | `Numeric` | OD280/OD315 ratio of diluted wines                |
+/// | `proline`                      | `Numeric` | proline content                                   |
 ///
-/// | Columns | Attributes                      | Unit |
-/// |---------|---------------------------------|------|
-/// | `0`     | `alcohol`                       |      |
-/// | `1`     | `malic_acid`                    |      |
-/// | `2`     | `ash`                           |      |
-/// | `3`     | `alcalinity_of_ash`             |      |
-/// | `4`     | `magnesium`                     |      |
-/// | `5`     | `total_phenols`                 |      |
-/// | `6`     | `flavanoids`                    |      |
-/// | `7`     | `nonflavanoid_phenols`          |      |
-/// | `8`     | `proanthocyanins`               |      |
-/// | `9`     | `color_intensity`               |      |
-/// | `10`    | `hue`                           |      |
-/// | `11`    | `od280_od315_of_diluted_wines`  |      |
-/// | `12`    | `proline`                       |      |
-///
-/// # Labels
-///
-/// - class (in `&str`): `"class_1"`, `"class_2"`, `"class_3"`
+/// The source designates the 13 constituents as the inputs
+/// ([`WineRecognition::FEATURE_NAMES`]) and `class` as the label
+/// ([`WineRecognition::TARGET`]).
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/109/wine>
 ///
@@ -149,45 +151,70 @@ struct WineRecognitionRecord {
 /// ```no_run
 /// use dataset_ml::WineRecognition;
 ///
-/// let download_dir = "./wine_recognition"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./wine_recognition";
 ///
 /// let mut dataset = WineRecognition::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 178);
+/// assert_eq!(table.n_columns(), 14);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&WineRecognition::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[178, 13]);
-/// assert_eq!(labels.len(), 178);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 13.5;
-///     labels[0] = "class_2";
+/// // Reach one column by name.
+/// let class = table.column(WineRecognition::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(class.len(), 178);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("alcohol") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 13.5;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[178, 13]);
-/// assert_eq!(owned_labels.len(), 178);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 178);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[178, 13]);
-/// assert_eq!(owned_labels.len(), 178);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 178);
 /// ```
 #[derive(Debug)]
 pub struct WineRecognition {
-    dataset: Dataset<WineRecognitionData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl WineRecognition {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "alcohol",
+        "malic_acid",
+        "ash",
+        "alcalinity_of_ash",
+        "magnesium",
+        "total_phenols",
+        "flavanoids",
+        "nonflavanoid_phenols",
+        "proanthocyanins",
+        "color_intensity",
+        "hue",
+        "od280_od315_of_diluted_wines",
+        "proline",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new WineRecognition instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -207,7 +234,7 @@ impl WineRecognition {
     }
 
     /// Get and parse the Wine Recognition dataset.
-    fn load_data(dir: &str) -> Result<WineRecognitionData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             WINE_RECOGNITION_FILENAME,
@@ -230,7 +257,7 @@ impl WineRecognition {
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features = Vec::new();
-        let mut labels = Vec::new();
+        let mut classes = Vec::new();
 
         for (idx, result) in rdr.deserialize::<WineRecognitionRecord>().enumerate() {
             let WineRecognitionRecord {
@@ -268,162 +295,107 @@ impl WineRecognition {
                 proline,
             ]);
 
-            labels.push(match class.as_str() {
-                "1" => "class_1",
-                "2" => "class_2",
-                "3" => "class_3",
-                other => {
-                    return Err(DatasetError::invalid_value(
-                        WINE_RECOGNITION_DATASET_NAME,
-                        "class",
-                        other,
-                        line_num,
-                    ));
+            classes.push(
+                match class.as_str() {
+                    "1" => "class_1",
+                    "2" => "class_2",
+                    "3" => "class_3",
+                    other => {
+                        return Err(DatasetError::invalid_value(
+                            WINE_RECOGNITION_DATASET_NAME,
+                            Self::TARGET,
+                            other,
+                            line_num,
+                        ));
+                    }
                 }
-            });
+                .to_string(),
+            );
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(WINE_RECOGNITION_DATASET_NAME));
+        // The source lists the class before the 13 constituents.
+        let mut columns = Vec::with_capacity(N_FEATURES + 1);
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(classes)),
+        ));
+        for (index, &name) in Self::FEATURE_NAMES.iter().enumerate() {
+            let values: Vec<f64> = features[index..]
+                .iter()
+                .step_by(N_FEATURES)
+                .copied()
+                .collect();
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
 
-        // Wine Recognition has a fixed schema of 13 numeric features per sample.
-        let features_array =
-            Array2::from_shape_vec((n_samples, N_FEATURES), features).map_err(|e| {
-                DatasetError::array_shape_error(WINE_RECOGNITION_DATASET_NAME, "features", e)
-            })?;
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(WINE_RECOGNITION_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to feature matrix with shape `(178, 13)`
-    ///   containing the 13 chemical constituents (alcohol, malic acid, ash, …,
-    ///   proline).
+    /// - `&Table` - reference to the cached table of 178 samples and 14 columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (178 samples, 13 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<&'static str>` - Reference to label vector with shape `(178,)`
-    ///   containing cultivar classes (`"class_1"`, `"class_2"`, `"class_3"`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (178 samples)
-    pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&WineRecognitionData` - reference to the cached `(features, labels)`
-    ///   tuple. The feature matrix has shape `(178, 13)`. The label vector has
-    ///   shape `(178,)` and contains cultivar classes (`"class_1"`, `"class_2"`,
-    ///   `"class_3"`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (178 samples, 13 features)
-    pub fn data(&self) -> Result<&WineRecognitionData, DatasetError> {
+    /// - Data format is invalid (unparseable values, an unknown class)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`WineRecognition::data`], which loads the dataset on first call,
-    /// this method never runs the loader. If the data is not in the cache yet, it
-    /// returns `None` instead of downloading and parsing it. Use this method to
-    /// get data only when it is already cached. This avoids the download and
-    /// parse cost otherwise.
+    /// Unlike [`WineRecognition::data`], this method never runs the loader. If
+    /// the data has not loaded yet, it returns `None` instead of downloading and
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&WineRecognitionData)` - reference to the cached `(features, labels)`
-    ///   tuple (feature matrix `(178, 13)`, label vector `(178,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&WineRecognitionData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (e.g. normalize features,
-    /// replace label values), with no `to_owned()` clone and without removing them
-    /// from the cache. The changes persist, so later [`WineRecognition::features`],
-    /// [`WineRecognition::data`], or [`WineRecognition::get_data`] calls see them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`WineRecognition::data`] or
+    /// [`WineRecognition::get_data`] see them.
     ///
-    /// Like [`WineRecognition::get_data`], this method does **not** trigger
-    /// loading. It returns `None` if the dataset is not loaded. If you need the
-    /// data to be present, call a loading accessor first (e.g.
-    /// [`WineRecognition::data`]).
+    /// Like [`WineRecognition::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut WineRecognitionData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(178, 13)`, label vector
-    ///   `(178,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut WineRecognitionData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`WineRecognition::data`], which borrows the cached data, this moves
-    /// it out and returns owned arrays directly. There is no `to_owned()` clone.
-    /// This method loads the dataset on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`. You cannot use the instance afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`WineRecognition::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`WineRecognition::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(178, 13)` and owned label vector with shape `(178,)`.
+    /// - `Table` - the owned table of 178 samples and 14 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<WineRecognitionData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -431,27 +403,20 @@ impl WineRecognition {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`WineRecognition::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state, so the next accessor call (e.g. [`WineRecognition::features`] or
-    /// [`WineRecognition::data`]) loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`WineRecognition::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(178, 13)` and owned label vector with shape `(178,)`.
+    /// - `Table` - the owned table of 178 samples and 14 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<WineRecognitionData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -460,4 +425,4 @@ impl WineRecognition {
     }
 }
 
-impl_ml_dataset!(WineRecognition, WineRecognitionData, "wine_recognition");
+impl_ml_dataset!(WineRecognition, "wine_recognition");

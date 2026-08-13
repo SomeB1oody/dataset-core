@@ -7,11 +7,80 @@
 //! work and personal e-mail. The task is to predict whether an e-mail is
 //! spam from those statistics.
 //!
-//! **Features (57, all numeric):** 48 `word_freq_WORD` percentages, 6
-//! `char_freq_CHAR` percentages, and 3 capital-run-length statistics (average,
-//! longest, total). All are non-negative. The frequency columns lie in `0..=100`.
+//! A `word_freq_WORD` column is `100 * (times WORD appears) / (total words)`. A
+//! `char_freq_CHAR` column is `100 * (occurrences of CHAR) / (total
+//! characters)`. A "word" is any string of alphanumeric characters bounded by
+//! non-alphanumeric characters or the end of the string. The
+//! `capital_run_length_*` columns measure uninterrupted sequences of capital
+//! letters. All 57 features are non-negative. The frequency columns lie in
+//! `0..=100`.
 //!
-//! **Target:** `class` - one of `ham` or `spam`
+//! **Columns (58):**
+//!
+//! | Name | Type | Description |
+//! |------|------|-------------|
+//! | `word_freq_make` | `Numeric` | percentage of words that are `make` |
+//! | `word_freq_address` | `Numeric` | percentage of words that are `address` |
+//! | `word_freq_all` | `Numeric` | percentage of words that are `all` |
+//! | `word_freq_3d` | `Numeric` | percentage of words that are `3d` |
+//! | `word_freq_our` | `Numeric` | percentage of words that are `our` |
+//! | `word_freq_over` | `Numeric` | percentage of words that are `over` |
+//! | `word_freq_remove` | `Numeric` | percentage of words that are `remove` |
+//! | `word_freq_internet` | `Numeric` | percentage of words that are `internet` |
+//! | `word_freq_order` | `Numeric` | percentage of words that are `order` |
+//! | `word_freq_mail` | `Numeric` | percentage of words that are `mail` |
+//! | `word_freq_receive` | `Numeric` | percentage of words that are `receive` |
+//! | `word_freq_will` | `Numeric` | percentage of words that are `will` |
+//! | `word_freq_people` | `Numeric` | percentage of words that are `people` |
+//! | `word_freq_report` | `Numeric` | percentage of words that are `report` |
+//! | `word_freq_addresses` | `Numeric` | percentage of words that are `addresses` |
+//! | `word_freq_free` | `Numeric` | percentage of words that are `free` |
+//! | `word_freq_business` | `Numeric` | percentage of words that are `business` |
+//! | `word_freq_email` | `Numeric` | percentage of words that are `email` |
+//! | `word_freq_you` | `Numeric` | percentage of words that are `you` |
+//! | `word_freq_credit` | `Numeric` | percentage of words that are `credit` |
+//! | `word_freq_your` | `Numeric` | percentage of words that are `your` |
+//! | `word_freq_font` | `Numeric` | percentage of words that are `font` |
+//! | `word_freq_000` | `Numeric` | percentage of words that are `000` |
+//! | `word_freq_money` | `Numeric` | percentage of words that are `money` |
+//! | `word_freq_hp` | `Numeric` | percentage of words that are `hp` |
+//! | `word_freq_hpl` | `Numeric` | percentage of words that are `hpl` |
+//! | `word_freq_george` | `Numeric` | percentage of words that are `george` |
+//! | `word_freq_650` | `Numeric` | percentage of words that are `650` |
+//! | `word_freq_lab` | `Numeric` | percentage of words that are `lab` |
+//! | `word_freq_labs` | `Numeric` | percentage of words that are `labs` |
+//! | `word_freq_telnet` | `Numeric` | percentage of words that are `telnet` |
+//! | `word_freq_857` | `Numeric` | percentage of words that are `857` |
+//! | `word_freq_data` | `Numeric` | percentage of words that are `data` |
+//! | `word_freq_415` | `Numeric` | percentage of words that are `415` |
+//! | `word_freq_85` | `Numeric` | percentage of words that are `85` |
+//! | `word_freq_technology` | `Numeric` | percentage of words that are `technology` |
+//! | `word_freq_1999` | `Numeric` | percentage of words that are `1999` |
+//! | `word_freq_parts` | `Numeric` | percentage of words that are `parts` |
+//! | `word_freq_pm` | `Numeric` | percentage of words that are `pm` |
+//! | `word_freq_direct` | `Numeric` | percentage of words that are `direct` |
+//! | `word_freq_cs` | `Numeric` | percentage of words that are `cs` |
+//! | `word_freq_meeting` | `Numeric` | percentage of words that are `meeting` |
+//! | `word_freq_original` | `Numeric` | percentage of words that are `original` |
+//! | `word_freq_project` | `Numeric` | percentage of words that are `project` |
+//! | `word_freq_re` | `Numeric` | percentage of words that are `re` |
+//! | `word_freq_edu` | `Numeric` | percentage of words that are `edu` |
+//! | `word_freq_table` | `Numeric` | percentage of words that are `table` |
+//! | `word_freq_conference` | `Numeric` | percentage of words that are `conference` |
+//! | `char_freq_;` | `Numeric` | percentage of characters that are `;` |
+//! | `char_freq_(` | `Numeric` | percentage of characters that are `(` |
+//! | `char_freq_[` | `Numeric` | percentage of characters that are `[` |
+//! | `char_freq_!` | `Numeric` | percentage of characters that are `!` |
+//! | `char_freq_$` | `Numeric` | percentage of characters that are `$` |
+//! | `char_freq_#` | `Numeric` | percentage of characters that are `#` |
+//! | `capital_run_length_average` | `Numeric` | average length of the capital-letter runs |
+//! | `capital_run_length_longest` | `Numeric` | length of the longest capital-letter run |
+//! | `capital_run_length_total` | `Numeric` | total number of capital letters |
+//! | `class` | `String` | `ham` (not spam) or `spam` |
+//!
+//! The source designates the 57 word, character, and capital-run statistics as
+//! the inputs ([`Spambase::FEATURE_NAMES`](crate::Spambase::FEATURE_NAMES)) and `class` as the label
+//! ([`Spambase::TARGET`](crate::Spambase::TARGET)).
 //!
 //! **Samples:** 4,601 total (2,788 ham, 1,813 spam)
 //! **Application:** Binary classification / spam detection
@@ -20,9 +89,10 @@
 //! <https://doi.org/10.24432/C53G6X>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
 
 use csv::ReaderBuilder;
@@ -67,9 +137,6 @@ const N_COLUMNS: usize = N_FEATURES + 1;
 /// Source column index of the label (`class`). The label is the **last** column.
 const LABEL_COLUMN: usize = N_FEATURES;
 
-/// Type alias for the Spambase dataset: (features, labels).
-type SpambaseData = (Array2<f64>, Array1<&'static str>);
-
 /// A struct that represents the Spambase dataset with lazy loading.
 ///
 /// The dataset loads only when you call a data accessor method. After the first
@@ -90,42 +157,83 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 /// selected words and characters occur, and how long its runs of capital letters
 /// are.
 ///
-/// # Feature columns
-///
-/// All 57 features are numeric. They form one `(4601, 57)` `Array2<f64>`
-/// matrix. By 0-based column index:
-///
-/// | Columns   | Attributes                            | Unit                              |
-/// |-----------|---------------------------------------|-----------------------------------|
-/// | `0..=47`  | `word_freq_WORD` (48 words, below)    | percentage of words (`0..=100`)   |
-/// | `48..=53` | `char_freq_CHAR` (6 chars, below)     | percentage of chars (`0..=100`)   |
-/// | `54`      | `capital_run_length_average`          | average capital-run length        |
-/// | `55`      | `capital_run_length_longest`          | longest capital-run length        |
-/// | `56`      | `capital_run_length_total`            | total number of capital letters   |
-///
 /// A `word_freq_WORD` column is `100 * (times WORD appears) / (total words)`. A
-/// `char_freq_CHAR` column is `100 * (occurrences of CHAR) / (total characters)`.
-/// A "word" is any string of alphanumeric characters bounded by non-alphanumeric
-/// characters or the end of the string. The capital-run-length columns measure
-/// uninterrupted sequences of capital letters. They report the average, the
-/// maximum, and the sum, that is, the total number of capital letters in the
-/// e-mail.
+/// `char_freq_CHAR` column is `100 * (occurrences of CHAR) / (total
+/// characters)`. A "word" is any string of alphanumeric characters bounded by
+/// non-alphanumeric characters or the end of the string. The
+/// `capital_run_length_*` columns measure uninterrupted sequences of capital
+/// letters. They report the average, the maximum, and the sum, that is, the
+/// total number of capital letters in the e-mail.
 ///
-/// The 48 words of columns `0..=47`, in order:
+/// # Columns
 ///
-/// `make`, `address`, `all`, `3d`, `our`, `over`, `remove`, `internet`, `order`,
-/// `mail`, `receive`, `will`, `people`, `report`, `addresses`, `free`,
-/// `business`, `email`, `you`, `credit`, `your`, `font`, `000`, `money`, `hp`,
-/// `hpl`, `george`, `650`, `lab`, `labs`, `telnet`, `857`, `data`, `415`, `85`,
-/// `technology`, `1999`, `parts`, `pm`, `direct`, `cs`, `meeting`, `original`,
-/// `project`, `re`, `edu`, `table`, `conference`.
+/// | Name | Type | Description |
+/// |------|------|-------------|
+/// | `word_freq_make` | `Numeric` | percentage of words that are `make` |
+/// | `word_freq_address` | `Numeric` | percentage of words that are `address` |
+/// | `word_freq_all` | `Numeric` | percentage of words that are `all` |
+/// | `word_freq_3d` | `Numeric` | percentage of words that are `3d` |
+/// | `word_freq_our` | `Numeric` | percentage of words that are `our` |
+/// | `word_freq_over` | `Numeric` | percentage of words that are `over` |
+/// | `word_freq_remove` | `Numeric` | percentage of words that are `remove` |
+/// | `word_freq_internet` | `Numeric` | percentage of words that are `internet` |
+/// | `word_freq_order` | `Numeric` | percentage of words that are `order` |
+/// | `word_freq_mail` | `Numeric` | percentage of words that are `mail` |
+/// | `word_freq_receive` | `Numeric` | percentage of words that are `receive` |
+/// | `word_freq_will` | `Numeric` | percentage of words that are `will` |
+/// | `word_freq_people` | `Numeric` | percentage of words that are `people` |
+/// | `word_freq_report` | `Numeric` | percentage of words that are `report` |
+/// | `word_freq_addresses` | `Numeric` | percentage of words that are `addresses` |
+/// | `word_freq_free` | `Numeric` | percentage of words that are `free` |
+/// | `word_freq_business` | `Numeric` | percentage of words that are `business` |
+/// | `word_freq_email` | `Numeric` | percentage of words that are `email` |
+/// | `word_freq_you` | `Numeric` | percentage of words that are `you` |
+/// | `word_freq_credit` | `Numeric` | percentage of words that are `credit` |
+/// | `word_freq_your` | `Numeric` | percentage of words that are `your` |
+/// | `word_freq_font` | `Numeric` | percentage of words that are `font` |
+/// | `word_freq_000` | `Numeric` | percentage of words that are `000` |
+/// | `word_freq_money` | `Numeric` | percentage of words that are `money` |
+/// | `word_freq_hp` | `Numeric` | percentage of words that are `hp` |
+/// | `word_freq_hpl` | `Numeric` | percentage of words that are `hpl` |
+/// | `word_freq_george` | `Numeric` | percentage of words that are `george` |
+/// | `word_freq_650` | `Numeric` | percentage of words that are `650` |
+/// | `word_freq_lab` | `Numeric` | percentage of words that are `lab` |
+/// | `word_freq_labs` | `Numeric` | percentage of words that are `labs` |
+/// | `word_freq_telnet` | `Numeric` | percentage of words that are `telnet` |
+/// | `word_freq_857` | `Numeric` | percentage of words that are `857` |
+/// | `word_freq_data` | `Numeric` | percentage of words that are `data` |
+/// | `word_freq_415` | `Numeric` | percentage of words that are `415` |
+/// | `word_freq_85` | `Numeric` | percentage of words that are `85` |
+/// | `word_freq_technology` | `Numeric` | percentage of words that are `technology` |
+/// | `word_freq_1999` | `Numeric` | percentage of words that are `1999` |
+/// | `word_freq_parts` | `Numeric` | percentage of words that are `parts` |
+/// | `word_freq_pm` | `Numeric` | percentage of words that are `pm` |
+/// | `word_freq_direct` | `Numeric` | percentage of words that are `direct` |
+/// | `word_freq_cs` | `Numeric` | percentage of words that are `cs` |
+/// | `word_freq_meeting` | `Numeric` | percentage of words that are `meeting` |
+/// | `word_freq_original` | `Numeric` | percentage of words that are `original` |
+/// | `word_freq_project` | `Numeric` | percentage of words that are `project` |
+/// | `word_freq_re` | `Numeric` | percentage of words that are `re` |
+/// | `word_freq_edu` | `Numeric` | percentage of words that are `edu` |
+/// | `word_freq_table` | `Numeric` | percentage of words that are `table` |
+/// | `word_freq_conference` | `Numeric` | percentage of words that are `conference` |
+/// | `char_freq_;` | `Numeric` | percentage of characters that are `;` |
+/// | `char_freq_(` | `Numeric` | percentage of characters that are `(` |
+/// | `char_freq_[` | `Numeric` | percentage of characters that are `[` |
+/// | `char_freq_!` | `Numeric` | percentage of characters that are `!` |
+/// | `char_freq_$` | `Numeric` | percentage of characters that are `$` |
+/// | `char_freq_#` | `Numeric` | percentage of characters that are `#` |
+/// | `capital_run_length_average` | `Numeric` | average length of the capital-letter runs |
+/// | `capital_run_length_longest` | `Numeric` | length of the longest capital-letter run |
+/// | `capital_run_length_total` | `Numeric` | total number of capital letters |
+/// | `class` | `String` | `ham` (not spam) or `spam` |
 ///
-/// The 6 characters of columns `48..=53`, in order: `;`, `(`, `[`, `!`, `$`, `#`.
+/// The source designates the 57 word, character, and capital-run statistics as
+/// the inputs ([`Spambase::FEATURE_NAMES`]) and `class` as the label
+/// ([`Spambase::TARGET`]).
 ///
-/// # Labels
-///
-/// - `class` (shape `(4601,)`): the `Array1<&'static str>` maps the source's
-///   nominal codes to readable names: `0` → `"ham"` (not spam), `1` → `"spam"`.
+/// The `class` column maps the source's nominal codes to readable names:
+/// `0` → `ham` and `1` → `spam`.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/94/spambase>.
 ///
@@ -144,45 +252,115 @@ type SpambaseData = (Array2<f64>, Array1<&'static str>);
 /// ```no_run
 /// use dataset_ml::Spambase;
 ///
-/// let download_dir = "./spambase"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./spambase";
 ///
 /// let mut dataset = Spambase::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
+/// assert_eq!(table.n_samples(), 4601);
+/// assert_eq!(table.n_columns(), 58);
+///
+/// // Ask for the feature matrix when you want it.
+/// let features = table.numeric_matrix(&Spambase::FEATURE_NAMES).unwrap();
 /// assert_eq!(features.shape(), &[4601, 57]);
-/// assert_eq!(labels.len(), 4601);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = 0.5;
-///     labels[0] = "ham";
+/// // Reach one column by name.
+/// let class = table.column(Spambase::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(class.len(), 4601);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("word_freq_make") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 0.5;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[4601, 57]);
-/// assert_eq!(owned_labels.len(), 4601);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4601);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[4601, 57]);
-/// assert_eq!(owned_labels.len(), 4601);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 4601);
 /// ```
 #[derive(Debug)]
 pub struct Spambase {
-    dataset: Dataset<SpambaseData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Spambase {
+    /// The columns the source designates as the model inputs, in source order.
+    /// The names come from `spambase.names`.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "word_freq_make",
+        "word_freq_address",
+        "word_freq_all",
+        "word_freq_3d",
+        "word_freq_our",
+        "word_freq_over",
+        "word_freq_remove",
+        "word_freq_internet",
+        "word_freq_order",
+        "word_freq_mail",
+        "word_freq_receive",
+        "word_freq_will",
+        "word_freq_people",
+        "word_freq_report",
+        "word_freq_addresses",
+        "word_freq_free",
+        "word_freq_business",
+        "word_freq_email",
+        "word_freq_you",
+        "word_freq_credit",
+        "word_freq_your",
+        "word_freq_font",
+        "word_freq_000",
+        "word_freq_money",
+        "word_freq_hp",
+        "word_freq_hpl",
+        "word_freq_george",
+        "word_freq_650",
+        "word_freq_lab",
+        "word_freq_labs",
+        "word_freq_telnet",
+        "word_freq_857",
+        "word_freq_data",
+        "word_freq_415",
+        "word_freq_85",
+        "word_freq_technology",
+        "word_freq_1999",
+        "word_freq_parts",
+        "word_freq_pm",
+        "word_freq_direct",
+        "word_freq_cs",
+        "word_freq_meeting",
+        "word_freq_original",
+        "word_freq_project",
+        "word_freq_re",
+        "word_freq_edu",
+        "word_freq_table",
+        "word_freq_conference",
+        "char_freq_;",
+        "char_freq_(",
+        "char_freq_[",
+        "char_freq_!",
+        "char_freq_$",
+        "char_freq_#",
+        "capital_run_length_average",
+        "capital_run_length_longest",
+        "capital_run_length_total",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new Spambase instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -202,7 +380,7 @@ impl Spambase {
     }
 
     /// Get and parse the Spambase dataset.
-    fn load_data(dir: &str) -> Result<SpambaseData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         let file_path = acquire_dataset(
             dir,
             SPAMBASE_FILENAME,
@@ -226,7 +404,7 @@ impl Spambase {
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
         let mut features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
-        let mut labels: Vec<&'static str> = Vec::with_capacity(N_SAMPLES);
+        let mut classes: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
             let record =
@@ -273,147 +451,94 @@ impl Spambase {
                     ));
                 }
             };
-            labels.push(label);
+            classes.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(SPAMBASE_DATASET_NAME));
+        // The source lists the 57 statistics first and the class last.
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        for (index, &name) in Self::FEATURE_NAMES.iter().enumerate() {
+            let values: Vec<f64> = features[index..]
+                .iter()
+                .step_by(N_FEATURES)
+                .copied()
+                .collect();
+            columns.push(Column::new(
+                name,
+                ColumnData::Numeric(Array1::from_vec(values)),
+            ));
         }
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(classes)),
+        ));
 
-        // Spambase has a fixed schema of 57 numeric features per sample.
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(SPAMBASE_DATASET_NAME, "features", e))?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(SPAMBASE_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<f64>` - Reference to the numeric feature matrix with shape
-    ///   `(4601, 57)`: 48 word frequencies, 6 character frequencies, and 3
-    ///   capital-run-length statistics.
+    /// - `&Table` - reference to the cached table of 4601 samples and 58
+    ///   columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (4601 samples, 57 features)
-    pub fn features(&self) -> Result<&Array2<f64>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<&'static str>` - Reference to label vector with shape `(4601,)` containing class names (`"ham"`, `"spam"`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (4601 samples)
-    pub fn labels(&self) -> Result<&Array1<&'static str>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&SpambaseData` - reference to the cached `(features, labels)` tuple: the
-    ///   feature matrix has shape `(4601, 57)` and the label vector has shape
-    ///   `(4601,)` containing class names (`"ham"`, `"spam"`).
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values, or invalid labels)
-    /// - Dataset size does not match the expected dimensions (4601 samples, 57 features)
-    pub fn data(&self) -> Result<&SpambaseData, DatasetError> {
+    /// - Data format is invalid (wrong number of columns, unparseable values, an
+    ///   unknown class)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Spambase::data`], which loads the dataset on the first call, this
-    /// method never runs the loader. If the data has not loaded yet, this method
-    /// returns `None` instead of downloading and parsing it. Use this method only
-    /// when you want data that is already cached. This avoids the download and
-    /// parse cost if the dataset is not cached yet.
+    /// Unlike [`Spambase::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&SpambaseData)` - reference to the cached `(features, labels)` tuple
-    ///   (feature matrix `(4601, 57)`, label vector `(4601,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&SpambaseData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This method lets you change the cached arrays in place (for example, to
-    /// normalize features or replace label values). It needs no `to_owned()`
-    /// clone, and it does not remove the data from the cache. The changes persist,
-    /// so later calls to [`Spambase::features`], [`Spambase::data`], or
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Spambase::data`] or
     /// [`Spambase::get_data`] see them.
     ///
-    /// Like [`Spambase::get_data`], this method does **not** trigger loading. It
-    /// returns `None` if the dataset has not loaded yet. If you need the data to
-    /// be present, call a loading accessor first, for example [`Spambase::data`].
+    /// Like [`Spambase::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut SpambaseData)` - mutable reference to the cached
-    ///   `(features, labels)` tuple (feature matrix `(4601, 57)`, label vector
-    ///   `(4601,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut SpambaseData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Spambase::data`], which borrows the cached data, this method moves
-    /// the data out and returns owned arrays directly, with no `to_owned()` clone
-    /// needed. The dataset loads on the first access if it has not loaded yet.
-    ///
-    /// This method **consumes** `self`, so you cannot use the instance afterward.
-    /// If you want owned data but need to keep using the instance, use
-    /// [`Spambase::take_data`] instead. That method takes `&mut self` and leaves
-    /// the instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Spambase::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(4601, 57)` and owned label vector with shape `(4601,)`.
+    /// - `Table` - the owned table of 4601 samples and 58 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn into_data(self) -> Result<SpambaseData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -421,27 +546,20 @@ impl Spambase {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Spambase::into_data`], this method returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state. The next accessor call, for example [`Spambase::features`] or
-    /// [`Spambase::data`], loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Spambase::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<f64>, Array1<&'static str>)` - owned feature matrix with shape
-    ///   `(4601, 57)` and owned label vector with shape `(4601,)`.
+    /// - `Table` - the owned table of 4601 samples and 58 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, invalid
-    /// labels, or a dimension mismatch).
-    pub fn take_data(&mut self) -> Result<SpambaseData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -450,4 +568,4 @@ impl Spambase {
     }
 }
 
-impl_ml_dataset!(Spambase, SpambaseData, "spambase");
+impl_ml_dataset!(Spambase, "spambase");

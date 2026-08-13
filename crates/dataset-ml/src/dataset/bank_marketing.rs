@@ -5,30 +5,49 @@
 //! loader uses the full `bank-full.csv` partition: 45,211 records and 16
 //! features. This is the classic version of the dataset.
 //!
-//! **Features (16, mixed):**
-//! - String features (9): `job`, `marital`, `education`, `default`, `housing`,
-//!   `loan`, `contact`, `month`, `poutcome`
-//! - Numeric features (7): `age`, `balance`, `day`, `duration`, `campaign`,
-//!   `pdays`, `previous`
+//! **Columns (17):**
 //!
-//! **Target:** `y`. This binary label is kept verbatim (`yes` or `no`). It
-//! shows if the client subscribed to a term deposit.
+//! | Name        | Type      | Description                                     |
+//! |-------------|-----------|--------------------------------------------------|
+//! | `age`       | `Numeric` | age in years                                    |
+//! | `job`       | `String`  | job type                                        |
+//! | `marital`   | `String`  | `married`, `single`, or `divorced`              |
+//! | `education` | `String`  | education level                                 |
+//! | `default`   | `String`  | `yes` if the client has credit in default       |
+//! | `balance`   | `Numeric` | average yearly balance in EUR, can be negative  |
+//! | `housing`   | `String`  | `yes` if the client has a housing loan          |
+//! | `loan`      | `String`  | `yes` if the client has a personal loan         |
+//! | `contact`   | `String`  | contact communication type                      |
+//! | `day`       | `Numeric` | day of the month of the last contact            |
+//! | `month`     | `String`  | month of the last contact, such as `may`        |
+//! | `duration`  | `Numeric` | duration of the last contact in seconds         |
+//! | `campaign`  | `Numeric` | contacts made during this campaign              |
+//! | `pdays`     | `Numeric` | days since the last contact of a previous campaign, `-1` for none |
+//! | `previous`  | `Numeric` | contacts made before this campaign              |
+//! | `poutcome`  | `String`  | outcome of the previous campaign                |
+//! | `y`         | `String`  | `yes` or `no`, the term deposit subscription    |
+//!
+//! The source designates the 16 attributes as the inputs
+//! ([`BankMarketing::FEATURE_NAMES`](crate::BankMarketing::FEATURE_NAMES)) and `y` as the label
+//! ([`BankMarketing::TARGET`](crate::BankMarketing::TARGET)).
 //!
 //! **Samples:** 45,211
 //! **Application:** Binary classification / term-deposit subscription prediction
+//!
+//! **Missing values:** `job`, `education`, `contact`, and `poutcome` use the
+//! literal category `unknown`. The loader keeps `unknown` verbatim. The numeric
+//! columns have no missing value.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/222/bank+marketing>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries, unzip};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for Bank Marketing dataset: (string features, numeric features, labels).
-type BankMarketingData = (Array2<String>, Array2<f64>, Array1<String>);
 
 /// The URL for the Bank Marketing dataset (the ZIP archive holding `bank-full.csv`).
 const BANK_DATA_URL: &str =
@@ -52,11 +71,14 @@ const BANK_DATASET_NAME: &str = "bank_marketing";
 /// Number of samples in the `bank-full.csv` partition.
 const N_SAMPLES: usize = 45_211;
 
-/// Number of categorical (string) features.
+/// Number of categorical columns.
 const N_STRING_FEATURES: usize = 9;
 
-/// Number of numeric features.
+/// Number of numeric columns.
 const N_NUMERIC_FEATURES: usize = 7;
+
+/// Number of feature columns.
+const N_FEATURES: usize = N_STRING_FEATURES + N_NUMERIC_FEATURES;
 
 /// Number of columns per record (16 features + 1 label).
 const N_COLUMNS: usize = 17;
@@ -64,7 +86,7 @@ const N_COLUMNS: usize = 17;
 /// Source column index of the label (`y`).
 const LABEL_COLUMN: usize = 16;
 
-/// Categorical feature columns, as `(source column index, name)`, in output order.
+/// Categorical columns, as `(source column index, name)`.
 const STRING_COLUMNS: [(usize, &str); N_STRING_FEATURES] = [
     (1, "job"),
     (2, "marital"),
@@ -77,7 +99,7 @@ const STRING_COLUMNS: [(usize, &str); N_STRING_FEATURES] = [
     (15, "poutcome"),
 ];
 
-/// Numeric feature columns, as `(source column index, name)`, in output order.
+/// Numeric columns, as `(source column index, name)`.
 const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
     (0, "age"),
     (5, "balance"),
@@ -101,50 +123,40 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// attributes. It is a standard benchmark for mixed categorical/numeric, heavily
 /// imbalanced binary classification.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// The loader splits features across two matrices: a `(45211, 9)` string matrix
-/// and a `(45211, 7)` numeric `f64` matrix.
+/// | Name        | Type      | Description                                     |
+/// |-------------|-----------|--------------------------------------------------|
+/// | `age`       | `Numeric` | age in years                                    |
+/// | `job`       | `String`  | job type                                        |
+/// | `marital`   | `String`  | `married`, `single`, or `divorced`              |
+/// | `education` | `String`  | education level                                 |
+/// | `default`   | `String`  | `yes` if the client has credit in default       |
+/// | `balance`   | `Numeric` | average yearly balance in EUR, can be negative  |
+/// | `housing`   | `String`  | `yes` if the client has a housing loan          |
+/// | `loan`      | `String`  | `yes` if the client has a personal loan         |
+/// | `contact`   | `String`  | contact communication type                      |
+/// | `day`       | `Numeric` | day of the month of the last contact            |
+/// | `month`     | `String`  | month of the last contact, such as `may`        |
+/// | `duration`  | `Numeric` | duration of the last contact in seconds         |
+/// | `campaign`  | `Numeric` | contacts made during this campaign              |
+/// | `pdays`     | `Numeric` | days since the last contact of a previous campaign, `-1` for none |
+/// | `previous`  | `Numeric` | contacts made before this campaign              |
+/// | `poutcome`  | `String`  | outcome of the previous campaign                |
+/// | `y`         | `String`  | `yes` or `no`, the term deposit subscription    |
 ///
-/// String features (`Array2<String>`), by 0-based column:
-///
-/// | Column | Attribute   |
-/// |--------|-------------|
-/// | `0`    | `job`       |
-/// | `1`    | `marital`   |
-/// | `2`    | `education` |
-/// | `3`    | `default`   |
-/// | `4`    | `housing`   |
-/// | `5`    | `loan`      |
-/// | `6`    | `contact`   |
-/// | `7`    | `month`     |
-/// | `8`    | `poutcome`  |
-///
-/// Numeric features (`Array2<f64>`), by 0-based column:
-///
-/// | Column | Attribute  | Unit            |
-/// |--------|------------|-----------------|
-/// | `0`    | `age`      | years           |
-/// | `1`    | `balance`  | EUR (can be < 0)|
-/// | `2`    | `day`      | day of month    |
-/// | `3`    | `duration` | seconds         |
-/// | `4`    | `campaign` | contacts        |
-/// | `5`    | `pdays`    | days (`-1` = not previously contacted) |
-/// | `6`    | `previous` | contacts        |
-///
-/// # Labels
-///
-/// - `y` (shape `(45211,)`). The `Array1<String>` holds `yes` or `no` verbatim.
-///   This shows whether the client subscribed to a term deposit.
+/// The columns keep the source column order. The source designates the 16
+/// attributes as the inputs ([`BankMarketing::FEATURE_NAMES`]) and `y` as the
+/// label ([`BankMarketing::TARGET`]).
 ///
 /// Missing values:
-/// - Some categorical attributes (`job`, `education`, `contact`, `poutcome`) use the
+/// - Some categorical columns (`job`, `education`, `contact`, `poutcome`) use the
 ///   literal label `unknown`. This loader keeps `unknown` **verbatim** as a category
 ///   value, unlike loaders that map a missing token to an empty string. `unknown` is
 ///   a documented level: for `poutcome`, it means there was no previous campaign
 ///   contact. This is useful information, not a missing value.
-/// - The numeric features have no missing values (`pdays = -1` encodes "not
-///   previously contacted").
+/// - The numeric columns have no missing value. `pdays = -1` encodes "not
+///   previously contacted".
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/222/bank+marketing>.
 ///
@@ -167,46 +179,76 @@ const NUMERIC_COLUMNS: [(usize, &str); N_NUMERIC_FEATURES] = [
 /// let download_dir = "./bank_marketing";
 ///
 /// let mut dataset = BankMarketing::new(download_dir);
-/// let (string_features, numeric_features) = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// // data() also returns all data at once
-/// let (string_features, numeric_features, labels) = dataset.data().unwrap();
-/// assert_eq!(string_features.shape(), &[45211, 9]);
-/// assert_eq!(numeric_features.shape(), &[45211, 7]);
-/// assert_eq!(labels.len(), 45211);
+/// assert_eq!(table.n_samples(), 45211);
+/// assert_eq!(table.n_columns(), 17);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((_strings, numerics, labels)) = dataset.get_data_mut() {
-///     numerics[[0, 0]] = 99.0;
-///     labels[0] = "yes".to_string();
+/// // The 16 features mix types, so `numeric_matrix(&BankMarketing::FEATURE_NAMES)`
+/// // fails. Name the seven numeric features instead.
+/// let numeric = table
+///     .numeric_matrix(&[
+///         "age", "balance", "day", "duration", "campaign", "pdays", "previous",
+///     ])
+///     .unwrap();
+/// assert_eq!(numeric.shape(), &[45211, 7]);
+///
+/// // Reach one column by name.
+/// let age = table.column("age").unwrap().as_numeric().unwrap();
+/// assert_eq!(age.len(), 45211);
+/// let y = table.column(BankMarketing::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(y.len(), 45211);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("age") {
+///         if let dataset_ml::ColumnData::Numeric(values) = column.data_mut() {
+///             values[0] = 99.0;
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[45211, 9]);
-/// assert_eq!(owned_numerics.shape(), &[45211, 7]);
-/// assert_eq!(owned_labels.len(), 45211);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 45211);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_strings, owned_numerics, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_strings.shape(), &[45211, 9]);
-/// assert_eq!(owned_numerics.shape(), &[45211, 7]);
-/// assert_eq!(owned_labels.len(), 45211);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 45211);
 /// ```
 #[derive(Debug)]
 pub struct BankMarketing {
-    dataset: Dataset<BankMarketingData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl BankMarketing {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "age",
+        "job",
+        "marital",
+        "education",
+        "default",
+        "balance",
+        "housing",
+        "loan",
+        "contact",
+        "day",
+        "month",
+        "duration",
+        "campaign",
+        "pdays",
+        "previous",
+        "poutcome",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "y";
+
     /// Create a new BankMarketing instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -226,7 +268,7 @@ impl BankMarketing {
     }
 
     /// Get and parse the Bank Marketing dataset.
-    fn load_data(dir: &str) -> Result<BankMarketingData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // This loader uses the full `bank-full.csv` partition, cached as
         // `bank_marketing.csv`.
         let file_path = acquire_dataset(
@@ -255,8 +297,14 @@ impl BankMarketing {
             .has_headers(true)
             .from_reader(file);
 
-        let mut string_features: Vec<String> = Vec::with_capacity(N_SAMPLES * N_STRING_FEATURES);
-        let mut numeric_features: Vec<f64> = Vec::with_capacity(N_SAMPLES * N_NUMERIC_FEATURES);
+        let mut string_values: Vec<Vec<String>> = STRING_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
+        let mut numeric_values: Vec<Vec<f64>> = NUMERIC_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut labels: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -277,17 +325,17 @@ impl BankMarketing {
                 ));
             }
 
-            // Categorical features, kept verbatim (`unknown` is a documented level).
-            for &(col, _name) in STRING_COLUMNS.iter() {
-                string_features.push(record[col].to_string());
+            // Categorical columns, kept verbatim (`unknown` is a documented level).
+            for (values, &(col, _name)) in string_values.iter_mut().zip(STRING_COLUMNS.iter()) {
+                values.push(record[col].to_string());
             }
 
-            // Numeric features (`balance` and `pdays` may be negative).
-            for &(col, name) in NUMERIC_COLUMNS.iter() {
+            // Numeric columns (`balance` and `pdays` may be negative).
+            for (values, &(col, name)) in numeric_values.iter_mut().zip(NUMERIC_COLUMNS.iter()) {
                 let value: f64 = record[col].parse().map_err(|e| {
                     DatasetError::parse_failed(BANK_DATASET_NAME, name, line_num, e)
                 })?;
-                numeric_features.push(value);
+                values.push(value);
             }
 
             // Label, kept verbatim (`yes` or `no`).
@@ -303,54 +351,42 @@ impl BankMarketing {
             labels.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(BANK_DATASET_NAME));
+        // Each entry keeps its source column index. The sort then restores the
+        // source column order.
+        let mut columns: Vec<(usize, Column)> = Vec::with_capacity(N_COLUMNS);
+        for (values, &(col, name)) in string_values.into_iter().zip(STRING_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::String(Array1::from_vec(values))),
+            ));
         }
+        for (values, &(col, name)) in numeric_values.into_iter().zip(NUMERIC_COLUMNS.iter()) {
+            columns.push((
+                col,
+                Column::new(name, ColumnData::Numeric(Array1::from_vec(values))),
+            ));
+        }
+        columns.push((
+            LABEL_COLUMN,
+            Column::new(Self::TARGET, ColumnData::String(Array1::from_vec(labels))),
+        ));
+        columns.sort_by_key(|entry| entry.0);
 
-        let string_array = Array2::from_shape_vec((n_samples, N_STRING_FEATURES), string_features)
-            .map_err(|e| {
-                DatasetError::array_shape_error(BANK_DATASET_NAME, "string_features", e)
-            })?;
-
-        let numeric_array =
-            Array2::from_shape_vec((n_samples, N_NUMERIC_FEATURES), numeric_features).map_err(
-                |e| DatasetError::array_shape_error(BANK_DATASET_NAME, "numeric_features", e),
-            )?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((string_array, numeric_array, labels_array))
+        Table::new(
+            BANK_DATASET_NAME,
+            columns.into_iter().map(|(_, column)| column).collect(),
+        )
     }
 
-    /// Get a reference to both string and numeric feature matrices.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to string feature matrix with shape `(45211, 9)` containing:
-    ///     - `job`
-    ///     - `marital`
-    ///     - `education`
-    ///     - `default`
-    ///     - `housing`
-    ///     - `loan`
-    ///     - `contact`
-    ///     - `month`
-    ///     - `poutcome`
-    ///
-    ///   (`unknown` kept verbatim where present in source)
-    ///
-    /// - `&Array2<f64>` - Reference to numeric feature matrix with shape `(45211, 7)` containing:
-    ///     - `age`
-    ///     - `balance`
-    ///     - `day`
-    ///     - `duration`
-    ///     - `campaign`
-    ///     - `pdays`
-    ///     - `previous`
+    /// - `&Table` - reference to the cached table of 45,211 samples and 17
+    ///   columns.
     ///
     /// # Errors
     ///
@@ -358,119 +394,53 @@ impl BankMarketing {
     /// - Download fails due to network issues
     /// - File extraction or I/O operations fail
     /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (45,211 samples)
-    pub fn features(&self) -> Result<(&Array2<String>, &Array2<f64>), DatasetError> {
-        let data = self.dataset.load()?;
-        Ok((&data.0, &data.1))
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(45211,)` containing `y` values (`yes` or `no`)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (45,211 samples)
-    pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.2)
-    }
-
-    /// Get string features, numeric features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&BankMarketingData` - reference to the cached `(string features, numeric
-    ///   features, labels)` tuple: string feature matrix `(45211, 9)`, numeric
-    ///   feature matrix `(45211, 7)`, and label vector `(45211,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File extraction or I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (45,211 samples)
-    pub fn data(&self) -> Result<&BankMarketingData, DatasetError> {
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get string features, numeric features and labels as references
-    /// **without** triggering loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
     /// Unlike [`BankMarketing::data`], this method never runs the loader. If the
     /// data has not loaded yet, it returns `None` instead of downloading and
-    /// parsing it. Use this method when you want the data only if it is already
-    /// cached. This skips the cost of a download and a parse.
+    /// parsing it.
     ///
     /// # Returns
     ///
-    /// - `Some(&BankMarketingData)` - reference to the cached `(string features,
-    ///   numeric features, labels)` tuple (`(45211, 9)`, `(45211, 7)`, `(45211,)`),
-    ///   if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&BankMarketingData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to string features, numeric features, and labels
-    /// for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly. For example, you can encode
-    /// categorical features or normalize numeric features. This needs no
-    /// `.to_owned()` clone, and it does not remove the data from the cache. The
-    /// changes stay in the cache. Later calls to [`BankMarketing::features`],
-    /// [`BankMarketing::data`], or [`BankMarketing::get_data`] see the changes.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`BankMarketing::data`] or
+    /// [`BankMarketing::get_data`] see them.
     ///
-    /// Like [`BankMarketing::get_data`], this does **not** trigger loading. It
-    /// returns `None` if the dataset has not loaded yet. If you need the data
-    /// to be present, call a loading accessor first, for example
-    /// [`BankMarketing::data`].
+    /// Like [`BankMarketing::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut BankMarketingData)` - mutable reference to the cached `(string
-    ///   features, numeric features, labels)` tuple (`(45211, 9)`, `(45211, 7)`,
-    ///   `(45211,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut BankMarketingData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** string features, numeric features,
-    /// and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`BankMarketing::data`], which borrows the cached data, this moves the
-    /// data out and returns owned arrays directly. It needs no `to_owned()` clone.
-    /// If the dataset has not loaded yet, the first access loads it.
-    ///
-    /// This **consumes** `self`. After the call, you cannot use the instance again.
-    /// If you want owned data but need to keep using the instance, use
-    /// [`BankMarketing::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`BankMarketing::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature matrix
-    ///   `(45211, 9)`, owned numeric feature matrix `(45211, 7)`, and owned label vector
-    ///   `(45211,)`.
+    /// - `Table` - the owned table of 45,211 samples and 17 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<BankMarketingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -478,28 +448,20 @@ impl BankMarketing {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** string features, numeric features, and labels out of the
-    /// dataset. This leaves the instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`BankMarketing::into_data`], this returns owned arrays with no
-    /// `to_owned()` clone. Instead of consuming the instance, it takes `&mut self`
-    /// and moves the cached data out. This resets the instance to its unloaded
-    /// state. The next accessor call, for example [`BankMarketing::features`] or
-    /// [`BankMarketing::data`], loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`BankMarketing::into_data`] instead.
+    /// This resets the instance to its unloaded state. The next accessor call
+    /// loads the dataset again.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array2<f64>, Array1<String>)` - owned string feature matrix
-    ///   `(45211, 9)`, owned numeric feature matrix `(45211, 7)`, and owned label vector
-    ///   `(45211,)`.
+    /// - `Table` - the owned table of 45,211 samples and 17 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<BankMarketingData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -508,4 +470,4 @@ impl BankMarketing {
     }
 }
 
-impl_ml_dataset!(BankMarketing, BankMarketingData, "bank_marketing");
+impl_ml_dataset!(BankMarketing, "bank_marketing");

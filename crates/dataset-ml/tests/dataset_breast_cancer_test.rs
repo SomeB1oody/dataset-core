@@ -4,54 +4,120 @@ mod common;
 
 use common::file_sha256_matches;
 use dataset_core::utils::download_to;
-use dataset_ml::dataset::breast_cancer::*;
+use dataset_ml::BreastCancer;
+use dataset_ml::table::{ColumnData, Table};
+use std::collections::HashMap;
 use std::fs::{File, create_dir_all, remove_dir_all};
 use std::io::Write;
 use std::path::Path;
 
-/// URL and SHA-256 mirror the constants in `src/breast_cancer.rs`.
+/// URL and SHA-256 mirror the constants in `src/dataset/breast_cancer.rs`.
 const BREAST_CANCER_URL: &str =
     "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data";
 const BREAST_CANCER_SHA256: &str =
     "d606af411f3e5be8a317a5a8b652b425aaf0ff38ca683d5327ffff94c3695f4a";
 
-#[test]
-// Verifies that the Breast Cancer dataset loads with the correct feature shape and label count.
-fn test_load_breast_cancer() {
-    let download_dir = "./test_load_breast_cancer"; // the loader creates the directory if it does not exist
+/// Number of samples.
+const N_SAMPLES: usize = 569;
 
-    let dataset = BreastCancer::new(download_dir);
-    let features = dataset.features().unwrap();
-    let labels = dataset.labels().unwrap();
+/// Number of feature columns.
+const N_FEATURES: usize = 30;
 
-    assert_eq!(features.shape(), &[569, 30]);
-    assert_eq!(labels.len(), 569);
+/// The Breast Cancer class distribution: 212 malignant and 357 benign.
+const N_MALIGNANT: usize = 212;
+const N_BENIGN: usize = 357;
 
-    let (features, labels) = dataset.data().unwrap();
+/// The 31 column names, in source order. The docs claim this exact layout.
+const COLUMN_NAMES: [&str; 31] = [
+    "diagnosis",
+    "radius_mean",
+    "texture_mean",
+    "perimeter_mean",
+    "area_mean",
+    "smoothness_mean",
+    "compactness_mean",
+    "concavity_mean",
+    "concave_points_mean",
+    "symmetry_mean",
+    "fractal_dimension_mean",
+    "radius_se",
+    "texture_se",
+    "perimeter_se",
+    "area_se",
+    "smoothness_se",
+    "compactness_se",
+    "concavity_se",
+    "concave_points_se",
+    "symmetry_se",
+    "fractal_dimension_se",
+    "radius_worst",
+    "texture_worst",
+    "perimeter_worst",
+    "area_worst",
+    "smoothness_worst",
+    "compactness_worst",
+    "concavity_worst",
+    "concave_points_worst",
+    "symmetry_worst",
+    "fractal_dimension_worst",
+];
 
-    // Semantic assertions: labels must be one of the two known diagnoses, and
-    // both classes must be present.
-    let mut has_malignant = false;
-    let mut has_benign = false;
-    for (i, &label) in labels.iter().enumerate() {
+/// Assert the column layout and types the docs claim.
+fn assert_breast_cancer_schema(table: &Table) {
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), COLUMN_NAMES.len());
+    assert_eq!(table.names().collect::<Vec<_>>(), COLUMN_NAMES);
+
+    // The named constants agree with the source column order.
+    assert_eq!(BreastCancer::TARGET, COLUMN_NAMES[0]);
+    assert_eq!(BreastCancer::FEATURE_NAMES, COLUMN_NAMES[1..]);
+
+    let diagnosis = table.column(BreastCancer::TARGET).unwrap();
+    assert!(matches!(diagnosis.data(), ColumnData::String(_)));
+
+    assert_eq!(BreastCancer::FEATURE_NAMES.len(), N_FEATURES);
+    for name in BreastCancer::FEATURE_NAMES {
         assert!(
-            label == "malignant" || label == "benign",
-            "labels[{}] = {:?} is not a known diagnosis",
-            i,
-            label
+            matches!(table.column(name).unwrap().data(), ColumnData::Numeric(_)),
+            "feature {name} should be numeric"
         );
-        if label == "malignant" {
-            has_malignant = true;
-        }
-        if label == "benign" {
-            has_benign = true;
-        }
     }
-    assert!(has_malignant, "labels must contain at least one malignant");
-    assert!(has_benign, "labels must contain at least one benign");
+}
 
-    // Semantic assertions: all feature values must be finite and non-negative
-    // (every measurement is a size/shape statistic, so none can be negative).
+/// Assert the Breast Cancer invariants: the schema, the two diagnoses with their
+/// exact distribution, and the non-negative measurement domain.
+fn assert_breast_cancer_semantics(table: &Table) {
+    assert_breast_cancer_schema(table);
+
+    // Every label is one of the two known diagnoses, and both classes appear.
+    let diagnosis = table
+        .column(BreastCancer::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
+    let mut counts: HashMap<&str, usize> = HashMap::new();
+    for (i, name) in diagnosis.iter().enumerate() {
+        assert!(
+            name == "malignant" || name == "benign",
+            "diagnosis[{}] = {:?} is not a known diagnosis",
+            i,
+            name
+        );
+        *counts.entry(name.as_str()).or_insert(0) += 1;
+    }
+    assert_eq!(counts.len(), 2);
+    assert_eq!(
+        counts["malignant"], N_MALIGNANT,
+        "Breast Cancer should have {N_MALIGNANT} malignant rows"
+    );
+    assert_eq!(
+        counts["benign"], N_BENIGN,
+        "Breast Cancer should have {N_BENIGN} benign rows"
+    );
+
+    // Every measurement is a size or shape statistic, so none can be negative.
+    let features = table.numeric_matrix(&BreastCancer::FEATURE_NAMES).unwrap();
+    assert_eq!(features.shape(), &[N_SAMPLES, N_FEATURES]);
     for row in 0..features.nrows() {
         for col in 0..features.ncols() {
             let val = features[[row, col]];
@@ -61,6 +127,42 @@ fn test_load_breast_cancer() {
                 row,
                 col,
                 val
+            );
+        }
+    }
+}
+
+#[test]
+// Verifies that the Breast Cancer dataset loads with the correct column layout,
+// types, and class distribution.
+fn test_load_breast_cancer() {
+    let download_dir = "./test_load_breast_cancer"; // the loader creates the directory if it does not exist
+
+    let dataset = BreastCancer::new(download_dir);
+    assert_breast_cancer_semantics(dataset.data().unwrap());
+
+    remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that a column reached by name holds the same values as its position
+// in the feature matrix.
+fn test_breast_cancer_columns_agree_with_the_matrix() {
+    let download_dir = "./test_breast_cancer_columns_agree_with_the_matrix";
+
+    let dataset = BreastCancer::new(download_dir);
+    let table = dataset.data().unwrap();
+    let features = table.numeric_matrix(&BreastCancer::FEATURE_NAMES).unwrap();
+
+    // The feature matrix skips `diagnosis`, so the 30 feature names start at
+    // index 1 of the column list.
+    for (col, name) in COLUMN_NAMES[1..].iter().enumerate() {
+        let column = table.column(name).unwrap().as_numeric().unwrap();
+        for row in [0usize, 1, 284, N_SAMPLES - 1] {
+            assert_eq!(
+                column[row],
+                features[[row, col]],
+                "column {name} disagrees with matrix column {col} at row {row}"
             );
         }
     }
@@ -84,7 +186,7 @@ fn test_breast_cancer_no_need_download() {
     .unwrap();
 
     let dataset = BreastCancer::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
 }
@@ -103,7 +205,7 @@ fn test_breast_cancer_overwrite() {
     }
 
     let dataset = BreastCancer::new(download_dir);
-    let (_features, _labels) = dataset.data().unwrap();
+    assert_eq!(dataset.data().unwrap().n_samples(), N_SAMPLES);
 
     assert!(
         file_sha256_matches(
@@ -117,55 +219,65 @@ fn test_breast_cancer_overwrite() {
 }
 
 #[test]
-// Verifies that into_data() returns owned features and labels and consumes the dataset.
+// Verifies that into_data() returns the owned table and consumes the dataset.
 fn test_breast_cancer_into_data() {
     let download_dir = "./test_breast_cancer_into_data";
 
     let dataset = BreastCancer::new(download_dir);
-    let (mut features, labels) = dataset.into_data().unwrap();
+    let mut table = dataset.into_data().unwrap();
+    // into_data() consumed `dataset`. The table is now fully owned.
 
-    assert_eq!(features.shape(), &[569, 30]);
-    assert_eq!(labels.len(), 569);
+    assert_eq!(table.n_samples(), N_SAMPLES);
 
     // Owned labels are correct: one of the two known diagnoses.
-    for (i, &label) in labels.iter().enumerate() {
+    let diagnosis = table
+        .column(BreastCancer::TARGET)
+        .unwrap()
+        .as_string()
+        .unwrap();
+    for (i, name) in diagnosis.iter().enumerate() {
         assert!(
-            label == "malignant" || label == "benign",
-            "labels[{}] = {:?} is not a known diagnosis",
+            name == "malignant" || name == "benign",
+            "diagnosis[{}] = {:?} is not a known diagnosis",
             i,
-            label
+            name
         );
     }
 
-    // The caller can mutate owned data directly, with no `to_owned()` clone.
-    features[[0, 0]] = 15.0;
-    assert_eq!(features[[0, 0]], 15.0);
+    // The caller can mutate the owned table directly, with no clone.
+    if let Some(ColumnData::Numeric(values)) = table.column_mut("radius_mean").map(|c| c.data_mut())
+    {
+        values[0] = 15.0;
+    }
+    assert_eq!(
+        table.column("radius_mean").unwrap().as_numeric().unwrap()[0],
+        15.0
+    );
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that take_data() returns owned data and leaves the dataset reusable.
+// Verifies that take_data() returns the owned table and leaves the instance reusable.
 fn test_breast_cancer_take_data() {
     let download_dir = "./test_breast_cancer_take_data";
 
     let mut dataset = BreastCancer::new(download_dir);
-    let (features, labels) = dataset.take_data().unwrap();
-
-    assert_eq!(features.shape(), &[569, 30]);
-    assert_eq!(labels.len(), 569);
+    let table = dataset.take_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), COLUMN_NAMES.len());
 
     // take_data() resets the instance to unloaded, but it stays usable. The next
-    // access reloads it (from the cached file) and yields the same shapes.
-    let (reloaded_features, reloaded_labels) = dataset.data().unwrap();
-    assert_eq!(reloaded_features.shape(), &[569, 30]);
-    assert_eq!(reloaded_labels.len(), 569);
+    // access reloads it from the cached file and yields the same table.
+    let reloaded = dataset.data().unwrap();
+    assert_eq!(reloaded.n_samples(), N_SAMPLES);
+    assert_eq!(reloaded.n_columns(), COLUMN_NAMES.len());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data() returns None before loading and the cached references after.
+// Verifies that get_data() returns None before loading and the cached reference after.
 fn test_breast_cancer_get_data() {
     let download_dir = "./test_breast_cancer_get_data";
 
@@ -174,15 +286,15 @@ fn test_breast_cancer_get_data() {
     assert!(dataset.get_data().is_none());
 
     dataset.data().unwrap();
-    let (features, labels) = dataset.get_data().unwrap();
-    assert_eq!(features.shape(), &[569, 30]);
-    assert_eq!(labels.len(), 569);
+    let table = dataset.get_data().unwrap();
+    assert_eq!(table.n_samples(), N_SAMPLES);
+    assert_eq!(table.n_columns(), COLUMN_NAMES.len());
 
     remove_dir_all(download_dir).unwrap();
 }
 
 #[test]
-// Verifies that get_data_mut() edits the cached data in place and the change persists.
+// Verifies that get_data_mut() edits the cached table in place and the change persists.
 fn test_breast_cancer_get_data_mut() {
     let download_dir = "./test_breast_cancer_get_data_mut";
 
@@ -190,15 +302,21 @@ fn test_breast_cancer_get_data_mut() {
     // Before loading, get_data_mut() returns None and triggers no download.
     assert!(dataset.get_data_mut().is_none());
 
-    // Mutating the cached features needs no clone or reload.
+    // Mutating the cached table needs no clone or reload.
     dataset.data().unwrap();
-    if let Some((features, _labels)) = dataset.get_data_mut() {
-        features[[0, 0]] = 99.0;
+    if let Some(table) = dataset.get_data_mut()
+        && let Some(ColumnData::Numeric(values)) =
+            table.column_mut("radius_mean").map(|c| c.data_mut())
+    {
+        values[0] = 99.0;
     }
 
     // The change persisted in the cache: a later access observes it.
-    let (features, _labels) = dataset.data().unwrap();
-    assert_eq!(features[[0, 0]], 99.0);
+    let table = dataset.data().unwrap();
+    assert_eq!(
+        table.column("radius_mean").unwrap().as_numeric().unwrap()[0],
+        99.0
+    );
 
     remove_dir_all(download_dir).unwrap();
 }

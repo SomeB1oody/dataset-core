@@ -2,35 +2,58 @@
 //!
 //! The dataset holds records from *The Audubon Society Field Guide to North
 //! American Mushrooms* (1981). The records describe 23 species of gilled
-//! mushrooms in the Agaricus and Lepiota family. The task is to predict
-//! whether a mushroom is edible or poisonous. This is the first
-//! **all-categorical** loader. Every feature is a string code, so there is no
-//! numeric feature matrix.
+//! mushrooms in the Agaricus and Lepiota family. The task is to predict whether
+//! a mushroom is edible or poisonous. Every value is a single-letter code.
 //!
-//! **Features (22, all categorical):** `cap-shape`, `cap-surface`, `cap-color`,
-//! `bruises`, `odor`, `gill-attachment`, `gill-spacing`, `gill-size`,
-//! `gill-color`, `stalk-shape`, `stalk-root`, `stalk-surface-above-ring`,
-//! `stalk-surface-below-ring`, `stalk-color-above-ring`, `stalk-color-below-ring`,
-//! `veil-type`, `veil-color`, `ring-number`, `ring-type`, `spore-print-color`,
-//! `population`, `habitat`. Each value is a single-letter code.
+//! **Columns (23):**
 //!
-//! **Target:** `class`, binary label kept verbatim (`e` = edible, `p` = poisonous)
+//! | Name                        | Type      | Description                          |
+//! |-----------------------------|-----------|----------------------------------------|
+//! | `class`                     | `String`  | `e` = edible, `p` = poisonous        |
+//! | `cap-shape`                 | `String`  | cap shape code                       |
+//! | `cap-surface`               | `String`  | cap surface code                     |
+//! | `cap-color`                 | `String`  | cap color code                       |
+//! | `bruises`                   | `String`  | `t` = bruises, `f` = no bruises      |
+//! | `odor`                      | `String`  | odor code                            |
+//! | `gill-attachment`           | `String`  | gill attachment code                 |
+//! | `gill-spacing`              | `String`  | gill spacing code                    |
+//! | `gill-size`                 | `String`  | `b` = broad, `n` = narrow            |
+//! | `gill-color`                | `String`  | gill color code                      |
+//! | `stalk-shape`               | `String`  | stalk shape code                     |
+//! | `stalk-root`                | `String`  | stalk root code, empty when missing  |
+//! | `stalk-surface-above-ring`  | `String`  | stalk surface above the ring         |
+//! | `stalk-surface-below-ring`  | `String`  | stalk surface below the ring         |
+//! | `stalk-color-above-ring`    | `String`  | stalk color above the ring           |
+//! | `stalk-color-below-ring`    | `String`  | stalk color below the ring           |
+//! | `veil-type`                 | `String`  | veil type code                       |
+//! | `veil-color`                | `String`  | veil color code                      |
+//! | `ring-number`               | `String`  | ring number code                     |
+//! | `ring-type`                 | `String`  | ring type code                       |
+//! | `spore-print-color`         | `String`  | spore print color code               |
+//! | `population`                | `String`  | population code                      |
+//! | `habitat`                   | `String`  | habitat code                         |
+//!
+//! The source designates the 22 attributes as the inputs
+//! ([`Mushroom::FEATURE_NAMES`](crate::Mushroom::FEATURE_NAMES)) and `class` as the label
+//! ([`Mushroom::TARGET`](crate::Mushroom::TARGET)).
 //!
 //! **Samples:** 8,124
 //! **Application:** Binary classification / edibility prediction
+//!
+//! **Missing values:** the source marks a missing value with `?`. Only
+//! `stalk-root` holds this token, in 2,480 samples. The loader stores an empty
+//! string for it.
 //!
 //! **Source:** UCI Machine Learning Repository
 //! <https://archive.ics.uci.edu/dataset/73/mushroom>
 
 use crate::DOWNLOAD_RETRIES;
+use crate::table::{Column, ColumnData, Table};
 use crate::traits::impl_ml_dataset;
 use csv::ReaderBuilder;
 use dataset_core::{Dataset, DatasetError, acquire_dataset, download_to_with_retries};
-use ndarray::{Array1, Array2};
+use ndarray::Array1;
 use std::fs::File;
-
-/// Type alias for Mushroom dataset: (categorical features, labels).
-type MushroomData = (Array2<String>, Array1<String>);
 
 /// The URL for the Mushroom dataset (the `agaricus-lepiota.data` file).
 const MUSHROOM_DATA_URL: &str =
@@ -103,45 +126,41 @@ const MISSING_TOKEN: &str = "?";
 /// attributes. No simple rule determines the edibility of a mushroom, and this
 /// makes the dataset a difficult classification problem.
 ///
-/// # Feature columns
+/// # Columns
 ///
-/// All 22 features are categorical, stored as single-letter string codes in one
-/// `(8124, 22)` `Array2<String>` matrix (there is no numeric matrix). By 0-based
-/// column:
+/// | Name                        | Type      | Description                          |
+/// |-----------------------------|-----------|----------------------------------------|
+/// | `class`                     | `String`  | `e` = edible, `p` = poisonous        |
+/// | `cap-shape`                 | `String`  | cap shape code                       |
+/// | `cap-surface`               | `String`  | cap surface code                     |
+/// | `cap-color`                 | `String`  | cap color code                       |
+/// | `bruises`                   | `String`  | `t` = bruises, `f` = no bruises      |
+/// | `odor`                      | `String`  | odor code                            |
+/// | `gill-attachment`           | `String`  | gill attachment code                 |
+/// | `gill-spacing`              | `String`  | gill spacing code                    |
+/// | `gill-size`                 | `String`  | `b` = broad, `n` = narrow            |
+/// | `gill-color`                | `String`  | gill color code                      |
+/// | `stalk-shape`               | `String`  | stalk shape code                     |
+/// | `stalk-root`                | `String`  | stalk root code, empty when missing  |
+/// | `stalk-surface-above-ring`  | `String`  | stalk surface above the ring         |
+/// | `stalk-surface-below-ring`  | `String`  | stalk surface below the ring         |
+/// | `stalk-color-above-ring`    | `String`  | stalk color above the ring           |
+/// | `stalk-color-below-ring`    | `String`  | stalk color below the ring           |
+/// | `veil-type`                 | `String`  | veil type code                       |
+/// | `veil-color`                | `String`  | veil color code                      |
+/// | `ring-number`               | `String`  | ring number code                     |
+/// | `ring-type`                 | `String`  | ring type code                       |
+/// | `spore-print-color`         | `String`  | spore print color code               |
+/// | `population`                | `String`  | population code                      |
+/// | `habitat`                   | `String`  | habitat code                         |
 ///
-/// | Column | Attribute                  |
-/// |--------|----------------------------|
-/// | `0`    | `cap-shape`                |
-/// | `1`    | `cap-surface`              |
-/// | `2`    | `cap-color`                |
-/// | `3`    | `bruises`                  |
-/// | `4`    | `odor`                     |
-/// | `5`    | `gill-attachment`          |
-/// | `6`    | `gill-spacing`             |
-/// | `7`    | `gill-size`                |
-/// | `8`    | `gill-color`               |
-/// | `9`    | `stalk-shape`              |
-/// | `10`   | `stalk-root`               |
-/// | `11`   | `stalk-surface-above-ring` |
-/// | `12`   | `stalk-surface-below-ring` |
-/// | `13`   | `stalk-color-above-ring`   |
-/// | `14`   | `stalk-color-below-ring`   |
-/// | `15`   | `veil-type`                |
-/// | `16`   | `veil-color`               |
-/// | `17`   | `ring-number`              |
-/// | `18`   | `ring-type`                |
-/// | `19`   | `spore-print-color`        |
-/// | `20`   | `population`               |
-/// | `21`   | `habitat`                  |
-///
-/// # Labels
-///
-/// - `class` (shape `(8124,)`): the `Array1<String>` is kept verbatim. Each
-///   entry is either `e` (edible) or `p` (poisonous).
+/// Every value is a single-letter code. The source designates the 22
+/// attributes as the inputs ([`Mushroom::FEATURE_NAMES`]) and `class` as the
+/// label ([`Mushroom::TARGET`]).
 ///
 /// Missing values:
-/// - The source marks missing values with `?` (only in `stalk-root`, 2,480
-///   samples). The loader maps these to empty strings `""`.
+/// - The source marks a missing value with `?`. Only `stalk-root` holds this
+///   token, in 2,480 samples. The loader stores an empty string `""` for it.
 ///
 /// See more information at <https://archive.ics.uci.edu/dataset/73/mushroom>.
 ///
@@ -160,45 +179,79 @@ const MISSING_TOKEN: &str = "?";
 /// ```no_run
 /// use dataset_ml::Mushroom;
 ///
-/// let download_dir = "./mushroom"; // the loader creates the directory if it does not exist
+/// // the loader creates the directory if it does not exist
+/// let download_dir = "./mushroom";
 ///
 /// let mut dataset = Mushroom::new(download_dir);
-/// let features = dataset.features().unwrap();
-/// let labels = dataset.labels().unwrap();
+/// let table = dataset.data().unwrap();
 ///
-/// let (features, labels) = dataset.data().unwrap();
-/// assert_eq!(features.shape(), &[8124, 22]);
-/// assert_eq!(labels.len(), 8124);
+/// assert_eq!(table.n_samples(), 8124);
+/// assert_eq!(table.n_columns(), 23);
 ///
-/// // `get_data()` borrows the cached arrays without a reload. `get_data_mut()`
-/// // edits the arrays in place. This needs no clone and no reload. The change
-/// // stays cached. If you only need to change values, prefer this method over
-/// // `.to_owned()`.
-/// if let Some((features, labels)) = dataset.get_data_mut() {
-///     features[[0, 0]] = "x".to_string();
-///     labels[0] = "e".to_string();
+/// // Every feature is a string, so reach each one by name.
+/// let cap_shape = table.column("cap-shape").unwrap().as_string().unwrap();
+/// assert_eq!(cap_shape.len(), 8124);
+///
+/// // Reach the label column by name.
+/// let class = table.column(Mushroom::TARGET).unwrap().as_string().unwrap();
+/// assert_eq!(class.len(), 8124);
+///
+/// // `get_data_mut()` edits the table in place. This needs no clone and no
+/// // reload. The change stays cached.
+/// if let Some(table) = dataset.get_data_mut() {
+///     if let Some(column) = table.column_mut("cap-shape") {
+///         if let dataset_ml::ColumnData::String(values) = column.data_mut() {
+///             values[0] = "x".to_string();
+///         }
+///     }
 /// }
 /// assert!(dataset.get_data().is_some());
 ///
-/// // `take_data()` moves the owned arrays out with no `to_owned()` clone. This
-/// // leaves the instance reusable. The next access reloads the data from the
-/// // cached file.
-/// let (owned_features, owned_labels) = dataset.take_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[8124, 22]);
-/// assert_eq!(owned_labels.len(), 8124);
+/// // `take_data()` moves the owned table out with no clone. This leaves the
+/// // instance reusable.
+/// let owned = dataset.take_data().unwrap();
+/// assert_eq!(owned.n_samples(), 8124);
 ///
-/// // `into_data()` also returns the owned arrays with no clone, but it
-/// // consumes the instance. If you are done with the dataset, use it.
-/// let (owned_features, owned_labels) = dataset.into_data().unwrap();
-/// assert_eq!(owned_features.shape(), &[8124, 22]);
-/// assert_eq!(owned_labels.len(), 8124);
+/// // `into_data()` also returns the owned table with no clone, but it consumes
+/// // the instance.
+/// let owned = dataset.into_data().unwrap();
+/// assert_eq!(owned.n_samples(), 8124);
 /// ```
 #[derive(Debug)]
 pub struct Mushroom {
-    dataset: Dataset<MushroomData, DatasetError>,
+    dataset: Dataset<Table, DatasetError>,
 }
 
 impl Mushroom {
+    /// The columns the source designates as the model inputs, in source order.
+    pub const FEATURE_NAMES: [&'static str; N_FEATURES] = [
+        "cap-shape",
+        "cap-surface",
+        "cap-color",
+        "bruises",
+        "odor",
+        "gill-attachment",
+        "gill-spacing",
+        "gill-size",
+        "gill-color",
+        "stalk-shape",
+        "stalk-root",
+        "stalk-surface-above-ring",
+        "stalk-surface-below-ring",
+        "stalk-color-above-ring",
+        "stalk-color-below-ring",
+        "veil-type",
+        "veil-color",
+        "ring-number",
+        "ring-type",
+        "spore-print-color",
+        "population",
+        "habitat",
+    ];
+
+    /// The column the source designates as the label.
+    pub const TARGET: &'static str = "class";
+
     /// Create a new Mushroom instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -218,7 +271,7 @@ impl Mushroom {
     }
 
     /// Get and parse the Mushroom dataset.
-    fn load_data(dir: &str) -> Result<MushroomData, DatasetError> {
+    fn load_data(dir: &str) -> Result<Table, DatasetError> {
         // The source file is `agaricus-lepiota.data`. The code caches it as
         // `mushroom.csv`.
         let file_path = acquire_dataset(
@@ -241,7 +294,10 @@ impl Mushroom {
         let file = File::open(&file_path)?;
         let mut rdr = ReaderBuilder::new().has_headers(false).from_reader(file);
 
-        let mut features: Vec<String> = Vec::with_capacity(N_SAMPLES * N_FEATURES);
+        let mut features: Vec<Vec<String>> = FEATURE_COLUMNS
+            .iter()
+            .map(|_| Vec::with_capacity(N_SAMPLES))
+            .collect();
         let mut labels: Vec<String> = Vec::with_capacity(N_SAMPLES);
 
         for (idx, result) in rdr.records().enumerate() {
@@ -265,12 +321,12 @@ impl Mushroom {
             }
 
             // Categorical features, mapping the `?` missing token to an empty string.
-            for &(col, _name) in FEATURE_COLUMNS.iter() {
+            for (values, &(col, _name)) in features.iter_mut().zip(FEATURE_COLUMNS.iter()) {
                 let value = &record[col];
                 if value == MISSING_TOKEN {
-                    features.push(String::new());
+                    values.push(String::new());
                 } else {
-                    features.push(value.to_string());
+                    values.push(value.to_string());
                 }
             }
 
@@ -287,144 +343,85 @@ impl Mushroom {
             labels.push(label.to_string());
         }
 
-        let n_samples = labels.len();
-        if n_samples == 0 {
-            return Err(DatasetError::empty_dataset(MUSHROOM_DATASET_NAME));
+        // The columns follow the source order: `class` first, then the 22 features.
+        let mut columns = Vec::with_capacity(N_COLUMNS);
+        columns.push(Column::new(
+            Self::TARGET,
+            ColumnData::String(Array1::from_vec(labels)),
+        ));
+        for (values, &(_col, name)) in features.into_iter().zip(FEATURE_COLUMNS.iter()) {
+            columns.push(Column::new(
+                name,
+                ColumnData::String(Array1::from_vec(values)),
+            ));
         }
 
-        let features_array = Array2::from_shape_vec((n_samples, N_FEATURES), features)
-            .map_err(|e| DatasetError::array_shape_error(MUSHROOM_DATASET_NAME, "features", e))?;
-
-        let labels_array = Array1::from_vec(labels);
-
-        Ok((features_array, labels_array))
+        Table::new(MUSHROOM_DATASET_NAME, columns)
     }
 
-    /// Get a reference to the categorical feature matrix.
+    /// Get a reference to the parsed table.
     ///
     /// This method triggers lazy loading on the first call. Later calls return
     /// the cached data.
     ///
     /// # Returns
     ///
-    /// - `&Array2<String>` - Reference to the categorical feature matrix with shape
-    ///   `(8124, 22)`. Each value is a single-letter code, except missing `stalk-root`
-    ///   entries, which are empty strings.
+    /// - `&Table` - reference to the cached table of 8,124 samples and 23
+    ///   columns.
     ///
     /// # Errors
     ///
     /// Returns `DatasetError` if:
     /// - Download fails due to network issues
     /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (8,124 samples)
-    pub fn features(&self) -> Result<&Array2<String>, DatasetError> {
-        Ok(&self.dataset.load()?.0)
-    }
-
-    /// Get a reference to the label vector.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&Array1<String>` - Reference to label vector with shape `(8124,)`
-    ///   containing `class` values (`e` = edible or `p` = poisonous)
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (8,124 samples)
-    pub fn labels(&self) -> Result<&Array1<String>, DatasetError> {
-        Ok(&self.dataset.load()?.1)
-    }
-
-    /// Get both features and labels as references.
-    ///
-    /// This method triggers lazy loading on the first call. Later calls return
-    /// the cached data.
-    ///
-    /// # Returns
-    ///
-    /// - `&MushroomData` - reference to the cached `(features, labels)` tuple: the
-    ///   categorical feature matrix `(8124, 22)` and the label vector `(8124,)`.
-    ///
-    /// # Errors
-    ///
-    /// Returns `DatasetError` if:
-    /// - Download fails due to network issues
-    /// - File I/O operations fail
-    /// - Data format is invalid (wrong number of columns, unparseable values)
-    /// - Dataset size does not match the expected dimensions (8,124 samples)
-    pub fn data(&self) -> Result<&MushroomData, DatasetError> {
+    /// - Data format is invalid (wrong number of columns, an empty label)
+    pub fn data(&self) -> Result<&Table, DatasetError> {
         self.dataset.load()
     }
 
-    /// Get both features and labels as references **without** triggering
-    /// loading.
+    /// Get a reference to the parsed table **without** triggering loading.
     ///
-    /// Unlike [`Mushroom::data`], which loads the dataset on first call, this never
-    /// runs the loader. If the data has not loaded yet, it returns `None`
-    /// instead of downloading and parsing.
-    ///
-    /// Use this method when you want the data only if it is already cached. This
-    /// avoids the download and parse cost when the data is not cached.
+    /// Unlike [`Mushroom::data`], this method never runs the loader. If the data
+    /// has not loaded yet, it returns `None` instead of downloading and parsing
+    /// it.
     ///
     /// # Returns
     ///
-    /// - `Some(&MushroomData)` - reference to the cached `(features, labels)` tuple
-    ///   (`(8124, 22)`, `(8124,)`), if loaded.
+    /// - `Some(&Table)` - reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data(&self) -> Option<&MushroomData> {
+    pub fn get_data(&self) -> Option<&Table> {
         self.dataset.get()
     }
 
-    /// Get mutable references to features and labels for **in-place** editing.
+    /// Get a mutable reference to the parsed table for **in-place** editing.
     ///
-    /// This lets you change the cached arrays directly (for example, to encode
-    /// categorical features). It needs no `to_owned()` clone, and the arrays
-    /// stay in the cache. The changes persist, so later calls to
-    /// [`Mushroom::features`], [`Mushroom::data`], or [`Mushroom::get_data`]
-    /// see them.
+    /// This needs no clone, and it does not remove the data from the cache. The
+    /// changes stay in the cache. Later calls to [`Mushroom::data`] or
+    /// [`Mushroom::get_data`] see them.
     ///
-    /// Like [`Mushroom::get_data`], this does **not** trigger loading. It returns
-    /// `None` if the dataset has not been loaded. If you need to make sure the
-    /// data is present, call a loading accessor first, for example [`Mushroom::data`].
+    /// Like [`Mushroom::get_data`], this does **not** trigger loading.
     ///
     /// # Returns
     ///
-    /// - `Some(&mut MushroomData)` - mutable reference to the cached `(features,
-    ///   labels)` tuple (`(8124, 22)`, `(8124,)`), if loaded.
+    /// - `Some(&mut Table)` - mutable reference to the cached table, if loaded.
     /// - `None` - if the dataset has not loaded yet.
-    pub fn get_data_mut(&mut self) -> Option<&mut MushroomData> {
+    pub fn get_data_mut(&mut self) -> Option<&mut Table> {
         self.dataset.get_mut()
     }
 
-    /// Consume the dataset and return **owned** features and labels.
+    /// Consume the dataset and return the **owned** table.
     ///
-    /// Unlike [`Mushroom::data`], which borrows the cached data, this moves it out
-    /// and returns owned arrays directly. It needs no `to_owned()` clone. The
-    /// dataset loads on first access if it has not loaded yet.
-    ///
-    /// This **consumes** `self`, so the instance cannot be used afterwards. If you
-    /// want owned data but need to keep using the instance, use
-    /// [`Mushroom::take_data`] instead. It takes `&mut self` and leaves the
-    /// instance reusable.
+    /// This **consumes** `self`. If you want owned data but need to keep using
+    /// the instance, use [`Mushroom::take_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array1<String>)` - owned categorical feature matrix
-    ///   `(8124, 22)` and owned label vector `(8124,)`.
+    /// - `Table` - the owned table of 8,124 samples and 23 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn into_data(self) -> Result<MushroomData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn into_data(self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -432,27 +429,20 @@ impl Mushroom {
             .expect("data is present after a successful load"))
     }
 
-    /// Take **owned** features and labels out of the dataset. This leaves the
-    /// instance reusable.
+    /// Take the **owned** table out of the dataset. This leaves the instance
+    /// reusable.
     ///
-    /// Like [`Mushroom::into_data`], this returns owned arrays with no `to_owned()`
-    /// clone. But instead of consuming the instance, it takes `&mut self` and moves
-    /// the cached data out. This resets the instance to its unloaded state. The
-    /// next accessor call, for example [`Mushroom::features`] or [`Mushroom::data`],
+    /// This resets the instance to its unloaded state. The next accessor call
     /// loads the dataset again.
-    ///
-    /// If you are done with the instance, use [`Mushroom::into_data`] instead.
     ///
     /// # Returns
     ///
-    /// - `(Array2<String>, Array1<String>)` - owned categorical feature matrix
-    ///   `(8124, 22)` and owned label vector `(8124,)`.
+    /// - `Table` - the owned table of 8,124 samples and 23 columns.
     ///
     /// # Errors
     ///
-    /// Returns `DatasetError` if loading fails (network, file I/O, parsing, or a
-    /// dimension mismatch).
-    pub fn take_data(&mut self) -> Result<MushroomData, DatasetError> {
+    /// Returns `DatasetError` if loading fails (network, file I/O, or parsing).
+    pub fn take_data(&mut self) -> Result<Table, DatasetError> {
         self.dataset.load()?;
         Ok(self
             .dataset
@@ -461,4 +451,4 @@ impl Mushroom {
     }
 }
 
-impl_ml_dataset!(Mushroom, MushroomData, "mushroom");
+impl_ml_dataset!(Mushroom, "mushroom");
