@@ -8,7 +8,7 @@ See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for mo
 
 This changelog groups entries by release and lists only each version's notable changes. It omits routine dependency bumps, doc-only tweaks, and minor internal refactors.
 
-## [Unreleased]
+## [0.6.0] - 2026-08-13
 ### Added
 - `DataFormatErrorKind::UnknownColumn`, built by `DatasetError::unknown_column(dataset_name, column_name)`: a caller named a column the dataset does not hold. The message names the dataset and the column: ``[iris] no column named `foo` ``.
 - `DataFormatErrorKind::ColumnTypeMismatch`, built by `DatasetError::column_type_mismatch(dataset_name, column_name, expected, actual)`: the column holds values of a type the operation cannot use. The message names the column, the type it holds, and the type the operation needs: ``[iris] column `species` holds `string` values, expected `numeric` ``.

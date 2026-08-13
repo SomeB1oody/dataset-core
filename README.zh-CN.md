@@ -32,19 +32,19 @@ dataset-core （工作区根目录）
 ``` toml
 # 最小依赖：仅 Dataset<T, E>
 [dependencies]
-dataset-core = "0.5"
+dataset-core = "0.6"
 
 # 还需要下载 / 解压 / gunzip / untar / SHA-256 辅助函数
 [dependencies]
-dataset-core = { version = "0.5", features = ["utils"] }
+dataset-core = { version = "0.6", features = ["utils"] }
 
 # 内置机器学习数据集（Iris、Titanic 等）以及预处理辅助函数
 [dependencies]
-dataset-ml = "0.4"
+dataset-ml = "0.5"
 
 # 只要加载器，不要预处理辅助函数
 [dependencies]
-dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
+dataset-ml = { version = "0.5", default-features = false, features = ["dataset"] }
 ```
 
 ## 开发

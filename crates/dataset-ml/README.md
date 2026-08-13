@@ -28,7 +28,7 @@ Two modules apply to every dataset rather than to one of them:
 
 ```toml
 [dependencies]
-dataset-ml = "0.4"
+dataset-ml = "0.5"
 ```
 
 ## Feature flags
@@ -44,7 +44,7 @@ To take only what you need, turn the default off:
 
 ```toml
 [dependencies]
-dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
+dataset-ml = { version = "0.5", default-features = false, features = ["dataset"] }
 ```
 
 With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`.

@@ -8,109 +8,28 @@ See [SomeB1oody/dataset-core](https://github.com/SomeB1oody/dataset-core) for mo
 
 This changelog groups entries by release and lists only each version's notable changes. It omits routine dependency bumps, doc-only tweaks, and minor internal refactors. It summarizes new loaders to their essentials. The crate also re-exports every loader struct at the crate root (for example, `dataset_ml::Iris`).
 
-## [Unreleased]
+## [0.5.0] - 2026-08-13
 ### Changed
-- **Breaking: every loader now returns one `Table` instead of a tuple of arrays.** A `Table` holds
-  one `Column` per source column, and each column carries its own name and its values in the type
-  the source uses (`ColumnData::Numeric`, `Integer`, `String`, or `Bytes`).
-  `Table::new` checks that the table holds at least one column, that every column holds the same
-  number of samples, and that no two columns share a name. Misaligned parallel arrays can no longer
-  reach a caller.
-- **Breaking: every per-array accessor is gone.** `features()`, `labels()`, `targets()`, `texts()`,
-  `sources()`, `dates()`, `images()`, `users()`, `items()`, `ratings()`, and `timestamps()` are
-  removed from every loader. Each loader now exposes exactly `new` (plus its subset constructors),
-  `data`, `get_data`, `get_data_mut`, `into_data`, and `take_data`. Column access goes through the
-  table:
-
-  ```rust, ignored
-  let table = iris.data()?;
-  let features = table.numeric_matrix(&Iris::FEATURE_NAMES)?;   // materialized on request
-  let species  = table.column(Iris::TARGET).unwrap().as_string().unwrap();
-  ```
-
-  A column that a loader used to pack into an `Array2` is now one named column per source attribute,
-  so `Titanic` holds 12 named columns rather than a `(Array2<String>, Array2<f64>, Array1<f64>)`
-  triple.
-- **Breaking: `traits::NumSamples` is removed**, along with the `MlDataset::Data` associated type.
-  Every loader parses into a `Table`, so `MlDataset` names that type directly and `n_samples()`
-  reads it. `dataset_ml::NumSamples` no longer exists at the crate root.
-- String values stay as the source spells them. The loaders encode nothing, so the choice
-  between ordinal and one-hot encoding stays with the caller.
+- **Breaking: every loader now returns one `Table` instead of a tuple of arrays.** A `Table` holds one `Column` per source column, and each column carries its own name and its values in the type the source uses (`ColumnData::Numeric`, `Integer`, `String`, or `Bytes`). `Table::new` rejects an empty table, columns of unequal length, and duplicate names, so misaligned parallel arrays can no longer reach a caller.
+- **Breaking: every per-array accessor is gone.** `features()`, `labels()`, `targets()`, `texts()`, `sources()`, `dates()`, `images()`, `users()`, `items()`, `ratings()`, and `timestamps()` are removed from every loader. Each loader now exposes exactly `new` (plus its subset constructors), `data`, `get_data`, `get_data_mut`, `into_data`, and `take_data`
+- **Breaking: `traits::NumSamples` is removed**, along with the `MlDataset::Data` associated type. Every loader parses into a `Table`, so `MlDataset` names that type directly and `n_samples()` reads it. `dataset_ml::NumSamples` no longer exists at the crate root.
+- Dataset loaders moved from the crate root into a new `dataset` module, so `dataset_ml::iris::Iris` is now `dataset_ml::dataset::iris::Iris`. The crate root still re-exports every loader struct, so code that imports `dataset_ml::Iris` needs no edit.
+- String values stay as the source spells them. The loaders encode nothing, so the choice between ordinal and one-hot encoding stays with the caller.
 
 ### Added
-- `table` module, always available whichever features you pick: `Table`, `Column`, and
-  `ColumnData`, re-exported at the crate root. `Table` offers `name`, `n_samples`, `n_columns`,
-  `columns`, `columns_mut`, `names`, `column`, `column_mut`, and `numeric_matrix`.
-  `numeric_matrix` takes the column names you want, in the order you want them, so the matrix does
-  not have to follow the source order. It allocates on every call, so call it once and keep the
-  result. A `ColumnData::String` column has no numeric reading, and `numeric_matrix` returns
-  `ColumnTypeMismatch` if you name one.
-- Column-name constants on every loader. `FEATURE_NAMES` lists the columns the source designates as
-  the model inputs. `TARGET` names the label column, and `TARGET_NAMES` replaces it when the source
-  designates more than one. A dataset without a label has neither. Pass a constant to
-  `numeric_matrix`, or read one column with `table.column(Iris::TARGET)`. A column that the source
-  designates as neither an input nor a label carries no constant, and you reach it by name.
-- `Covtype::CLASS_NAMES`: the name of each of the seven cover types, from `"Spruce/Fir"` to
-  `"Krummholz"`. The `Cover_Type` column holds the source's numeric codes, and the source documents
-  the names outside the data. The codes start at `1`, so subtract `1` to index the array.
-- **MovieLens 100K** (GroupLens, Harper & Konstan 2015): 100,000 ratings that 943 users gave to
-  1,682 movies between September 1997 and April 1998. One sample is one rating.
-  `MovieLens100k::TARGET` names the `rating` column. The `user_id`, `item_id`, and `timestamp`
-  columns carry no constant, and you reach each one by name. `MovieLens100k::N_USERS` and
-  `MovieLens100k::N_ITEMS` give the two identifier ranges, which start at `1`. The loader reads
-  `u.data` alone and leaves the archive's movie, user, and split files unread. GroupLens permits
-  research use under conditions this crate's MIT license does not cover, including no
-  redistribution and no commercial use without permission.
-- **Wholesale Customers** (UCI, Cardoso 2013): the annual spending of 440 clients of a Portuguese
-  wholesale distributor across six product categories, with a sales-channel code and a region code.
-  The dataset has **no target column**, so the loader has no target constant.
-  `WholesaleCustomers::FEATURE_NAMES` names all 8 columns.
-- **Fashion-MNIST** (Zalando, Xiao et al. 2017): 70,000 images of clothing articles, each 28×28
-  grayscale pixels, in the same 60,000/10,000 split as MNIST. `new`/`new_test`/`new_all` select the
-  subset. `FashionMnist::CLASS_NAMES` names each label code, from `"T-shirt/top"` (`0`) to
-  `"Ankle boot"` (`9`). The classes are **exactly** balanced: 6,000 images per class for training
-  and 1,000 for test. The upstream files carry the same names as the MNIST files, so this loader
-  prefixes each cached name with `fashion-`. Both datasets can share one storage directory.
-  MIT license.
-- **MNIST** (LeCun et al. 1998): 70,000 handwritten digit images, each 28×28 grayscale pixels, in a
-  60,000-image training partition and a 10,000-image test partition. `new`/`new_test`/`new_all`
-  select the subset. Its source is the binary IDX format, read from four gzip-compressed files. One
-  `pixels` column holds `ColumnData::Bytes` of shape `(n_samples, 784)`, which a
-  `(n_samples, 28, 28)` view reads at no copy.
-- **Bike Sharing** (UCI, Fanaee-T 2013): rental counts of the Capital Bikeshare system in
-  Washington, D.C., over 2011 and 2012, with the calendar attributes and the weather of each
-  period. The `dteday` column holds the date, and the rows stay in chronological order, so a
-  split by time is possible. One ZIP source holds two aggregations of the same rental log, and each
-  one has its own loader and its own cached file:
-  - `BikeSharingHourly`: 17,379 records, 12 feature columns
-  - `BikeSharingDaily`: 731 records, 11 feature columns (no `hr` column)
-
-  Both name `casual`, `registered`, and `cnt` in `TARGET_NAMES`, where `cnt` is the sum of the
-  other two.
-- Two feature flags, both on by default, so a user can compile only the half they need:
-  - `dataset`: the `dataset` module and its loaders, the crate-root re-export of every loader
-    struct, and `DOWNLOAD_RETRIES`. It gates the `csv`, `serde`, and `tempfile` dependencies, which
-    are now optional.
-  - `preprocessing`: the `preprocessing` module. It adds no dependencies.
-
-  With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`. The
-  `table` and `traits` modules stay available under every feature combination, so a downstream
-  loader can implement `MlDataset` with both features off.
-
-### Changed (earlier in this cycle)
-- Dataset loaders moved from the crate root into a new `dataset` module. `dataset_ml::iris::Iris` is
-  now `dataset_ml::dataset::iris::Iris`. The crate root now holds four modules: `dataset`,
-  `preprocessing`, `table`, and `traits`.
-- The crate root still re-exports every loader struct, so `dataset_ml::Iris` and the other struct
-  names are unchanged. Code that imports a struct from the crate root needs no edit.
-- The dataset overview table moved from the crate root docs to the `dataset` module docs.
+- `table` module, available under every feature combination: `Table`, `Column`, and `ColumnData`, re-exported at the crate root. `Table` offers `name`, `n_samples`, `n_columns`, `columns`, `columns_mut`, `names`, `column`, `column_mut`, and `numeric_matrix`. `numeric_matrix` takes the column names you want, in the order you want them, so the matrix does not have to follow the source order. It allocates on every call, so call it once and keep the result, and it returns `ColumnTypeMismatch` if you name a `ColumnData::String` column.
+- Column-name constants on every loader. `FEATURE_NAMES` lists the columns the source designates as the model inputs, `TARGET` names the label column, and `TARGET_NAMES` replaces it when the source designates more than one. A dataset without a label has neither, and a column the source designates as neither an input nor a label carries no constant, so you reach it by name.
+- `Covtype::CLASS_NAMES`: the name of each of the seven cover types, which the source documents outside the data. The codes start at `1`, so subtract `1` to index the array.
+- **MovieLens 100K** (GroupLens, Harper & Konstan 2015): 100,000 ratings that 943 users gave to 1,682 movies between September 1997 and April 1998, one rating per sample. `MovieLens100k::N_USERS` and `N_ITEMS` give the two identifier ranges, which start at `1`. The loader reads `u.data` alone and leaves the archive's movie, user, and split files unread. GroupLens permits research use under conditions this crate's MIT license does not cover, including no redistribution and no commercial use without permission.
+- **Wholesale Customers** (UCI, Cardoso 2013): the annual spending of 440 clients of a Portuguese wholesale distributor across six product categories, with a sales-channel code and a region code. The dataset has **no target column**, so the loader has no target constant.
+- **Fashion-MNIST** (Zalando, Xiao et al. 2017): 70,000 images of clothing articles, each 28×28 grayscale pixels, in the same 60,000/10,000 split as MNIST, with `new`/`new_test`/`new_all` selecting the subset. The classes are **exactly** balanced, and `FashionMnist::CLASS_NAMES` names each label code. The upstream files carry the same names as the MNIST files, so this loader prefixes each cached name with `fashion-` and both datasets can share one storage directory. MIT license.
+- **MNIST** (LeCun et al. 1998): 70,000 handwritten digit images, each 28×28 grayscale pixels, in a 60,000/10,000 split, with `new`/`new_test`/`new_all` selecting the subset. Its source is the binary IDX format, read from four gzip-compressed files. One `pixels` column holds `ColumnData::Bytes` of shape `(n_samples, 784)`, which a `(n_samples, 28, 28)` view reads at no copy.
+- **Bike Sharing** (UCI, Fanaee-T 2013): rental counts of the Capital Bikeshare system in Washington, D.C., over 2011 and 2012, with the calendar attributes and the weather of each period. One ZIP source holds two aggregations of the same rental log, each with its own loader and its own cached file: `BikeSharingHourly` (17,379 records, 12 feature columns) and `BikeSharingDaily` (731 records, 11 feature columns, no `hr` column). Both name `casual`, `registered`, and `cnt` in `TARGET_NAMES`, where `cnt` is the sum of the other two. The `dteday` column holds the date and the rows stay in chronological order, so a split by time is possible.
+- Two feature flags, both on by default, so a user can compile only the half they need. `dataset` covers the `dataset` module and its loaders, the crate-root re-export of every loader struct, and `DOWNLOAD_RETRIES`, and it gates the now-optional `csv`, `serde`, and `tempfile` dependencies. `preprocessing` covers the `preprocessing` module and adds no dependencies. With `dataset` off, the only direct dependencies left are `dataset-core` and `ndarray`, and `table` and `traits` stay available, so a downstream loader can implement `MlDataset` with both features off.
 
 ### Testing
-- Each integration test file starts with the feature gate it needs: `#![cfg(feature = "dataset")]`
-  for the loader tests and `traits_test.rs`, `#![cfg(feature = "preprocessing")]` for
-  `preprocessing_test.rs`. A test binary compiles to zero tests when its feature is off.
-- Every loader test now pins the column names, the name constants, and the `ColumnData` variants
-  its documentation claims, next to the sample counts and record values it already pinned.
+- Every loader test now pins the column names, the name constants, and the `ColumnData` variants its documentation claims, next to the sample counts and record values it already pinned.
+- Each integration test file starts with the feature gate it needs, so a test binary compiles to zero tests when its feature is off.
 
 ## [0.4.0] - 2026-08-02
 ### Added

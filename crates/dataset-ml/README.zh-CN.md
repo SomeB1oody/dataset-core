@@ -28,7 +28,7 @@
 
 ```toml
 [dependencies]
-dataset-ml = "0.4"
+dataset-ml = "0.5"
 ```
 
 ## 特性开关
@@ -44,7 +44,7 @@ dataset-ml = "0.4"
 
 ```toml
 [dependencies]
-dataset-ml = { version = "0.4", default-features = false, features = ["dataset"] }
+dataset-ml = { version = "0.5", default-features = false, features = ["dataset"] }
 ```
 
 关闭 `dataset` 后，直接依赖只剩 `dataset-core` 和 `ndarray`。
