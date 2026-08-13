@@ -33,7 +33,8 @@
 //! categorical attributes **one-hot expanded**, so each one-hot block sums to
 //! `1` per row.
 //!
-//! The `Cover_Type` codes name these classes:
+//! The `Cover_Type` codes run from `1` to `7`.
+//! [`Covtype::CLASS_NAMES`](crate::Covtype::CLASS_NAMES) names each class:
 //!
 //! - `1` = Spruce/Fir
 //! - `2` = Lodgepole Pine
@@ -91,6 +92,9 @@ const N_FEATURES: usize = 54;
 /// The number of columns per CSV record (54 features and 1 cover-type label).
 const N_COLUMNS: usize = N_FEATURES + 1;
 
+/// The number of cover-type classes.
+const N_CLASSES: usize = 7;
+
 /// The expected number of samples, used only to pre-allocate the parse buffers.
 const N_SAMPLES: usize = 581_012;
 
@@ -141,9 +145,9 @@ const N_SAMPLES: usize = 581_012;
 /// In each block, `1.0` marks the active category and `0.0` marks every other
 /// column of the block. Each block sums to `1`.
 ///
-/// The `Cover_Type` codes name these classes: `1` = Spruce/Fir,
-/// `2` = Lodgepole Pine, `3` = Ponderosa Pine, `4` = Cottonwood/Willow,
-/// `5` = Aspen, `6` = Douglas-fir, `7` = Krummholz.
+/// The `Cover_Type` codes run from `1` to `7`. [`Covtype::CLASS_NAMES`] names
+/// each class: `1` = Spruce/Fir, `2` = Lodgepole Pine, `3` = Ponderosa Pine,
+/// `4` = Cottonwood/Willow, `5` = Aspen, `6` = Douglas-fir, `7` = Krummholz.
 ///
 /// See more information at
 /// <https://archive.ics.uci.edu/dataset/31/covertype>
@@ -274,6 +278,29 @@ impl Covtype {
     /// The column the source designates as the label.
     pub const TARGET: &'static str = "Cover_Type";
 
+    /// The name of each cover-type class.
+    ///
+    /// The source numbers the classes from `1`, so a code of `3` names
+    /// `CLASS_NAMES[2]`, which is `"Ponderosa Pine"`. Subtract `1` from the code
+    /// to index this array. The order is the one the source defines.
+    ///
+    /// # Example
+    /// ```
+    /// use dataset_ml::Covtype;
+    ///
+    /// assert_eq!(Covtype::CLASS_NAMES[0], "Spruce/Fir");
+    /// assert_eq!(Covtype::CLASS_NAMES[6], "Krummholz");
+    /// ```
+    pub const CLASS_NAMES: [&'static str; N_CLASSES] = [
+        "Spruce/Fir",
+        "Lodgepole Pine",
+        "Ponderosa Pine",
+        "Cottonwood/Willow",
+        "Aspen",
+        "Douglas-fir",
+        "Krummholz",
+    ];
+
     /// Create a new Covtype instance without loading data.
     ///
     /// The dataset loads lazily, on your first call to a data accessor method.
@@ -357,7 +384,7 @@ impl Covtype {
             let label: u8 = raw_label.parse().map_err(|e| {
                 DatasetError::parse_failed(COVTYPE_DATASET_NAME, "Cover_Type", line_num, e)
             })?;
-            if !(1..=7).contains(&label) {
+            if !(1..=N_CLASSES as u8).contains(&label) {
                 return Err(DatasetError::invalid_value(
                     COVTYPE_DATASET_NAME,
                     "Cover_Type",

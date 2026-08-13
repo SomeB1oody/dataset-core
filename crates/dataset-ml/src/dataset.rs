@@ -151,7 +151,8 @@ pub mod car_evaluation;
 /// Contains the scikit-learn Forest CoverType dataset (`fetch_covtype`) for
 /// multi-class classification: predicting one of seven forest cover types from 54
 /// cartographic features of 30×30 meter cells. Its source is a gzip-compressed
-/// file.
+/// file. The `Cover_Type` column holds the source's codes `1` to `7`, and the
+/// `Covtype::CLASS_NAMES` constant names each one.
 pub mod covtype;
 
 /// Diabetes dataset module.

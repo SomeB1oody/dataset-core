@@ -110,6 +110,15 @@ fn test_load_covtype() {
         "Covtype should have exactly the seven cover-type classes 1..=7"
     );
 
+    // The codes start at 1, so a code indexes CLASS_NAMES after you subtract 1.
+    assert_eq!(Covtype::CLASS_NAMES.len(), unique_labels.len());
+    for &code in &unique_labels {
+        assert!(
+            Covtype::CLASS_NAMES.get(code as usize - 1).is_some(),
+            "code {code} names no class"
+        );
+    }
+
     // The feature columns, in source order.
     let features: Vec<&Array1<f64>> = Covtype::FEATURE_NAMES
         .iter()
@@ -270,4 +279,27 @@ fn test_covtype_get_data() {
     assert_eq!(cover_type_of(table).len(), N_SAMPLES);
 
     remove_dir_all(download_dir).unwrap();
+}
+
+#[test]
+// Verifies that CLASS_NAMES names the seven cover types in the source's order.
+// This needs no download.
+fn test_covtype_class_names() {
+    assert_eq!(Covtype::CLASS_NAMES.len(), 7);
+    assert_eq!(
+        Covtype::CLASS_NAMES,
+        [
+            "Spruce/Fir",
+            "Lodgepole Pine",
+            "Ponderosa Pine",
+            "Cottonwood/Willow",
+            "Aspen",
+            "Douglas-fir",
+            "Krummholz",
+        ]
+    );
+
+    // Code 1 is the first name, and code 7 is the last.
+    assert_eq!(Covtype::CLASS_NAMES[1 - 1], "Spruce/Fir");
+    assert_eq!(Covtype::CLASS_NAMES[7 - 1], "Krummholz");
 }

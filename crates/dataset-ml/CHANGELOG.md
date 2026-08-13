@@ -50,6 +50,9 @@ This changelog groups entries by release and lists only each version's notable c
   designates more than one. A dataset without a label has neither. Pass a constant to
   `numeric_matrix`, or read one column with `table.column(Iris::TARGET)`. A column that the source
   designates as neither an input nor a label carries no constant, and you reach it by name.
+- `Covtype::CLASS_NAMES`: the name of each of the seven cover types, from `"Spruce/Fir"` to
+  `"Krummholz"`. The `Cover_Type` column holds the source's numeric codes, and the source documents
+  the names outside the data. The codes start at `1`, so subtract `1` to index the array.
 - **MovieLens 100K** (GroupLens, Harper & Konstan 2015): 100,000 ratings that 943 users gave to
   1,682 movies between September 1997 and April 1998. One sample is one rating.
   `MovieLens100k::TARGET` names the `rating` column. The `user_id`, `item_id`, and `timestamp`
